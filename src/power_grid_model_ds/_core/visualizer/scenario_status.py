@@ -27,6 +27,7 @@ class ScenarioStatus:
     succeeded_scenarios: frozenset[int]
     failed_scenarios: frozenset[int]
     error_messages: tuple[str, ...] = ()
+    failed_scenario_messages: tuple[tuple[int, str], ...] = ()
 
     def status_for(self, scenario: int) -> CalculationStatus:
         """Return the reported status for a scenario index."""
@@ -37,6 +38,14 @@ class ScenarioStatus:
             return CalculationStatus.SUCCEEDED
 
         return CalculationStatus.UNKNOWN
+
+    def error_for(self, scenario: int) -> str | None:
+        """Return the solver error associated with a failed scenario."""
+        for failed_index, message in self.failed_scenario_messages:
+            if failed_index == scenario:
+                return message
+
+        return None
 
 
 def scenario_status_from_batch_error(
@@ -63,7 +72,23 @@ def scenario_status_from_batch_error(
             failed_scenarios=frozenset(),
         )
 
-    failed = frozenset(int(index) for index in batch_error.failed_scenarios)
+    failed_indices = tuple(
+        int(index) for index in batch_error.failed_scenarios
+    )
+    failed = frozenset(failed_indices)
+
+    error_messages = tuple(
+        str(message) for message in batch_error.error_messages
+    )
+
+    if len(failed_indices) != len(error_messages):
+        raise ValueError(
+            "Each failed scenario must have a corresponding error message."
+        )
+
+    if len(failed_indices) != len(failed):
+        raise ValueError("Duplicate failed scenario indices are not allowed.")
+
     succeeded = frozenset(
         int(index) for index in batch_error.succeeded_scenarios
     )
@@ -81,5 +106,8 @@ def scenario_status_from_batch_error(
     return ScenarioStatus(
         succeeded_scenarios=succeeded,
         failed_scenarios=failed,
-        error_messages=tuple(str(message) for message in batch_error.error_messages),
+        error_messages=error_messages,
+        failed_scenario_messages=tuple(
+            zip(failed_indices, error_messages, strict=True)
+        ),
     )

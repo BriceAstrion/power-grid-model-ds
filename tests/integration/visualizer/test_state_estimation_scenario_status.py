@@ -78,3 +78,7 @@ def test_real_batch_failure_scenario_status():
 
     assert len(status.error_messages) == 1
     assert "Not enough measurements" in status.error_messages[0]
+    
+    assert status.error_for(0) is None
+    assert status.error_for(1) is not None
+    assert "Not enough measurements" in status.error_for(1)

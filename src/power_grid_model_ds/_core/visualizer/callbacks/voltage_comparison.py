@@ -15,6 +15,23 @@ from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
     create_voltage_comparison_figure,
 )
 
+def format_scenario_failure_message(scenario_status):
+    """Summarise solver-reported failures for the voltage comparison."""
+    if scenario_status is None or not scenario_status.failed_scenarios:
+        return ""
+
+    messages = []
+
+    for scenario in sorted(scenario_status.failed_scenarios):
+        reason = scenario_status.error_for(scenario)
+
+        if reason:
+            reason = " ".join(reason.split())
+            messages.append(f"Scenario {scenario} failed: {reason}")
+        else:
+            messages.append(f"Scenario {scenario} failed.")
+
+    return " ".join(messages)
 
 def find_voltage_sensors_for_selection(selected_nodes, grid):
     """Return symmetric voltage sensors for one selected network node."""
@@ -78,10 +95,16 @@ def update_voltage_comparison(sensor_id, multiplier):
             sensor_id=int(sensor_id),
         )
 
+        scenario_status = server_state.get_scenario_status()
+
         figure = create_voltage_comparison_figure(
             comparison,
             multiplier=float(multiplier),
-            scenario_status=server_state.get_scenario_status(),
+            scenario_status=scenario_status,
+        )
+
+        failure_message = format_scenario_failure_message(
+            scenario_status
         )
 
     except (ValueError, TypeError, KeyError) as error:
@@ -91,4 +114,4 @@ def update_voltage_comparison(sensor_id, multiplier):
             f"Voltage comparison unavailable: {error}",
         )
 
-    return figure, {"display": "block"}, ""
+    return figure, {"display": "block"}, failure_message

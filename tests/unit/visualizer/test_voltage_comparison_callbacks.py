@@ -214,4 +214,36 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
 
     assert result_figure is figure
     assert style == {"display": "block"}
-    assert message == ""
+    assert message == "Scenario 1 failed."
+
+def test_formats_scenario_specific_failure_messages():
+    """Display each solver error against its corresponding scenario."""
+    from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
+        format_scenario_failure_message,
+    )
+    from power_grid_model_ds._core.visualizer.scenario_status import (
+        scenario_status_from_batch_error,
+    )
+    from types import SimpleNamespace
+
+    batch_error = SimpleNamespace(
+        succeeded_scenarios=[0, 2],
+        failed_scenarios=[3, 1],
+        error_messages=[
+            "Calculation did not converge.",
+            "Not enough measurements.\nNo voltage sensor found!",
+        ],
+    )
+
+    status = scenario_status_from_batch_error(
+        batch_error,
+        scenario_count=4,
+    )
+
+    message = format_scenario_failure_message(status)
+
+    assert message == (
+        "Scenario 1 failed: Not enough measurements. "
+        "No voltage sensor found! "
+        "Scenario 3 failed: Calculation did not converge."
+    )

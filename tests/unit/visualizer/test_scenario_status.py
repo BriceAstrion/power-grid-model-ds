@@ -49,6 +49,10 @@ def test_partial_batch_failure():
         "Scenario 1 failed",
         "Scenario 3 failed",
     )
+    assert status.error_for(0) is None
+    assert status.error_for(1) == "Scenario 1 failed"
+    assert status.error_for(2) is None
+    assert status.error_for(3) == "Scenario 3 failed"
 
 
 def test_overlapping_scenario_status_rejected():
