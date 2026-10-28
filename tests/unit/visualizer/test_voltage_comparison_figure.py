@@ -166,3 +166,65 @@ def test_measured_values_and_sigma_bands_remain_available_for_failed_scenarios()
     np.testing.assert_allclose(measured_trace.y, comparison.measured)
     np.testing.assert_allclose(figure.data[0].y, [224.0, 225.0, 226.0])
     np.testing.assert_allclose(figure.data[1].y, [236.0, 237.0, 238.0])
+
+
+def test_failed_scenario_with_unavailable_estimate_and_sigma():
+    """Show a failure marker without inventing an estimate or sigma band."""
+    comparison = VoltageComparison(
+        sensor_id=12001,
+        node_id=1001,
+        scenarios=np.array([0, 1]),
+        measured=np.array([10489.37, 10489.37]),
+        estimated=np.array([10488.27, np.nan]),
+        sigma=np.array([1.0, np.nan]),
+    )
+
+    status = ScenarioStatus(
+        succeeded_scenarios=frozenset({0}),
+        failed_scenarios=frozenset({1}),
+    )
+
+    figure = create_voltage_comparison_figure(
+        comparison,
+        multiplier=3.0,
+        scenario_status=status,
+    )
+
+    # Valid sigma bands exist only for scenario 0.
+    np.testing.assert_allclose(
+        figure.data[0].y,
+        [10486.37, np.nan],
+        equal_nan=True,
+    )
+    np.testing.assert_allclose(
+        figure.data[1].y,
+        [10492.37, np.nan],
+        equal_nan=True,
+    )
+
+    measured_trace = next(
+        trace for trace in figure.data
+        if trace.name == "Measured voltage"
+    )
+    np.testing.assert_allclose(
+        measured_trace.y,
+        [10489.37, 10489.37],
+    )
+
+    estimated_trace = next(
+        trace for trace in figure.data
+        if trace.name == "Estimated voltage (succeeded)"
+    )
+    np.testing.assert_allclose(
+        estimated_trace.y,
+        [10488.27, np.nan],
+        equal_nan=True,
+    )
+
+    failure_trace = next(
+        trace for trace in figure.data
+        if trace.name == "State estimation failed"
+    )
+
+    assert list(failure_trace.x) == [1]
+    assert list(failure_trace.y) == [10489.37]

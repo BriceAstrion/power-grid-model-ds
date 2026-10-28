@@ -88,14 +88,15 @@ def update_voltage_comparison(sensor_id, multiplier):
         )
 
     try:
+        scenario_status = server_state.get_scenario_status()
+
         comparison = prepare_voltage_comparison(
             grid=server_state.get_grid(),
             update_data=server_state.get_update_data(),
             output_data=server_state.get_output_data(),
             sensor_id=int(sensor_id),
+            scenario_status=scenario_status,
         )
-
-        scenario_status = server_state.get_scenario_status()
 
         figure = create_voltage_comparison_figure(
             comparison,

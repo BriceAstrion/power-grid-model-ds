@@ -206,6 +206,16 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
         voltage_comparison.update_voltage_comparison(12001, 3.0)
     )
 
+    from unittest.mock import ANY
+
+    prepare.assert_called_once_with(
+        grid=ANY,
+        update_data=ANY,
+        output_data=ANY,
+        sensor_id=12001,
+        scenario_status=status,
+    )
+
     create_figure.assert_called_once_with(
         comparison,
         multiplier=3.0,

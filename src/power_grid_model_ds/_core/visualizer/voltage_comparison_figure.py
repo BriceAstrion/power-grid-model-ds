@@ -16,6 +16,7 @@ from power_grid_model_ds._core.visualizer.scenario_status import (
     ScenarioStatus,
 )
 
+_LINES_AND_MARKERS = "lines+markers"
 
 def create_voltage_comparison_figure(
     comparison: VoltageComparison,
@@ -56,7 +57,7 @@ def create_voltage_comparison_figure(
         go.Scatter(
             x=comparison.scenarios,
             y=comparison.measured,
-            mode="lines+markers",
+            mode=_LINES_AND_MARKERS,
             name="Measured voltage",
             line={"color": "#1f77b4", "width": 2},
         )
@@ -68,7 +69,7 @@ def create_voltage_comparison_figure(
             go.Scatter(
                 x=comparison.scenarios,
                 y=comparison.estimated,
-                mode="lines+markers",
+                mode=_LINES_AND_MARKERS,
                 name="Estimated voltage (status unknown)",
                 line={"color": "#d62728", "width": 2},
             )
@@ -100,7 +101,7 @@ def create_voltage_comparison_figure(
             go.Scatter(
                 x=comparison.scenarios,
                 y=successful_estimates,
-                mode="lines+markers",
+                mode=_LINES_AND_MARKERS,
                 connectgaps=False,
                 name="Estimated voltage (succeeded)",
                 line={"color": "#d62728", "width": 2},
