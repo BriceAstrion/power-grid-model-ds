@@ -81,6 +81,7 @@ def update_voltage_comparison(sensor_id, multiplier):
         figure = create_voltage_comparison_figure(
             comparison,
             multiplier=float(multiplier),
+            scenario_status=server_state.get_scenario_status(),
         )
 
     except (ValueError, TypeError, KeyError) as error:

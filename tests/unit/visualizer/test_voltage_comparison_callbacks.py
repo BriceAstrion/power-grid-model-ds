@@ -150,3 +150,68 @@ def test_comparison_callback_handles_no_sensor():
     assert style == {"display": "none"}
     assert len(figure.data) == 0
     assert "Select one node" in message
+
+
+def test_comparison_callback_forwards_scenario_status(monkeypatch):
+    """Forward calculation status without rerunning state estimation."""
+    from unittest.mock import Mock
+
+    from power_grid_model_ds._core.visualizer.callbacks import voltage_comparison
+    from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
+
+    status = ScenarioStatus(
+        succeeded_scenarios=frozenset({0, 2}),
+        failed_scenarios=frozenset({1}),
+    )
+
+    comparison = Mock()
+    figure = Mock()
+
+    monkeypatch.setattr(
+        voltage_comparison.server_state,
+        "get_grid",
+        lambda: Mock(),
+    )
+    monkeypatch.setattr(
+        voltage_comparison.server_state,
+        "get_update_data",
+        lambda: Mock(),
+    )
+    monkeypatch.setattr(
+        voltage_comparison.server_state,
+        "get_output_data",
+        lambda: Mock(),
+    )
+    monkeypatch.setattr(
+        voltage_comparison.server_state,
+        "get_scenario_status",
+        lambda: status,
+    )
+
+    prepare = Mock(return_value=comparison)
+    create_figure = Mock(return_value=figure)
+
+    monkeypatch.setattr(
+        voltage_comparison,
+        "prepare_voltage_comparison",
+        prepare,
+    )
+    monkeypatch.setattr(
+        voltage_comparison,
+        "create_voltage_comparison_figure",
+        create_figure,
+    )
+
+    result_figure, style, message = (
+        voltage_comparison.update_voltage_comparison(12001, 3.0)
+    )
+
+    create_figure.assert_called_once_with(
+        comparison,
+        multiplier=3.0,
+        scenario_status=status,
+    )
+
+    assert result_figure is figure
+    assert style == {"display": "block"}
+    assert message == ""
