@@ -19,6 +19,8 @@ from power_grid_model_ds._core.visualizer.layout.layout_config import get_defaul
 from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTION_GRAPH_HTML, SELECTION_OUTPUT_HTML
 from power_grid_model_ds._core.visualizer.parsers import parse_element_data
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
+from power_grid_model_ds._core.visualizer.callbacks import measurement_comparison  # noqa: F401
+from power_grid_model_ds._core.visualizer.layout.measurement_comparison import MEASUREMENT_COMPARISON_HTML
 
 GOOGLE_FONTS = "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
 MDBOOTSTRAP = "https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.2.0/mdb.min.css"
@@ -62,5 +64,6 @@ def get_app_layout(grid: Grid) -> html.Div:
             cytoscape_html,
             SELECTION_OUTPUT_HTML,
             SELECTION_GRAPH_HTML,
+            MEASUREMENT_COMPARISON_HTML,
         ],
     )
