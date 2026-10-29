@@ -40,7 +40,18 @@ class ThreePhaseGrid(Grid):
 
 
 def test_scale_elements():
-    assert scale_elements(1.2, 1.3, DEFAULT_STYLESHEET)
+    original = deepcopy(DEFAULT_STYLESHEET)
+
+    stored, displayed = scale_elements(
+        node_scale=1.2,
+        edge_scale=1.3,
+        stored_stylesheet=original,
+        current_stylesheet=original,
+    )
+
+    assert stored == displayed
+    assert stored != original
+    assert original == DEFAULT_STYLESHEET
 
 
 def test_search_element_no_input():
@@ -125,7 +136,8 @@ def test_hidden_arrows_remain_hidden_after_scaling():
     stored_stylesheet, displayed_stylesheet = scale_elements(
         node_scale=1.2,
         edge_scale=1.3,
-        stylesheet=stored_stylesheet,
+        stored_stylesheet=stored_stylesheet,
+        current_stylesheet=displayed_stylesheet,
     )
 
     branch_rules = [
@@ -168,6 +180,30 @@ def test_arrow_toggle_does_not_store_search_highlights():
     # Neither input stylesheet is modified in place.
     assert base_stylesheet == DEFAULT_STYLESHEET
     assert highlighted_stylesheet == original_highlighted_stylesheet
+
+
+def test_scaling_preserves_search_highlights_without_storing_them():
+    """Scaling must retain temporary highlights only in the displayed stylesheet."""
+    base_stylesheet = deepcopy(DEFAULT_STYLESHEET)
+    highlighted_stylesheet = [
+        *deepcopy(base_stylesheet),
+        {"selector": "#123", "style": deepcopy(HIGHLIGHT_STYLE)},
+    ]
+
+    stored_stylesheet, displayed_stylesheet = scale_elements(
+        node_scale=1.2,
+        edge_scale=1.3,
+        stored_stylesheet=base_stylesheet,
+        current_stylesheet=highlighted_stylesheet,
+    )
+
+    assert any(rule["selector"] == "#123" for rule in displayed_stylesheet)
+    assert not any(rule["selector"] == "#123" for rule in stored_stylesheet)
+
+    assert stored_stylesheet != base_stylesheet
+    assert displayed_stylesheet != highlighted_stylesheet
+
+    assert base_stylesheet == DEFAULT_STYLESHEET
 
 
 def test_element_selection_callback():

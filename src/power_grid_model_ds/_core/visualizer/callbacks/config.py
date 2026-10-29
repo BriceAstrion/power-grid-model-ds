@@ -21,15 +21,20 @@ from power_grid_model_ds._core.visualizer.typing import STYLESHEET
     Input("node-scale-input", "value"),
     Input("edge-scale-input", "value"),
     State("stylesheet-store", "data"),
+    State("cytoscape-graph", "stylesheet"),
     prevent_initial_call=True,
 )
-def scale_elements(node_scale: float, edge_scale: float, stylesheet: STYLESHEET) -> tuple[STYLESHEET, STYLESHEET]:
-    """Callback to scale the elements of the graph."""
-    if stylesheet is None:
+def scale_elements(
+    node_scale: float,
+    edge_scale: float,
+    stored_stylesheet: STYLESHEET,
+    current_stylesheet: STYLESHEET,
+) -> tuple[STYLESHEET, STYLESHEET]:
+    """Scale graph elements while preserving temporary display highlights."""
+    if stored_stylesheet is None or current_stylesheet is None:
         raise PreventUpdate
-    new_stylesheet = stylesheet.copy()
 
-    for selector, new_style in [
+    scaling_rules = [
         (f".{StyleClass.BRANCH.value}", {"width": BRANCH_WIDTH * edge_scale}),
         (f".{StyleClass.NODE.value}", {"height": NODE_SIZE * node_scale, "width": NODE_SIZE * node_scale}),
         (
@@ -38,10 +43,15 @@ def scale_elements(node_scale: float, edge_scale: float, stylesheet: STYLESHEET)
         ),
         (f".{StyleClass.GENERATING_APPLIANCE.value}", {"width": BRANCH_WIDTH * edge_scale * 0.5}),
         (f".{StyleClass.LOADING_APPLIANCE.value}", {"width": BRANCH_WIDTH * edge_scale * 0.5}),
-    ]:
-        new_stylesheet.append({"selector": selector, "style": new_style})
+    ]
 
-    return new_stylesheet, new_stylesheet
+    def apply_scaling(stylesheet: STYLESHEET) -> STYLESHEET:
+        updated = deepcopy(stylesheet)
+        for selector, new_style in scaling_rules:
+            updated.append({"selector": selector, "style": deepcopy(new_style)})
+        return updated
+
+    return apply_scaling(stored_stylesheet), apply_scaling(current_stylesheet)
 
 
 @callback(
