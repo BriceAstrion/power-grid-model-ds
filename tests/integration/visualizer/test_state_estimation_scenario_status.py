@@ -22,6 +22,16 @@ from power_grid_model_ds._core.visualizer.scenario_status import (
     scenario_status_from_batch_error,
 )
 
+from power_grid_model_ds._core.power_grid_model_interface import (
+    PowerGridModelInterface,
+)
+from power_grid_model_ds._core.visualizer.measurement_comparison import (
+    prepare_voltage_comparison,
+)
+from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
+    create_voltage_comparison_figure,
+)
+
 
 def test_real_batch_failure_scenario_status():
     """Convert actual solver batch-error metadata into visualiser statuses."""
@@ -81,4 +91,61 @@ def test_real_batch_failure_scenario_status():
     
     assert status.error_for(0) is None
     assert status.error_for(1) is not None
+
+    # Convert the real PGM input into the visualiser's Grid.
+    interface = PowerGridModelInterface(input_data=input_data)
+    grid = interface.create_grid_from_input_data()
+
+    # Sensor 11 measures voltage at node 1.
+    comparison = prepare_voltage_comparison(
+        grid=grid,
+        update_data=update_data,
+        output_data=output_data,
+        sensor_id=11,
+        scenario_status=status,
+    )
+
+    np.testing.assert_array_equal(comparison.scenarios, [0, 1])
+    np.testing.assert_allclose(
+        comparison.measured,
+        [10489.37, 10489.37],
+    )
+
+    # The successful scenario retains its actual solver estimate.
+    assert np.isfinite(comparison.estimated[0])
+
+    # The failed scenario must not expose an invalid estimate.
+    assert np.isnan(comparison.estimated[1])
+
+    figure = create_voltage_comparison_figure(
+        comparison,
+        scenario_status=status,
+    )
+
+    estimated_trace = next(
+        trace
+        for trace in figure.data
+        if trace.name == "Estimated voltage (succeeded)"
+    )
+
+    assert np.isfinite(estimated_trace.y[0])
+    assert np.isnan(estimated_trace.y[1])
+
+    failure_trace = next(
+        trace
+        for trace in figure.data
+        if trace.name == "State estimation failed"
+    )
+
+    assert list(failure_trace.x) == [1]
+    np.testing.assert_allclose(
+        failure_trace.y,
+        [10489.37],
+    )
+    assert failure_trace.marker.symbol == "x"
+
+    assert "1 succeeded, 1 failed, 0 unknown" in (
+        figure.layout.annotations[0].text
+    )
+
     assert "Not enough measurements" in status.error_for(1)
