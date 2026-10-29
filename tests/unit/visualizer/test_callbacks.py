@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
-
+from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
 import dash_ag_grid as dag
@@ -72,6 +72,7 @@ def test_search_element_with_asym_column():
         ),
     ],
 )
+
 def test_search_element_with_input(group, column, operator, value, expected_selectors):
     server_state.set_app_state(Grid.from_txt("S1 2 12", "2 3 23"))
 
@@ -81,13 +82,61 @@ def test_search_element_with_input(group, column, operator, value, expected_sele
 
 
 def test_show_arrows():
-    stylesheet = update_arrows(show_arrows=True, current_stylesheet=DEFAULT_STYLESHEET)
-    assert stylesheet[_EDGE_INDEX]["style"]["target-arrow-shape"] == "triangle"
+    original = deepcopy(DEFAULT_STYLESHEET)
+
+    stored, displayed = update_arrows(
+        show_arrows=True,
+        current_stylesheet=original,
+    )
+
+    assert stored == displayed
+    assert displayed[_EDGE_INDEX]["style"]["target-arrow-shape"] == "triangle"
+    assert original == DEFAULT_STYLESHEET
 
 
 def test_hide_arrows():
-    stylesheet = update_arrows(show_arrows=False, current_stylesheet=DEFAULT_STYLESHEET)
-    assert stylesheet[_EDGE_INDEX]["style"]["target-arrow-shape"] == "none"
+    original = deepcopy(DEFAULT_STYLESHEET)
+
+    stored, displayed = update_arrows(
+        show_arrows=False,
+        current_stylesheet=original,
+    )
+
+    assert stored == displayed
+    assert displayed[_EDGE_INDEX]["style"]["target-arrow-shape"] == "none"
+    assert original == DEFAULT_STYLESHEET
+
+
+def test_hidden_arrows_remain_hidden_after_scaling():
+    """Scaling must preserve the user's branch-arrow setting."""
+
+    stylesheet = deepcopy(DEFAULT_STYLESHEET)
+
+    # Hiding arrows updates both the store and displayed stylesheet.
+    stored_stylesheet, displayed_stylesheet = update_arrows(
+        show_arrows=False,
+        current_stylesheet=stylesheet,
+    )
+
+    # Verify that the original stylesheet was not modified.
+    assert stylesheet == DEFAULT_STYLESHEET
+
+    # Scaling reads the updated stylesheet store.
+    stored_stylesheet, displayed_stylesheet = scale_elements(
+        node_scale=1.2,
+        edge_scale=1.3,
+        stylesheet=stored_stylesheet,
+    )
+
+    branch_rules = [
+        rule
+        for rule in displayed_stylesheet
+        if rule["selector"] == ".branch"
+        and "target-arrow-shape" in rule["style"]
+    ]
+
+    assert branch_rules[-1]["style"]["target-arrow-shape"] == "none"
+    assert stored_stylesheet == displayed_stylesheet
 
 
 def test_element_selection_callback():

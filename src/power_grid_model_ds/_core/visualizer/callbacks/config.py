@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
+from copy import deepcopy
 
 from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
@@ -59,19 +60,23 @@ def update_layout(layout: str, source_available: bool):
 
 
 @callback(
+    Output("stylesheet-store", "data", allow_duplicate=True),
     Output("cytoscape-graph", "stylesheet", allow_duplicate=True),
     Input("show-arrows", "value"),
     State("cytoscape-graph", "stylesheet"),
     prevent_initial_call=True,
 )
 def update_arrows(show_arrows, current_stylesheet):
-    """Callback to update the arrow style of edges in the graph."""
-    selectors = [rule["selector"] for rule in current_stylesheet]
-    index = selectors.index(f".{StyleClass.BRANCH.value}")
-    edge_style = current_stylesheet[index]["style"]
+    """Update branch arrows while keeping stylesheet state consistent."""
+    new_stylesheet = deepcopy(current_stylesheet)
 
-    edge_style["target-arrow-shape"] = "triangle" if show_arrows else "none"
-    return current_stylesheet
+    branch_selector = f".{StyleClass.BRANCH.value}"
+
+    for rule in new_stylesheet:
+        if rule["selector"] == branch_selector and "target-arrow-shape" in rule["style"]:
+            rule["style"]["target-arrow-shape"] = "triangle" if show_arrows else "none"
+
+    return new_stylesheet, new_stylesheet
 
 
 @callback(
