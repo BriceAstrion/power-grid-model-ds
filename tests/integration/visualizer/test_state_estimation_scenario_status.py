@@ -8,6 +8,12 @@ import numpy as np
 
 from _state_estimation_fixture import make_state_estimation_input_data
 
+from power_grid_model_ds._core.visualizer import server_state
+
+from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
+    update_voltage_comparison,
+)
+
 from power_grid_model import (
     AttributeType,
     CalculationMethod,
@@ -33,7 +39,7 @@ from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
 )
 
 
-def test_real_batch_failure_scenario_status():
+def test_real_batch_failure_scenario_status(monkeypatch):
     """Convert actual solver batch-error metadata into visualiser statuses."""
 
     input_data = make_state_estimation_input_data()
@@ -149,3 +155,25 @@ def test_real_batch_failure_scenario_status():
     )
 
     assert "Not enough measurements" in status.error_for(1)
+
+    # Verify that the real solver failure reaches the Dash callback.
+    monkeypatch.setattr(server_state, "get_grid", lambda: grid)
+    monkeypatch.setattr(server_state, "get_update_data", lambda: update_data)
+    monkeypatch.setattr(server_state, "get_output_data", lambda: output_data)
+    monkeypatch.setattr(server_state, "get_scenario_status", lambda: status)
+
+    callback_figure, callback_style, callback_message = (
+        update_voltage_comparison(11, 3.0)
+    )
+
+    assert callback_style == {"display": "block"}
+    assert "Scenario 1 failed" in callback_message
+    assert "Not enough measurements" in callback_message
+
+    callback_failure_trace = next(
+        trace
+        for trace in callback_figure.data
+        if trace.name == "State estimation failed"
+    )
+
+    assert list(callback_failure_trace.x) == [1]
