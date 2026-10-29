@@ -1,6 +1,8 @@
+
 # SPDX-FileCopyrightText: 2025 Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
+
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
@@ -72,7 +74,6 @@ def test_search_element_with_asym_column():
         ),
     ],
 )
-
 def test_search_element_with_input(group, column, operator, value, expected_selectors):
     server_state.set_app_state(Grid.from_txt("S1 2 12", "2 3 23"))
 
@@ -86,6 +87,7 @@ def test_show_arrows():
 
     stored, displayed = update_arrows(
         show_arrows=True,
+        stored_stylesheet=original,
         current_stylesheet=original,
     )
 
@@ -99,6 +101,7 @@ def test_hide_arrows():
 
     stored, displayed = update_arrows(
         show_arrows=False,
+        stored_stylesheet=original,
         current_stylesheet=original,
     )
 
@@ -109,19 +112,16 @@ def test_hide_arrows():
 
 def test_hidden_arrows_remain_hidden_after_scaling():
     """Scaling must preserve the user's branch-arrow setting."""
+    original = deepcopy(DEFAULT_STYLESHEET)
 
-    stylesheet = deepcopy(DEFAULT_STYLESHEET)
-
-    # Hiding arrows updates both the store and displayed stylesheet.
     stored_stylesheet, displayed_stylesheet = update_arrows(
         show_arrows=False,
-        current_stylesheet=stylesheet,
+        stored_stylesheet=original,
+        current_stylesheet=original,
     )
 
-    # Verify that the original stylesheet was not modified.
-    assert stylesheet == DEFAULT_STYLESHEET
+    assert original == DEFAULT_STYLESHEET
 
-    # Scaling reads the updated stylesheet store.
     stored_stylesheet, displayed_stylesheet = scale_elements(
         node_scale=1.2,
         edge_scale=1.3,
@@ -137,6 +137,37 @@ def test_hidden_arrows_remain_hidden_after_scaling():
 
     assert branch_rules[-1]["style"]["target-arrow-shape"] == "none"
     assert stored_stylesheet == displayed_stylesheet
+
+
+def test_arrow_toggle_does_not_store_search_highlights():
+    """Temporary search highlights must not become persistent display settings."""
+    base_stylesheet = deepcopy(DEFAULT_STYLESHEET)
+
+    highlighted_stylesheet = [
+        *deepcopy(base_stylesheet),
+        {"selector": "#123", "style": deepcopy(HIGHLIGHT_STYLE)},
+    ]
+    original_highlighted_stylesheet = deepcopy(highlighted_stylesheet)
+
+    stored_stylesheet, displayed_stylesheet = update_arrows(
+        show_arrows=False,
+        stored_stylesheet=base_stylesheet,
+        current_stylesheet=highlighted_stylesheet,
+    )
+
+    # Search highlights remain visible.
+    assert any(rule["selector"] == "#123" for rule in displayed_stylesheet)
+
+    # Search highlights are not persisted in the base stylesheet.
+    assert not any(rule["selector"] == "#123" for rule in stored_stylesheet)
+
+    # Both outputs reflect the new arrow setting.
+    assert stored_stylesheet[_EDGE_INDEX]["style"]["target-arrow-shape"] == "none"
+    assert displayed_stylesheet[_EDGE_INDEX]["style"]["target-arrow-shape"] == "none"
+
+    # Neither input stylesheet is modified in place.
+    assert base_stylesheet == DEFAULT_STYLESHEET
+    assert highlighted_stylesheet == original_highlighted_stylesheet
 
 
 def test_element_selection_callback():

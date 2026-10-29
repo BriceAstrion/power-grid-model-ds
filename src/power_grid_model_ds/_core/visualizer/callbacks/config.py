@@ -63,20 +63,26 @@ def update_layout(layout: str, source_available: bool):
     Output("stylesheet-store", "data", allow_duplicate=True),
     Output("cytoscape-graph", "stylesheet", allow_duplicate=True),
     Input("show-arrows", "value"),
+    State("stylesheet-store", "data"),
     State("cytoscape-graph", "stylesheet"),
     prevent_initial_call=True,
 )
-def update_arrows(show_arrows, current_stylesheet):
-    """Update branch arrows while keeping stylesheet state consistent."""
-    new_stylesheet = deepcopy(current_stylesheet)
+def update_arrows(show_arrows, stored_stylesheet, current_stylesheet):
+    """Update arrow visibility without persisting temporary highlights."""
+    if stored_stylesheet is None or current_stylesheet is None:
+        raise PreventUpdate
 
     branch_selector = f".{StyleClass.BRANCH.value}"
+    arrow_shape = "triangle" if show_arrows else "none"
 
-    for rule in new_stylesheet:
-        if rule["selector"] == branch_selector and "target-arrow-shape" in rule["style"]:
-            rule["style"]["target-arrow-shape"] = "triangle" if show_arrows else "none"
+    def apply_arrow_setting(stylesheet):
+        updated = deepcopy(stylesheet)
+        for rule in updated:
+            if rule["selector"] == branch_selector and "target-arrow-shape" in rule["style"]:
+                rule["style"]["target-arrow-shape"] = arrow_shape
+        return updated
 
-    return new_stylesheet, new_stylesheet
+    return apply_arrow_setting(stored_stylesheet), apply_arrow_setting(current_stylesheet)
 
 
 @callback(
