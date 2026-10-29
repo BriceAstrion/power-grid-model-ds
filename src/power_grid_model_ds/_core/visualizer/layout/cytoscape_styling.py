@@ -119,6 +119,13 @@ _TRANSFORMER_STYLE = {
         "target-arrow-color": CYTO_COLORS[StyleClass.TRANSFORMER],
     },
 }
+_TWO_WINDING_TRANSFORMER_STYLE = {
+    "selector": f'edge.{StyleClass.TRANSFORMER.value}[group = "transformer"]',
+    "style": {
+        "line-color": CYTO_COLORS[StyleClass.TRANSFORMER],
+        "target-arrow-color": CYTO_COLORS[StyleClass.TRANSFORMER],
+    },
+}
 _SELECTED_TRANSFORMER_STYLE = {
     "selector": f".{StyleClass.TRANSFORMER.value}:selected, .{StyleClass.TRANSFORMER.value}:active",
     "style": {
@@ -212,6 +219,7 @@ DEFAULT_STYLESHEET = [
     _SUBSTATION_NODE_STYLE,
     _BRANCH_STYLE,
     _TRANSFORMER_STYLE,
+    _TWO_WINDING_TRANSFORMER_STYLE,
     _LINK_STYLE,
     _SELECTED_NODE_STYLE,
     _SELECTED_BRANCH_STYLE,
