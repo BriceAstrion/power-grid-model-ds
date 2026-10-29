@@ -3,12 +3,14 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
+
 from dash import dcc, html
 from power_grid_model import ComponentType
 
 from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # pylint: disable=unused-import
     config,
+    diagnostic_overview,
     element_selection,
     header,
     search_form,
@@ -72,7 +74,17 @@ def get_app_layout(grid: Grid) -> html.Div:
                     # Search, Config, and Legend remain in the original navbar.
                     html.Div(
                         [
-                            html.H5("Controls"),
+                            html.H5("Diagnostic overview"),
+                            html.P(
+                                "Select a network component to inspect its available data and diagnostics.",
+                                style={"fontSize": "0.9rem"},
+                            ),
+                            html.Hr(),
+                            html.Div(
+                                "No diagnostic summary selected.",
+                                id="diagnostic-overview-content",
+                                role="status",
+                            ),
                         ],
                         id="workspace-left-panel",
                         style={
