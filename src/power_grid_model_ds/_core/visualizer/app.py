@@ -1,3 +1,4 @@
+
 # SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
@@ -11,19 +12,20 @@ from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # py
     element_selection,
     header,
     search_form,
+    voltage_comparison,
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_html import get_cytoscape_html
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
 from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
 from power_grid_model_ds._core.visualizer.layout.layout_config import get_default_graph_layout
 from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTION_GRAPH_HTML, SELECTION_OUTPUT_HTML
+from power_grid_model_ds._core.visualizer.layout.voltage_comparison import VOLTAGE_COMPARISON_HTML
 from power_grid_model_ds._core.visualizer.parsers import parse_element_data
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
-from power_grid_model_ds._core.visualizer.callbacks import voltage_comparison  # noqa: F401
-from power_grid_model_ds._core.visualizer.layout.voltage_comparison import VOLTAGE_COMPARISON_HTML
 
 GOOGLE_FONTS = "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
 MDBOOTSTRAP = "https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.2.0/mdb.min.css"
+PANEL_BORDER = "1px solid #dee2e6"
 
 
 def _get_columns_store(grid: Grid) -> dcc.Store:
@@ -49,7 +51,6 @@ def get_app_layout(grid: Grid) -> html.Div:
     viz_elements_dict = parse_element_data(grid)
 
     initial_elements = filter_out_appliances(viz_elements_dict.values())
-
     cytoscape_html = get_cytoscape_html(layout, initial_elements, grid.source.size != 0)
 
     return html.Div(
@@ -59,11 +60,78 @@ def get_app_layout(grid: Grid) -> html.Div:
             dcc.Store(id="stylesheet-store", data=DEFAULT_STYLESHEET),
             dcc.Store(id="source-available-store", data=grid.source.size != 0),
             dcc.Store(id="show-appliances-store", data=False, storage_type="session"),
+
+            # Preserve the original navigation bar and its existing callbacks.
             HEADER_HTML,
-            html.Hr(style={"border-color": "white", "margin": "0"}),
-            cytoscape_html,
-            SELECTION_OUTPUT_HTML,
-            SELECTION_GRAPH_HTML,
-            VOLTAGE_COMPARISON_HTML,
+            html.Hr(style={"borderColor": "white", "margin": "0"}),
+
+            # Alternative B: three-column workspace.
+            html.Div(
+                [
+                    # Left: reserved for future diagnostic controls.
+                    # Search, Config, and Legend remain in the original navbar.
+                    html.Div(
+                        [
+                            html.H5("Controls"),
+                        ],
+                        id="workspace-left-panel",
+                        style={
+                            "minWidth": "220px",
+                            "padding": "1rem",
+                            "backgroundColor": "#f8f9fa",
+                            "borderRight": PANEL_BORDER,
+                        },
+                    ),
+
+                    # Centre: existing interactive electrical network.
+                    html.Div(
+                        [
+                            cytoscape_html,
+                        ],
+                        id="workspace-network-panel",
+                        style={
+                            "minWidth": "0",
+                            "overflow": "hidden",
+                        },
+                    ),
+
+                    # Right: selected-component attributes.
+                    html.Div(
+                        [
+                            SELECTION_OUTPUT_HTML,
+                        ],
+                        id="workspace-details-panel",
+                        style={
+                            "minWidth": "0",
+                            "maxHeight": "80vh",
+                            "overflow": "auto",
+                            "padding": "0.75rem",
+                            "borderLeft": PANEL_BORDER,
+                        },
+                    ),
+                ],
+                id="workspace-main",
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "minmax(220px, 1fr) minmax(0, 2.4fr) minmax(320px, 1.4fr)",
+                    "width": "100%",
+                    "minHeight": "80vh",
+                    "overflowX": "auto",
+                },
+            ),
+
+            # Bottom: selected-component and state-estimation plots.
+            html.Div(
+                [
+                    SELECTION_GRAPH_HTML,
+                    VOLTAGE_COMPARISON_HTML,
+                ],
+                id="workspace-diagnostics-panel",
+                style={
+                    "width": "100%",
+                    "padding": "1rem",
+                    "borderTop": PANEL_BORDER,
+                },
+            ),
         ],
     )

@@ -1,4 +1,3 @@
-
 # SPDX-FileCopyrightText: 2025 Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
@@ -6,7 +5,6 @@
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
-import dash_ag_grid as dag
 import numpy as np
 import pytest
 from dash.exceptions import PreventUpdate
@@ -18,8 +16,11 @@ from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks.config import scale_elements, update_arrows, update_layout
 from power_grid_model_ds._core.visualizer.callbacks.element_selection import (
+    _matches,
     cell_selection_graph,
     display_selected_elements,
+    toggle_attribute_filter,
+    update_attribute_values,
 )
 from power_grid_model_ds._core.visualizer.callbacks.search_form import HIGHLIGHT_STYLE, search_element
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
@@ -214,34 +215,106 @@ def test_element_selection_callback():
     grid.node.three_phase_quantity = [[1.0, 2.0, 3.0]]
 
     server_state.set_app_state(grid)
-
     node_data = [{"id": "1", "group": "node", "associated_ids": {"node": [1]}}]
-    edge_data = []
 
-    result = display_selected_elements(node_data, edge_data)
-    expected = dag.AgGrid(  # type: ignore[attr-defined]
-        rowData=[
-            {
-                "u_rated": 100.0,
-                "id": 1,
-                "node_type": 0,
-                "feeder_branch_id": -2147483648,
-                "feeder_node_id": -2147483648,
-                "three_phase_quantity": [1.0, 2.0, 3.0],
-            }
-        ],
-        columnDefs=[
-            {"field": "id", "headerName": "id"},
-            {"field": "u_rated", "headerName": "u_rated"},
-            {"field": "node_type", "headerName": "node_type"},
-            {"field": "feeder_branch_id", "headerName": "feeder_branch_id"},
-            {"field": "feeder_node_id", "headerName": "feeder_node_id"},
-            {"field": "three_phase_quantity", "headerName": "three_phase_quantity"},
-        ],
-    )
+    result = display_selected_elements(node_data, [])
     assert result[0].children == "node"
-    assert result[1].rowData == expected.rowData
-    assert result[1].columnDefs == expected.columnDefs
+
+    inspector = result[1]
+    assert inspector.id == {"type": "selection-inspector", "group": "node"}
+    records = inspector.children[0].data
+    assert records == [
+        {
+            "id": 1,
+            "u_rated": 100.0,
+            "node_type": 0,
+            "feeder_branch_id": -2147483648,
+            "feeder_node_id": -2147483648,
+            "three_phase_quantity": [1.0, 2.0, 3.0],
+        }
+    ]
+
+    # One vertically arranged attribute row per original field.
+    assert len(inspector.children) == len(records[0]) + 2
+    for row, attribute in zip(inspector.children[2:], records[0], strict=True):
+        name_and_filter, value_cell = row.children
+        assert name_and_filter.children[0].children == attribute
+        assert value_cell.id == {"type": "attribute-values", "group": "node", "attribute": attribute}
+        filter_wrapper = name_and_filter.children[1]
+        toggle, popup = filter_wrapper.children
+        assert toggle.id == {"type": "attribute-filter-toggle", "group": "node", "attribute": attribute}
+        assert popup.id == {"type": "attribute-filter-popup", "group": "node", "attribute": attribute}
+        assert popup.style["display"] == "none"
+        operator, value = popup.children
+        assert operator.id["attribute"] == attribute
+        assert value.id["attribute"] == attribute
+
+
+
+def test_attribute_filter_popup_only_one_open():
+    popup_ids = [
+        {"type": "attribute-filter-popup", "group": "node", "attribute": attribute}
+        for attribute in ("id", "u_rated", "node_type")
+    ]
+    closed = [{"display": "none"} for _ in popup_ids]
+    ctx = MagicMock()
+    ctx.triggered = [{"prop_id": "filter.n_clicks", "value": 1}]
+    ctx.triggered_id = {"type": "attribute-filter-toggle", "group": "node", "attribute": "id"}
+
+    with patch(_CTX_PATH, ctx):
+        opened_id = toggle_attribute_filter([1, 0, 0], popup_ids, closed)
+    assert [style["display"] for style in opened_id] == ["block", "none", "none"]
+
+    ctx.triggered_id = {"type": "attribute-filter-toggle", "group": "node", "attribute": "u_rated"}
+    with patch(_CTX_PATH, ctx):
+        opened_rated = toggle_attribute_filter([1, 1, 0], popup_ids, opened_id)
+    assert [style["display"] for style in opened_rated] == ["none", "block", "none"]
+
+    with patch(_CTX_PATH, ctx):
+        closed_again = toggle_attribute_filter([1, 2, 0], popup_ids, opened_rated)
+    assert [style["display"] for style in closed_again] == ["none", "none", "none"]
+
+
+def test_attribute_filter_popup_across_groups():
+    popup_ids = [
+        {"type": "attribute-filter-popup", "group": "node", "attribute": "id"},
+        {"type": "attribute-filter-popup", "group": "source", "attribute": "id"},
+    ]
+    ctx = MagicMock()
+    ctx.triggered = [{"prop_id": "filter.n_clicks", "value": 1}]
+    ctx.triggered_id = {"type": "attribute-filter-toggle", "group": "source", "attribute": "id"}
+    with patch(_CTX_PATH, ctx):
+        result = toggle_attribute_filter([1, 1], popup_ids, [{"display": "block"}, {"display": "none"}])
+    assert [style["display"] for style in result] == ["none", "block"]
+
+def test_attribute_filter_comparisons():
+    assert _matches(100.0, ">", "90")
+    assert not _matches(100.0, "<", "90")
+    assert _matches(100.0, "=", "100")
+    assert _matches(100.0, "!=", "101")
+    assert _matches([1.0, 2.0, 3.0], "contains", "2.0")
+    assert not _matches([1.0, 2.0, 3.0], ">", "1")
+
+
+def test_attribute_filter_restricts_multiple_components():
+    group = "node"
+    filter_ids = [
+        {"type": "attribute-filter-value", "group": group, "attribute": "u_rated"},
+        {"type": "attribute-filter-value", "group": group, "attribute": "node_type"},
+    ]
+    output_ids = [
+        {"type": "attribute-values", "group": group, "attribute": "id"},
+        {"type": "attribute-values", "group": group, "attribute": "u_rated"},
+    ]
+    records = [
+        {"id": 1, "u_rated": 100.0, "node_type": 0},
+        {"id": 2, "u_rated": 200.0, "node_type": 0},
+    ]
+    cells = update_attribute_values([">", "="], ["150", "0"], filter_ids, records, output_ids)
+    assert len(cells) == 2
+    assert len(cells[0].children) == 1
+    assert cells[0].children[0].children == "ID 2: 2"
+    assert cells[1].children[0].children == "ID 2: 200.0"
 
 
 def test_display_selected_element_none():
@@ -255,14 +328,15 @@ def test_update_layout():
 
 @pytest.fixture
 def mock_cell_clicked_ctx():
+    """Simulate clicking a value in the vertical attribute inspector."""
     ctx = MagicMock()
     ctx.triggered = [
         {
-            "prop_id": '{"type":"selection-table","group":"node"}.cellClicked',
-            "value": {"rowId": "1", "colId": "u_rated"},
+            "prop_id": '{"type":"attribute-plot","group":"node","attribute":"u_rated","pgm_id":1}.n_clicks',
+            "value": 1,
         }
     ]
-    ctx.triggered_id = {"group": "node"}
+    ctx.triggered_id = {"type": "attribute-plot", "group": "node", "attribute": "u_rated", "pgm_id": 1}
     return ctx
 
 
@@ -271,6 +345,15 @@ def test_cell_selection_graph_invalid_trigger():
     ctx.triggered = [{"prop_id": "some-other.input", "value": None}]
     ctx.triggered_id = None
     with patch(_CTX_PATH, ctx):
+        fig, style = cell_selection_graph(None)
+    assert style == {"display": "none"}
+    assert fig == go.Figure()
+
+
+def test_cell_selection_graph_ignores_non_click(mock_cell_clicked_ctx):
+    """Initial button creation must not trigger a scenario plot."""
+    mock_cell_clicked_ctx.triggered[0]["value"] = 0
+    with patch(_CTX_PATH, mock_cell_clicked_ctx):
         fig, style = cell_selection_graph(None)
     assert style == {"display": "none"}
     assert fig == go.Figure()

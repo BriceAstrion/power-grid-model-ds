@@ -5,7 +5,12 @@
 from dash import dcc, html
 
 SELECTION_OUTPUT_HEADER_STYLE = {"margin": "20px 0 10px 0"}
-_SELECTION_OUTPUT_STYLE = {"overflowX": "scroll", "textAlign": "center", "margin": "10px"}
+_SELECTION_OUTPUT_STYLE = {
+    "width": "100%",
+    "minWidth": "0",
+    "padding": "0",
+    "margin": "0",
+}
 
 SELECTION_OUTPUT_HTML = html.Div(
     dcc.Markdown(
