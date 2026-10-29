@@ -157,6 +157,11 @@ def create_voltage_comparison_figure(
             f"node {comparison.node_id}"
         ),
         xaxis_title="Scenario Index",
+        xaxis={
+            "tickmode": "linear",
+            "tick0": 0,
+            "dtick": 1,
+        },
         yaxis_title="Voltage (V)",
         template="plotly_white",
         hovermode="x unified",

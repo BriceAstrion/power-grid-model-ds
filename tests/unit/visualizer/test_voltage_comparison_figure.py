@@ -37,6 +37,9 @@ def test_figure_contains_four_traces(comparison):
     assert figure.data[1].fill == "tonexty"
     assert figure.layout.xaxis.title.text == "Scenario Index"
     assert figure.layout.yaxis.title.text == "Voltage (V)"
+    assert figure.layout.xaxis.tickmode == "linear"
+    assert figure.layout.xaxis.tick0 == 0
+    assert figure.layout.xaxis.dtick == 1
 
 
 def test_figure_uses_three_sigma_by_default(comparison):
