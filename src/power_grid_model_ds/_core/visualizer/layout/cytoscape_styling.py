@@ -124,6 +124,7 @@ _TWO_WINDING_TRANSFORMER_STYLE = {
     "style": {
         "line-color": CYTO_COLORS[StyleClass.TRANSFORMER],
         "target-arrow-color": CYTO_COLORS[StyleClass.TRANSFORMER],
+        "target-arrow-shape": "none",
     },
 }
 _SELECTED_TRANSFORMER_STYLE = {
