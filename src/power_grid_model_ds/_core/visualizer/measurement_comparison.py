@@ -194,13 +194,15 @@ def _comparison_with_status(
     ):
         scenario = int(scenario)
 
-        # Only explicitly successful scenarios have valid estimates.
-        if scenario not in scenario_status.succeeded_scenarios:
+        # Failed calculations must not contribute estimated values.
+        # Preserve available estimates with unknown calculation status;
+        # the figure identifies them separately from successful results.
+        if scenario in scenario_status.failed_scenarios:
             continue
 
         position = scenario_positions.get(scenario)
 
-        if position is not None:
+        if position is not None and np.isfinite(value):
             aligned_estimated[position] = value
 
     succeeded = np.array(

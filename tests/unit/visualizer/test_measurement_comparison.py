@@ -399,3 +399,55 @@ def test_preserves_valid_sigma_when_state_estimation_fails():
 
     np.testing.assert_allclose(lower, [227.0, 226.5])
     np.testing.assert_allclose(upper, [233.0, 235.5])
+
+
+def test_preserves_available_estimate_with_unknown_scenario_status():
+    """Keep an available estimate without claiming calculation success."""
+    grid = Grid.empty()
+
+    nodes = grid.node.__class__.empty(1)
+    nodes.id = np.array([1001], dtype=np.int32)
+    grid.append(nodes)
+
+    sensors = grid.sym_voltage_sensor.__class__.empty(1)
+    sensors.id = np.array([12001], dtype=np.int32)
+    sensors.measured_object = np.array([1001], dtype=np.int32)
+    sensors.u_measured = np.array([230.0])
+    sensors.u_sigma = np.array([1.0])
+    grid.append(sensors)
+
+    updates = initialize_array(
+        DatasetType.update,
+        ComponentType.sym_voltage_sensor,
+        (2, 1),
+    )
+    updates["id"][:, 0] = 12001
+    updates["u_measured"][:, 0] = [230.0, 231.0]
+    updates["u_sigma"][:, 0] = [1.0, 1.0]
+
+    outputs = initialize_array(
+        DatasetType.sym_output,
+        ComponentType.node,
+        (2, 1),
+    )
+    outputs["id"][:, 0] = 1001
+    outputs["u"][:, 0] = [229.5, 230.5]
+
+    status = ScenarioStatus(
+        succeeded_scenarios=frozenset({0}),
+        failed_scenarios=frozenset(),
+    )
+
+    comparison = prepare_voltage_comparison(
+        grid=grid,
+        update_data={ComponentType.sym_voltage_sensor: updates},
+        output_data={ComponentType.node: outputs},
+        sensor_id=12001,
+        scenario_status=status,
+    )
+
+    np.testing.assert_array_equal(comparison.scenarios, [0, 1])
+    np.testing.assert_allclose(
+        comparison.estimated,
+        [229.5, 230.5],
+    )
