@@ -7,6 +7,7 @@
 
 from copy import deepcopy
 
+from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import StyleClass
 from power_grid_model_ds._core.visualizer.transformer_visuals import (
     add_transformer_visuals,
 )
@@ -98,3 +99,46 @@ def test_missing_node_positions_leave_graph_unchanged():
     result = add_transformer_visuals(elements)
 
     assert result == elements
+
+
+
+def test_closed_transformer_has_closed_visual_connections():
+    elements = make_elements()
+
+    result = add_transformer_visuals(elements)
+
+    assert result[6]["classes"] == "transformer-visual-connection"
+    assert result[7]["classes"] == "transformer-visual-connection"
+
+
+def test_open_from_terminal_is_preserved():
+    elements = make_elements()
+    elements[2]["classes"] += f" {StyleClass.OPEN_BRANCH_FROM.value}"
+
+    result = add_transformer_visuals(elements)
+
+    assert "transformer-visual-open-from" in result[6]["classes"]
+    assert "transformer-visual-open-to" not in result[7]["classes"]
+
+
+def test_open_to_terminal_is_preserved():
+    elements = make_elements()
+    elements[2]["classes"] += f" {StyleClass.OPEN_BRANCH_TO.value}"
+
+    result = add_transformer_visuals(elements)
+
+    assert "transformer-visual-open-from" not in result[6]["classes"]
+    assert "transformer-visual-open-to" in result[7]["classes"]
+
+
+def test_both_open_terminals_are_preserved():
+    elements = make_elements()
+    elements[2]["classes"] += (
+        f" {StyleClass.OPEN_BRANCH_FROM.value}"
+        f" {StyleClass.OPEN_BRANCH_TO.value}"
+    )
+
+    result = add_transformer_visuals(elements)
+
+    assert "transformer-visual-open-from" in result[6]["classes"]
+    assert "transformer-visual-open-to" in result[7]["classes"]

@@ -8,6 +8,26 @@
 from copy import deepcopy
 from typing import Any
 
+from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import StyleClass
+
+
+def _transformer_connection_classes(
+    original_classes: str,
+) -> tuple[str, str]:
+    """Map the original terminal-open classes to visual connections."""
+    classes = set(original_classes.split())
+
+    from_classes = ["transformer-visual-connection"]
+    to_classes = ["transformer-visual-connection"]
+
+    if StyleClass.OPEN_BRANCH_FROM.value in classes:
+        from_classes.append("transformer-visual-open-from")
+
+    if StyleClass.OPEN_BRANCH_TO.value in classes:
+        to_classes.append("transformer-visual-open-to")
+
+    return " ".join(from_classes), " ".join(to_classes)
+
 
 def add_transformer_visuals(
     elements: list[dict[str, Any]],
@@ -74,6 +94,10 @@ def add_transformer_visuals(
 
         existing_ids.update(new_ids)
 
+        from_connection_classes, to_connection_classes = (
+            _transformer_connection_classes(element.get("classes", ""))
+        )
+
         result.extend(
             [
                 {
@@ -126,8 +150,7 @@ def add_transformer_visuals(
                         "associated_ids": {},
                         "visual_only": True,
                     },
-                    "classes": "transformer-visual-connection",
-                    "selectable": False,
+                    "classes": from_connection_classes,
                 },
                 {
                     "data": {
@@ -137,8 +160,7 @@ def add_transformer_visuals(
                         "associated_ids": {},
                         "visual_only": True,
                     },
-                    "classes": "transformer-visual-connection",
-                    "selectable": False,
+                    "classes": to_connection_classes,
                 },
             ]
         )
