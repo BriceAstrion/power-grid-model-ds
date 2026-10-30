@@ -22,7 +22,6 @@ from power_grid_model import ComponentType
 from power_grid_model.data_types import DenseBatchArray
 
 from power_grid_model_ds._core.model.grids.base import Grid
-
 from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
 
 

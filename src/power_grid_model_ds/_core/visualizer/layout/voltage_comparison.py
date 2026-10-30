@@ -6,7 +6,6 @@
 
 from dash import dcc, html
 
-
 VOLTAGE_COMPARISON_HTML = html.Div(
     [
         html.H4("Voltage measurement comparison"),

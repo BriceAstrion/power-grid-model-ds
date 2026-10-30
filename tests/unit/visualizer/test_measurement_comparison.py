@@ -6,18 +6,16 @@
 
 import numpy as np
 import pytest
+from power_grid_model import ComponentType, DatasetType, initialize_array
 
+from power_grid_model_ds import Grid
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     align_voltage_series,
     calculate_sigma_bands,
     prepare_voltage_comparison,
 )
-
 from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
 
-from power_grid_model import ComponentType, DatasetType, initialize_array
-
-from power_grid_model_ds import Grid
 
 def test_aligns_matching_scenarios():
     result = align_voltage_series(

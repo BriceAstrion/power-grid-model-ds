@@ -6,15 +6,13 @@ import numpy as np
 import pytest
 
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
-    align_voltage_series,
     VoltageComparison,
+    align_voltage_series,
 )
-
+from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
 from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
     create_voltage_comparison_figure,
 )
-
-from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
 
 
 @pytest.fixture

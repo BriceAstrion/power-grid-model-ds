@@ -5,14 +5,12 @@
 """Represent state-estimation calculation status for batch scenarios."""
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
-import numpy as np
-from numpy.typing import NDArray
 from power_grid_model.errors import PowerGridBatchError
 
 
-class CalculationStatus(str, Enum):
+class CalculationStatus(StrEnum):
     """Calculation outcome for one scenario."""
 
     SUCCEEDED = "succeeded"

@@ -4,17 +4,25 @@
 
 """Tests for symmetric voltage comparison callbacks."""
 
+from types import SimpleNamespace
+from unittest.mock import ANY, Mock
+
 import numpy as np
 import pytest
-
 from power_grid_model import ComponentType, DatasetType, initialize_array
 
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.visualizer import server_state
+from power_grid_model_ds._core.visualizer.callbacks import voltage_comparison
 from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
     find_voltage_sensors_for_selection,
+    format_scenario_failure_message,
     update_voltage_comparison,
     update_voltage_sensor_options,
+)
+from power_grid_model_ds._core.visualizer.scenario_status import (
+    ScenarioStatus,
+    scenario_status_from_batch_error,
 )
 
 
@@ -154,11 +162,6 @@ def test_comparison_callback_handles_no_sensor():
 
 def test_comparison_callback_forwards_scenario_status(monkeypatch):
     """Forward calculation status without rerunning state estimation."""
-    from unittest.mock import Mock
-
-    from power_grid_model_ds._core.visualizer.callbacks import voltage_comparison
-    from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
-
     status = ScenarioStatus(
         succeeded_scenarios=frozenset({0, 2}),
         failed_scenarios=frozenset({1}),
@@ -170,17 +173,17 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_grid",
-        lambda: Mock(),
+        Mock,
     )
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_update_data",
-        lambda: Mock(),
+        Mock,
     )
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_output_data",
-        lambda: Mock(),
+        Mock,
     )
     monkeypatch.setattr(
         voltage_comparison.server_state,
@@ -206,8 +209,6 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
         voltage_comparison.update_voltage_comparison(12001, 3.0)
     )
 
-    from unittest.mock import ANY
-
     prepare.assert_called_once_with(
         grid=ANY,
         update_data=ANY,
@@ -226,16 +227,9 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
     assert style == {"display": "block"}
     assert message == "Scenario 1 failed."
 
+
 def test_formats_scenario_specific_failure_messages():
     """Display each solver error against its corresponding scenario."""
-    from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
-        format_scenario_failure_message,
-    )
-    from power_grid_model_ds._core.visualizer.scenario_status import (
-        scenario_status_from_batch_error,
-    )
-    from types import SimpleNamespace
-
     batch_error = SimpleNamespace(
         succeeded_scenarios=[0, 2],
         failed_scenarios=[3, 1],

@@ -15,6 +15,7 @@ from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
     create_voltage_comparison_figure,
 )
 
+
 def format_scenario_failure_message(scenario_status):
     """Summarise solver-reported failures for the voltage comparison."""
     if scenario_status is None or not scenario_status.failed_scenarios:

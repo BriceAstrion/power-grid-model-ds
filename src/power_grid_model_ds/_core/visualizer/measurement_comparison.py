@@ -28,7 +28,7 @@ class VoltageComparison:
     sigma: NDArray[np.float64]
 
 
-def align_voltage_series(
+def align_voltage_series(  # noqa: PLR0913
     *,
     sensor_id: int,
     node_id: int,
@@ -146,7 +146,7 @@ def _resolve_measurement_defaults(
     return measured, sigma
 
 
-def _comparison_with_status(
+def _comparison_with_status(  # noqa: PLR0913
     *,
     sensor_id: int,
     node_id: int,
@@ -192,15 +192,15 @@ def _comparison_with_status(
     for scenario, value in zip(
         estimate_scenarios, estimated, strict=True
     ):
-        scenario = int(scenario)
+        scenario_id = int(scenario)
 
         # Failed calculations must not contribute estimated values.
         # Preserve available estimates with unknown calculation status;
         # the figure identifies them separately from successful results.
-        if scenario in scenario_status.failed_scenarios:
+        if scenario_id in scenario_status.failed_scenarios:
             continue
 
-        position = scenario_positions.get(scenario)
+        position = scenario_positions.get(scenario_id)
 
         if position is not None and np.isfinite(value):
             aligned_estimated[position] = value
