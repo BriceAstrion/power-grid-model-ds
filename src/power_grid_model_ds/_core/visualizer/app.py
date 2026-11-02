@@ -16,9 +16,11 @@ from power_grid_model_ds._core.visualizer.layout.cytoscape_html import get_cytos
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
 from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
 from power_grid_model_ds._core.visualizer.layout.layout_config import get_default_graph_layout
+from power_grid_model_ds._core.visualizer.layout.scenario_status import get_scenario_status_html
 from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTION_GRAPH_HTML, SELECTION_OUTPUT_HTML
 from power_grid_model_ds._core.visualizer.parsers import parse_element_data
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
+from power_grid_model_ds._core.visualizer.server_state import get_scenario_status
 
 GOOGLE_FONTS = "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
 MDBOOTSTRAP = "https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.2.0/mdb.min.css"
@@ -62,5 +64,6 @@ def get_app_layout(grid: Grid) -> html.Div:
             cytoscape_html,
             SELECTION_OUTPUT_HTML,
             SELECTION_GRAPH_HTML,
+            get_scenario_status_html(get_scenario_status()),
         ],
     )
