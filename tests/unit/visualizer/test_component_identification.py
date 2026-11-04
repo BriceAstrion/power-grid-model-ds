@@ -5,6 +5,7 @@
 from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks.element_selection import display_selected_elements
+from power_grid_model_ds.arrays import NodeArray
 
 
 def _records(panel):
@@ -20,25 +21,47 @@ def _selection_records(node_data, edge_data):
 
 
 def test_multiple_selected_nodes_preserve_component_ids():
-    grid = Grid.from_txt("1 2 19")
+    """Resolve visual node IDs to the original PGM IDs and attributes."""
+    grid = Grid.empty()
+    grid.node = NodeArray.empty(2)
+    grid.node.id = [101, 205]
+    grid.node.u_rated = [10000.0, 20000.0]
     server_state.set_app_state(grid)
 
     selected_nodes = [
-        {"associated_ids": {"node": [1]}},
-        {"associated_ids": {"node": [2]}},
+        {
+            "id": "visual-node-101",
+            "group": "node",
+            "associated_ids": {"node": [101]},
+        },
+        {
+            "id": "visual-node-205",
+            "group": "node",
+            "associated_ids": {"node": [205]},
+        },
     ]
 
     records = _selection_records(selected_nodes, [])
 
     assert set(records) == {"node"}
-    assert {record["id"] for record in records["node"]} == {1, 2}
+    assert {record["id"] for record in records["node"]} == {101, 205}
+    assert {record["u_rated"] for record in records["node"]} == {
+        10000.0,
+        20000.0,
+    }
 
 
 def test_selected_line_preserves_component_details():
     grid = Grid.from_txt("1 2 19")
     server_state.set_app_state(grid)
 
-    selected_edges = [{"associated_ids": {"line": [19]}}]
+    selected_edges = [
+        {
+            "id": "visual-edge-19",
+            "group": "line",
+            "associated_ids": {"line": [19]},
+        }
+    ]
     records = _selection_records([], selected_edges)
 
     assert set(records) == {"line"}

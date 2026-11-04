@@ -317,8 +317,15 @@ def test_attribute_filter_restricts_multiple_components():
     assert cells[1].children[0].children == "ID 2: 200.0"
 
 
-def test_display_selected_element_none():
-    result = display_selected_elements([], [])
+@pytest.mark.parametrize(
+    ("node_data", "edge_data"),
+    [
+        ([], []),
+        (None, None),
+    ],
+)
+def test_display_selected_element_none(node_data, edge_data):
+    result = display_selected_elements(node_data, edge_data)
     assert result == SELECTION_OUTPUT_HTML.children
 
 
