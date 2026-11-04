@@ -37,6 +37,9 @@ from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
 from power_grid_model_ds._core.visualizer.layout.layout_config import (
     get_default_graph_layout,
 )
+from power_grid_model_ds._core.visualizer.layout.node_overlap import (
+    separate_coincident_nodes,
+)
 from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     SELECTION_OUTPUT_HTML,
@@ -252,8 +255,14 @@ def get_app_layout(grid: Grid) -> html.Div:
     layout = get_default_graph_layout(grid.node)
     viz_elements_dict = parse_element_data(grid)
 
+    # Separate overlapping nodes for display without changing the original topology.
+    display_elements_dict = separate_coincident_nodes(
+        viz_elements_dict,
+        node_scale=1.0,
+    )
+
     initial_elements = filter_out_appliances(
-        viz_elements_dict.values()
+        display_elements_dict.values()
     )
 
     source_available = grid.source.size != 0
@@ -294,6 +303,14 @@ def get_app_layout(grid: Grid) -> html.Div:
             dcc.Store(
                 id="parsed-elements-store",
                 data=viz_elements_dict,
+            ),
+            # F04: Track node scale and manually adjusted display positions.
+            dcc.Store(
+                id="node-position-state-store",
+                data={
+                    "scale": 1.0,
+                    "manual_positions": {},
+                },
             ),
             dcc.Store(
                 id="stylesheet-store",

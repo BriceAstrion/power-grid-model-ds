@@ -88,14 +88,14 @@ def test_switching_quantity_updates_values_and_legend():
         "power_grid_model_ds._core.visualizer.callbacks.config.server_state.get_output_data",
         return_value=output,
     ):
-        voltage_elements, voltage_legend = update_appliances(
+        voltage_elements, voltage_legend, _ = update_appliances(
             show_appliances=False,
             quantity="u_pu",
             scenario_index=1,
             parsed_elements=parsed_elements,
         )
 
-        angle_elements, angle_legend = update_appliances(
+        angle_elements, angle_legend, _ = update_appliances(
             show_appliances=False,
             quantity="u_angle",
             scenario_index=1,
@@ -138,7 +138,7 @@ def test_missing_node_value_is_not_displayed_as_valid():
         "power_grid_model_ds._core.visualizer.callbacks.config.server_state.get_output_data",
         return_value=output,
     ):
-        elements, legend = update_appliances(
+        elements, legend, _ = update_appliances(
             show_appliances=False,
             quantity="u_angle",
             scenario_index=1,

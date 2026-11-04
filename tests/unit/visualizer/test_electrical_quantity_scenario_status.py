@@ -85,7 +85,7 @@ def test_successful_scenario_displays_electrical_values():
         failed_scenarios=frozenset({0}),
     )
 
-    elements, legend = _run_callback(status)
+    elements, legend, _  = _run_callback(status)
 
     assert _has_electrical_values(elements)
     assert "Voltage magnitude" in _legend_text(legend)
@@ -113,7 +113,7 @@ def test_successful_scenario_displays_electrical_values():
 def test_unsuccessful_or_unknown_scenario_suppresses_colouring(
     status, expected_message
 ):
-    elements, legend = _run_callback(status)
+    elements, legend, _  = _run_callback(status)
 
     assert not _has_electrical_values(elements)
     assert all(
@@ -124,7 +124,7 @@ def test_unsuccessful_or_unknown_scenario_suppresses_colouring(
 
 
 def test_missing_status_preserves_colouring_with_warning():
-    elements, legend = _run_callback(None)
+    elements, legend, _  = _run_callback(None)
 
     assert _has_electrical_values(elements)
     assert "Calculation status was not provided" in _legend_text(legend)
@@ -136,8 +136,8 @@ def test_switching_from_successful_to_failed_clears_colouring():
         failed_scenarios=frozenset({1}),
     )
 
-    successful_elements, _ = _run_callback(status, scenario_index=0)
-    failed_elements, _ = _run_callback(status, scenario_index=1)
+    successful_elements, _, _ = _run_callback(status, scenario_index=0)
+    failed_elements, _, _ = _run_callback(status, scenario_index=1)
 
     assert _has_electrical_values(successful_elements)
     assert not _has_electrical_values(failed_elements)

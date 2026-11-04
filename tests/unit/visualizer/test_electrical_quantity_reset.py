@@ -54,7 +54,7 @@ def _assert_default_node(element: dict) -> None:
 
 def test_clearing_quantity_restores_default_colours():
     """Clearing Quantity restores the default appearance and legend."""
-    elements, legend = update_appliances(
+    elements, legend, _ = update_appliances(
         show_appliances=False,
         quantity="none",
         scenario_index=0,
@@ -68,7 +68,7 @@ def test_clearing_quantity_restores_default_colours():
 
 def test_clearing_scenario_restores_default_colours():
     """Clearing Scenario removes the active electrical visualisation."""
-    elements, legend = update_appliances(
+    elements, legend, _ = update_appliances(
         show_appliances=False,
         quantity="u_pu",
         scenario_index=None,
@@ -82,7 +82,7 @@ def test_clearing_scenario_restores_default_colours():
 
 def test_initial_empty_selection():
     """Both dropdowns can start without an active selection."""
-    elements, legend = update_appliances(
+    elements, legend, _ = update_appliances(
         show_appliances=False,
         quantity=None,
         scenario_index=None,
@@ -98,7 +98,7 @@ def test_reset_removes_electrical_value():
     """Reset removes the result value and restores the node colour."""
     parsed_elements = _parsed_elements()
 
-    elements, legend = update_appliances(
+    elements, legend, _ = update_appliances(
         show_appliances=False,
         quantity="u_pu",
         scenario_index=None,
