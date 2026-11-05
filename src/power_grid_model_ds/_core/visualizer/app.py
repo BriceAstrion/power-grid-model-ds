@@ -8,12 +8,14 @@ from power_grid_model import ComponentType
 from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # pylint: disable=unused-import
     config,
+    diagnostic_overview,
     element_selection,
     header,
     search_form,
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_html import get_cytoscape_html
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
+from power_grid_model_ds._core.visualizer.layout.diagnostic_overview import get_diagnostic_overview_html
 from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
 from power_grid_model_ds._core.visualizer.layout.layout_config import get_default_graph_layout
 from power_grid_model_ds._core.visualizer.layout.scenario_status import get_scenario_status_html
@@ -65,5 +67,6 @@ def get_app_layout(grid: Grid) -> html.Div:
             SELECTION_OUTPUT_HTML,
             SELECTION_GRAPH_HTML,
             get_scenario_status_html(get_scenario_status()),
+            get_diagnostic_overview_html(),
         ],
     )
