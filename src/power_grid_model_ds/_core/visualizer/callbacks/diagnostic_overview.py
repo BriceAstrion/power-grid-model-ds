@@ -12,6 +12,12 @@ from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
 )
 
 
+def find_voltage_sensors_for_node(node_id: int, grid) -> list[int]:
+    """Return IDs of symmetric voltage sensors measuring the given node."""
+    sensors = grid.sym_voltage_sensor.filter(measured_object=[node_id])
+    return [int(sensor_id) for sensor_id in sensors.id]
+
+
 @callback(
     Output("diagnostic-overview-content", "children"),
     Input("cytoscape-graph", "selectedNodeData"),

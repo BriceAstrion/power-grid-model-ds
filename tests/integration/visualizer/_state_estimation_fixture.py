@@ -96,7 +96,7 @@ def make_state_estimation_input_data():
     sym_current_sensor[AttributeType.i_angle_measured] = [-0.20864859135578062, 1.368, 1.349]
 
     # all
-    input_data = {
+    return {
         ComponentType.node: node,
         ComponentType.line: line,
         ComponentType.sym_load: sym_load,
@@ -105,4 +105,3 @@ def make_state_estimation_input_data():
         ComponentType.sym_power_sensor: sym_power_sensor,
         ComponentType.sym_current_sensor: sym_current_sensor,
     }
-    return input_data

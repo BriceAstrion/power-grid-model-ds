@@ -16,6 +16,7 @@ from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # py
     element_selection,
     header,
     search_form,
+    timestamp_selection,
     voltage_comparison,
     workspace,
 )
@@ -47,6 +48,7 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     SELECTION_OUTPUT_HTML,
 )
+from power_grid_model_ds._core.visualizer.layout.timestamp_selection import get_timestamp_selection_html
 from power_grid_model_ds._core.visualizer.layout.voltage_comparison import (
     VOLTAGE_COMPARISON_HTML,
 )
@@ -55,14 +57,8 @@ from power_grid_model_ds._core.visualizer.parsing_utils import (
     filter_out_appliances,
 )
 
-GOOGLE_FONTS = (
-    "https://fonts.googleapis.com/css?family="
-    "Roboto:300,400,500,700&display=swap"
-)
-MDBOOTSTRAP = (
-    "https://cdnjs.cloudflare.com/ajax/libs/"
-    "mdb-ui-kit/8.2.0/mdb.min.css"
-)
+GOOGLE_FONTS = "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+MDBOOTSTRAP = "https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.2.0/mdb.min.css"
 
 PANEL_BORDER = "1px solid #dee2e6"
 
@@ -101,9 +97,7 @@ def _get_columns_store(grid: Grid) -> dcc.Store:
             ComponentType.line: grid.line.columns,
             ComponentType.link: grid.link.columns,
             ComponentType.transformer: grid.transformer.columns,
-            ComponentType.three_winding_transformer: (
-                grid.three_winding_transformer.columns
-            ),
+            ComponentType.three_winding_transformer: (grid.three_winding_transformer.columns),
             ComponentType.asym_line: grid.asym_line.columns,
             ComponentType.generic_branch: grid.generic_branch.columns,
             "branches": grid.branches.columns,
@@ -263,9 +257,7 @@ def get_app_layout(grid: Grid) -> html.Div:
         node_scale=1.0,
     )
 
-    initial_elements = filter_out_appliances(
-        display_elements_dict.values()
-    )
+    initial_elements = filter_out_appliances(display_elements_dict.values())
 
     source_available = grid.source.size != 0
 
@@ -277,9 +269,7 @@ def get_app_layout(grid: Grid) -> html.Div:
 
     initial_state = DEFAULT_STATE.copy()
 
-    grid_style, left_style, right_style = panel_styles(
-        initial_state
-    )
+    grid_style, left_style, right_style = panel_styles(initial_state)
 
     output_data = server_state.get_output_data()
 
@@ -294,13 +284,11 @@ def get_app_layout(grid: Grid) -> html.Div:
     return html.Div(
         [
             columns_store,
-
             # State used by the workspace toolbar callbacks.
             dcc.Store(
                 id="workspace-panel-state",
                 data=initial_state,
             ),
-
             # Existing visualiser stores.
             dcc.Store(
                 id="parsed-elements-store",
@@ -327,7 +315,6 @@ def get_app_layout(grid: Grid) -> html.Div:
                 data=False,
                 storage_type="session",
             ),
-
             # Preserve the existing navigation bar.
             HEADER_HTML,
             html.Hr(
@@ -336,13 +323,10 @@ def get_app_layout(grid: Grid) -> html.Div:
                     "margin": "0",
                 }
             ),
-
             # F01: Electrical quantity and scenario controls.
             electrical_controls,
-
             # Compact toolbar above the workspace.
             _get_workspace_toolbar(),
-
             # Three-column workspace.
             html.Div(
                 [
@@ -414,7 +398,6 @@ def get_app_layout(grid: Grid) -> html.Div:
                         id="workspace-left-panel",
                         style=left_style,
                     ),
-
                     # Center: interactive electrical network.
                     # Keep this permanently assigned to column 2.
                     html.Div(
@@ -429,10 +412,10 @@ def get_app_layout(grid: Grid) -> html.Div:
                             "overflow": "hidden",
                         },
                     ),
-
-                    # Right: component attributes.
+                    # Right: timestamp selection and component attributes.
                     html.Div(
                         [
+                            get_timestamp_selection_html(),
                             SELECTION_OUTPUT_HTML,
                         ],
                         id="workspace-details-panel",
@@ -442,7 +425,6 @@ def get_app_layout(grid: Grid) -> html.Div:
                 id="workspace-main",
                 style=grid_style,
             ),
-
             # Preserve the existing bottom diagnostic plots.
             html.Div(
                 [

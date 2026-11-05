@@ -5,15 +5,7 @@
 """Integration test for real state-estimation batch failures."""
 
 import numpy as np
-
 from _state_estimation_fixture import make_state_estimation_input_data
-
-from power_grid_model_ds._core.visualizer import server_state
-
-from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
-    update_voltage_comparison,
-)
-
 from power_grid_model import (
     AttributeType,
     CalculationMethod,
@@ -23,16 +15,19 @@ from power_grid_model import (
     initialize_array,
 )
 
-from power_grid_model_ds._core.visualizer.scenario_status import (
-    CalculationStatus,
-    scenario_status_from_batch_error,
-)
-
 from power_grid_model_ds._core.power_grid_model_interface import (
     PowerGridModelInterface,
 )
+from power_grid_model_ds._core.visualizer import server_state
+from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
+    update_voltage_comparison,
+)
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     prepare_voltage_comparison,
+)
+from power_grid_model_ds._core.visualizer.scenario_status import (
+    CalculationStatus,
+    scenario_status_from_batch_error,
 )
 from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
     create_voltage_comparison_figure,
@@ -43,7 +38,7 @@ def test_real_batch_failure_scenario_status(monkeypatch):
     """Convert actual solver batch-error metadata into visualiser statuses."""
 
     input_data = make_state_estimation_input_data()
-    
+
     model = PowerGridModel(input_data)
 
     update_data = {}
@@ -94,7 +89,7 @@ def test_real_batch_failure_scenario_status(monkeypatch):
 
     assert len(status.error_messages) == 1
     assert "Not enough measurements" in status.error_messages[0]
-    
+
     assert status.error_for(0) is None
     assert status.error_for(1) is not None
 

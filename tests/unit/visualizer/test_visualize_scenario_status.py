@@ -29,6 +29,7 @@ def test_visualize_forwards_scenario_status():
         None,
         None,
         scenario_status=status,
+        timestamps=None,
     )
     dash_class.return_value.run.assert_called_once_with(
         debug=False,
@@ -52,4 +53,5 @@ def test_visualize_without_scenario_status():
         None,
         None,
         scenario_status=None,
+        timestamps=None,
     )

@@ -20,6 +20,7 @@ try:
     from power_grid_model_ds._core.visualizer.parsers import parse_element_data
     from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
     from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
+    from power_grid_model_ds._core.visualizer.timestamp_selection import validate_timestamps
 except ImportError as error:
     raise ImportError(
         "Missing dependencies for visualizer: install with 'pip install power-grid-model-ds[visualizer]'"
@@ -61,7 +62,7 @@ def save_html(
     Path(path).write_text(html_content, encoding="utf-8")
 
 
-def visualize(
+def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
     grid: Grid,
     update_data=None,
     output_data=None,
@@ -69,6 +70,7 @@ def visualize(
     port: int = 8050,
     *,
     scenario_status: ScenarioStatus | None = None,
+    timestamps: tuple[str, ...] | list[str] | None = None,
 ) -> None:
     """Visualize the Grid.
 
@@ -106,11 +108,14 @@ def visualize(
     else:
         grid_obj = grid
 
+    validated_timestamps = validate_timestamps(timestamps, update_data, output_data) if timestamps is not None else None
+
     server_state.set_app_state(
         grid_obj,
         update_data,
         output_data,
         scenario_status=scenario_status,
+        timestamps=validated_timestamps,
     )
 
     assets_folder = Path(__file__).resolve().parent / "_core" / "visualizer" / "assets"

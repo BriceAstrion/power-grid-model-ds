@@ -7,14 +7,14 @@
 from unittest.mock import MagicMock, patch
 
 from dash.development.base_component import Component
-
 from power_grid_model import ComponentType, initialize_array
-from power_grid_model_ds.arrays import SymVoltageSensorArray
+
 from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview import (
     find_voltage_sensors_for_node,
     update_diagnostic_overview,
 )
+from power_grid_model_ds.arrays import SymVoltageSensorArray
 
 
 def _visible_text(component):
