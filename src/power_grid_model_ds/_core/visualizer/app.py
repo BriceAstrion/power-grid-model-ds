@@ -40,6 +40,9 @@ from power_grid_model_ds._core.visualizer.layout.layout_config import (
 from power_grid_model_ds._core.visualizer.layout.node_overlap import (
     separate_coincident_nodes,
 )
+from power_grid_model_ds._core.visualizer.layout.scenario_status import (
+    get_scenario_status_html,
+)
 from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     SELECTION_OUTPUT_HTML,
@@ -347,18 +350,66 @@ def get_app_layout(grid: Grid) -> html.Div:
                     # Left: diagnostic overview.
                     html.Div(
                         [
-                            html.H5("Diagnostic overview"),
-                            html.P(
-                                "Select a network component to "
-                                "inspect its available data and "
-                                "diagnostics.",
-                                style={"fontSize": "0.9rem"},
-                            ),
-                            html.Hr(),
                             html.Div(
-                                "No diagnostic summary selected.",
-                                id="diagnostic-overview-content",
-                                role="status",
+                                [
+                                    html.I(
+                                        className="bi bi-activity",
+                                        **{"aria-hidden": "true"},
+                                        style={
+                                            "fontSize": "18px",
+                                            "color": "#64748b",
+                                        },
+                                    ),
+                                    html.H5(
+                                        "Diagnostics",
+                                        style={
+                                            "margin": "0",
+                                            "fontSize": "18px",
+                                            "fontWeight": "600",
+                                        },
+                                    ),
+                                ],
+                                style={
+                                    "display": "flex",
+                                    "alignItems": "center",
+                                    "gap": "10px",
+                                    "marginBottom": "12px",
+                                },
+                            ),
+                            # F07: Batch calculation outcomes.
+                            get_scenario_status_html(server_state.get_scenario_status()),
+                            html.Div(
+                                [
+                                    html.Div(
+                                        [
+                                            html.I(
+                                                className="bi bi-diagram-3",
+                                                **{"aria-hidden": "true"},
+                                                style={"color": "#64748b"},
+                                            ),
+                                            html.Span("Selected node"),
+                                        ],
+                                        style={
+                                            "display": "flex",
+                                            "alignItems": "center",
+                                            "gap": "8px",
+                                            "fontWeight": "600",
+                                            "marginBottom": "10px",
+                                        },
+                                    ),
+                                    html.Div(
+                                        "Select a network node to inspect its diagnostics.",
+                                        id="diagnostic-overview-content",
+                                        role="status",
+                                    ),
+                                ],
+                                style={
+                                    "backgroundColor": "#ffffff",
+                                    "border": "1px solid #dee2e6",
+                                    "borderRadius": "8px",
+                                    "padding": "12px",
+                                    "marginTop": "12px",
+                                },
                             ),
                         ],
                         id="workspace-left-panel",
