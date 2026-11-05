@@ -4,12 +4,15 @@
 
 """Tests for the selected-node diagnostic overview."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from dash.development.base_component import Component
 
+from power_grid_model import ComponentType, initialize_array
+from power_grid_model_ds.arrays import SymVoltageSensorArray
 from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview import (
+    find_voltage_sensors_for_node,
     update_diagnostic_overview,
 )
 
@@ -153,34 +156,17 @@ def test_overview_with_mixed_valid_and_invalid_nodes():
 
 
 def test_overview_with_sensors_associated_with_each_node():
-    """Sensor labels must be associated with their respective nodes."""
+    """Each selected node displays only its associated sensors."""
     grid = _example_grid()
+    data = initialize_array("input", ComponentType.sym_voltage_sensor, 2)
 
-    def mock_sensor_lookup(selected_nodes, lookup_grid):
-        assert lookup_grid is grid
-        assert len(selected_nodes) == 1
+    data["id"] = [101, 202]
+    data["measured_object"] = [1, 2]
+    grid.sym_voltage_sensor = SymVoltageSensorArray(data=data)
 
-        node_id = int(selected_nodes[0]["id"])
-
-        return {
-            1: [{"label": "Sensor 101", "value": 101}],
-            2: [{"label": "Sensor 202", "value": 202}],
-        }.get(node_id, [])
-
-    with (
-        patch(
-            "power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview.server_state.get_grid",
-            return_value=grid,
-        ),
-        patch(
-            "power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview.find_voltage_sensors_for_selection",
-            side_effect=mock_sensor_lookup,
-        ) as sensor_lookup,
-    ):
-        result = update_diagnostic_overview([{"id": "1"}, {"id": "2"}])
+    result = _run_overview(grid, [{"id": "1"}, {"id": "2"}])
 
     assert len(result) == 2
-    assert sensor_lookup.call_count == 2
 
     first_node = _visible_text(result[0])
     second_node = _visible_text(result[1])
@@ -195,22 +181,48 @@ def test_overview_with_sensors_associated_with_each_node():
 
 
 def test_overview_with_node_without_sensors():
-    """A node without matching sensors must be reported explicitly."""
+    """Report when the selected node has no associated sensors."""
     grid = _example_grid()
 
-    with (
-        patch(
-            "power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview.server_state.get_grid",
-            return_value=grid,
-        ),
-        patch(
-            "power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview.find_voltage_sensors_for_selection",
-            return_value=[],
-        ),
-    ):
-        result = update_diagnostic_overview([{"id": "2"}])
+    result = _run_overview(grid, [{"id": "2"}])
 
     text = _visible_text(result)
 
     assert "Node 2" in text
     assert "No associated symmetric voltage sensors" in text
+
+
+def test_selected_node_displays_associated_voltage_sensors():
+    """Show symmetric voltage sensors associated with a selected node."""
+
+    grid = MagicMock()
+    grid.node.id = [1, 2]
+    grid.sym_voltage_sensor.filter.return_value.id = [101, 102]
+
+    with patch(
+        "power_grid_model_ds._core.visualizer.callbacks.diagnostic_overview.server_state.get_grid",
+        return_value=grid,
+    ):
+        result = update_diagnostic_overview([{"id": 1}])
+
+    content = _visible_text(result)
+
+    assert "Node 1" in content
+    assert "Sensor 101" in content
+    assert "Sensor 102" in content
+    grid.sym_voltage_sensor.filter.assert_called_once_with(measured_object=[1])
+
+
+def test_real_grid_voltage_sensor_association():
+    """Associate real symmetric voltage sensor records with their nodes."""
+    grid = Grid.from_txt("S1 2 12", "2 3 23")
+    data = initialize_array("input", ComponentType.sym_voltage_sensor, 2)
+
+    data["id"] = [101, 202]
+    data["measured_object"] = [1, 2]
+
+    grid.sym_voltage_sensor = SymVoltageSensorArray(data=data)
+
+    assert find_voltage_sensors_for_node(1, grid) == [101]
+    assert find_voltage_sensors_for_node(2, grid) == [202]
+    assert find_voltage_sensors_for_node(3, grid) == []

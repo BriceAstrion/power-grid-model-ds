@@ -86,8 +86,8 @@ def test_appliance_visibility_preserves_node_separation():
     assert hidden_positions["2"] != hidden_positions["3"]
     assert abs(visible_positions["3"]["x"] - visible_positions["2"]["x"]) == 175.0
 
-    assert hidden_legend == "No electrical quantity selected."
-    assert visible_legend == "No electrical quantity selected."
+    assert hidden_legend == ""
+    assert visible_legend == ""
     assert final_state["scale"] == 2.0
     assert final_state["manual_positions"] == {}
     assert parsed_elements == original_elements

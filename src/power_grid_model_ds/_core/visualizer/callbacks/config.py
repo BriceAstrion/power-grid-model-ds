@@ -256,11 +256,11 @@ def update_appliances(  # noqa: PLR0913, PLR0917
         else filter_out_appliances(display_elements.values())
     )
 
-    # Reset electrical colouring when no quantity is selected.
+    # Reset electrical colouring and hide the legend when no quantity is selected.
     if quantity in (None, "none"):
         return (
             clear_electrical_colors(elements),
-            "No electrical quantity selected.",
+            "",
             new_position_state,
         )
 

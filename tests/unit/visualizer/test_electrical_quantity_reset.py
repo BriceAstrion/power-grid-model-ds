@@ -63,7 +63,7 @@ def test_clearing_quantity_restores_default_colours():
 
     assert len(elements) == 1
     _assert_default_node(elements[0])
-    assert legend == "No electrical quantity selected."
+    assert legend == ""
 
 
 def test_clearing_scenario_restores_default_colours():
@@ -91,7 +91,7 @@ def test_initial_empty_selection():
 
     assert len(elements) == 1
     _assert_default_node(elements[0])
-    assert legend == "No electrical quantity selected."
+    assert legend == ""
 
 
 def test_reset_removes_electrical_value():

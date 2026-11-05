@@ -239,7 +239,6 @@ def _get_electrical_quantity_controls(
                 className="electrical-controls-grid",
             ),
             html.Div(
-                "No electrical quantity selected.",
                 id="electrical-quantity-legend",
                 className="electrical-quantity-legend",
                 role="status",

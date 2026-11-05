@@ -244,6 +244,9 @@
     min-height: 28px;
 }
 
+.electrical-quantity-legend:empty {
+    display: none;
+}
 
 /*
  * F01 electrical legend
