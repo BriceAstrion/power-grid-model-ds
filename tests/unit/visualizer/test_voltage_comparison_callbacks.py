@@ -2,10 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""Tests for symmetric voltage comparison callbacks."""
-
-from types import SimpleNamespace
-from unittest.mock import ANY, Mock
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -16,13 +13,8 @@ from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks import voltage_comparison
 from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
     find_voltage_sensors_for_selection,
-    format_scenario_failure_message,
     update_voltage_comparison,
     update_voltage_sensor_options,
-)
-from power_grid_model_ds._core.visualizer.scenario_status import (
-    ScenarioStatus,
-    scenario_status_from_batch_error,
 )
 
 
@@ -97,9 +89,7 @@ def test_rejects_unknown_node(voltage_grid):
 def test_sensor_options_callback(voltage_grid, monkeypatch):
     monkeypatch.setattr(server_state, "get_grid", lambda: voltage_grid)
 
-    options, selected = update_voltage_sensor_options(
-        [{"id": "2001"}]
-    )
+    options, selected = update_voltage_sensor_options([{"id": "2001"}])
 
     assert options == [{"label": "Sensor 12002", "value": 12002}]
     assert selected == 12002
@@ -160,35 +150,26 @@ def test_comparison_callback_handles_no_sensor():
     assert "Select one node" in message
 
 
-def test_comparison_callback_forwards_scenario_status(monkeypatch):
-    """Forward calculation status without rerunning state estimation."""
-    status = ScenarioStatus(
-        succeeded_scenarios=frozenset({0, 2}),
-        failed_scenarios=frozenset({1}),
-    )
-
+def test_comparison_callback_uses_available_data_without_status(
+    monkeypatch,
+):
     comparison = Mock()
     figure = Mock()
 
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_grid",
-        Mock,
+        Mock(return_value="grid"),
     )
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_update_data",
-        Mock,
+        Mock(return_value="updates"),
     )
     monkeypatch.setattr(
         voltage_comparison.server_state,
         "get_output_data",
-        Mock,
-    )
-    monkeypatch.setattr(
-        voltage_comparison.server_state,
-        "get_scenario_status",
-        lambda: status,
+        Mock(return_value="outputs"),
     )
 
     prepare = Mock(return_value=comparison)
@@ -205,49 +186,19 @@ def test_comparison_callback_forwards_scenario_status(monkeypatch):
         create_figure,
     )
 
-    result_figure, style, message = (
-        voltage_comparison.update_voltage_comparison(12001, 3.0)
-    )
+    result_figure, style, message = update_voltage_comparison(12001, 3.0)
 
     prepare.assert_called_once_with(
-        grid=ANY,
-        update_data=ANY,
-        output_data=ANY,
+        grid="grid",
+        update_data="updates",
+        output_data="outputs",
         sensor_id=12001,
-        scenario_status=status,
     )
-
     create_figure.assert_called_once_with(
         comparison,
         multiplier=3.0,
-        scenario_status=status,
     )
 
     assert result_figure is figure
     assert style == {"display": "block"}
-    assert message == "Scenario 1 failed."
-
-
-def test_formats_scenario_specific_failure_messages():
-    """Display each solver error against its corresponding scenario."""
-    batch_error = SimpleNamespace(
-        succeeded_scenarios=[0, 2],
-        failed_scenarios=[3, 1],
-        error_messages=[
-            "Calculation did not converge.",
-            "Not enough measurements.\nNo voltage sensor found!",
-        ],
-    )
-
-    status = scenario_status_from_batch_error(
-        batch_error,
-        scenario_count=4,
-    )
-
-    message = format_scenario_failure_message(status)
-
-    assert message == (
-        "Scenario 1 failed: Not enough measurements. "
-        "No voltage sensor found! "
-        "Scenario 3 failed: Calculation did not converge."
-    )
+    assert message == ""

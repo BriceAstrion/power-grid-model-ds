@@ -4,8 +4,8 @@
 
 """Manual browser test for integrated visualiser functionality.
 
-Covers interactive inspection of F01-F04 and F07 using a real
-state-estimation network and solver-produced scenario outcomes.
+Uses real state-estimation results to inspect electrical information,
+network components, node positions, and voltage measurements.
 
 Run from the repository root:
     uv run --no-sync python tests/manual/visualizer/manual_integrated_features_test.py
@@ -25,10 +25,6 @@ from power_grid_model import (
 )
 
 from power_grid_model_ds._core.power_grid_model_interface import PowerGridModelInterface
-from power_grid_model_ds._core.visualizer.scenario_status import (
-    CalculationStatus,
-    scenario_status_from_batch_error,
-)
 from power_grid_model_ds.visualizer import visualize
 
 
@@ -50,10 +46,10 @@ def load_fixture():
 
 
 def make_scenario_updates(input_data):
-    """Prepare two scenarios, including one with unusable sensor sigmas."""
+    """Prepare two scenarios with finite sensor uncertainties."""
     update_data = {}
 
-    for component, sigma_field in (
+    for component, _sigma_field in (
         (ComponentType.sym_voltage_sensor, AttributeType.u_sigma),
         (ComponentType.sym_power_sensor, AttributeType.power_sigma),
         (ComponentType.sym_current_sensor, AttributeType.i_sigma),
@@ -65,14 +61,13 @@ def make_scenario_updates(input_data):
             (2, len(sensor_ids)),
         )
         updates[AttributeType.id] = np.tile(sensor_ids, (2, 1))
-        updates[sigma_field][1, :] = np.inf
         update_data[component] = updates
 
     return update_data
 
 
 def run_state_estimation(input_data, update_data):
-    """Calculate real results and verify the expected scenario outcomes."""
+    """Calculate two scenarios and reject reported batch failures."""
     model = PowerGridModel(input_data)
 
     output_data = model.calculate_state_estimation(
@@ -84,36 +79,28 @@ def run_state_estimation(input_data, update_data):
         continue_on_batch_error=True,
     )
 
+    if model.batch_error is not None:
+        raise RuntimeError(
+            "State estimation reported a batch error. The manual visualiser test requires successful scenarios."
+        )
+
     if output_data[ComponentType.node].shape[0] != 2:
         raise RuntimeError("Expected two state-estimation scenarios.")
 
-    batch_error = model.batch_error
-    if batch_error is None:
-        raise RuntimeError("Expected a solver-reported failure for scenario 1.")
-
-    status = scenario_status_from_batch_error(
-        batch_error,
-        scenario_count=2,
-    )
-
-    if status.status_for(0) != CalculationStatus.SUCCEEDED or status.status_for(1) != CalculationStatus.FAILED:
-        raise RuntimeError("Unexpected scenario outcomes; cannot use this test setup.")
-
-    return output_data, status
+    return output_data
 
 
-def print_test_information(input_data, status):
-    """Print reproducible reference information for browser inspection."""
+def print_test_information(input_data):
+    """Print network references and browser inspection tasks."""
     print("\n=== Integrated visualiser manual test ===")
-    print("Requirements: F01, F02, F03, F04, F07")
+    print("State estimation: two scenarios without reported batch errors")
 
     print("\nNetwork nodes:")
     for node_id in input_data[ComponentType.node][AttributeType.id]:
         print(f"  Node {int(node_id)}")
 
     print("\nNetwork lines:")
-    lines = input_data[ComponentType.line]
-    for line in lines:
+    for line in input_data[ComponentType.line]:
         print(
             f"  Line {int(line[AttributeType.id])}: "
             f"node {int(line[AttributeType.from_node])} -> "
@@ -121,46 +108,36 @@ def print_test_information(input_data, status):
         )
 
     print("\nVoltage sensor associations:")
-    sensors = input_data[ComponentType.sym_voltage_sensor]
-    for sensor in sensors:
+    for sensor in input_data[ComponentType.sym_voltage_sensor]:
         print(f"  Node {int(sensor[AttributeType.measured_object])}: Sensor {int(sensor[AttributeType.id])}")
 
-    print("\nState-estimation scenario outcomes:")
-    for scenario in (0, 1):
-        result = status.status_for(scenario)
-        print(f"  Scenario {scenario}: {result}")
-        error = status.error_for(scenario)
-        if error:
-            print(f"    Solver error: {error}")
-
     print("\n=== Browser inspection checklist ===")
-    print("F01: Inspect available electrical information controls.")
-    print("F02: Identify nodes 1, 2 and 6 and the network components.")
-    print("F03: Inspect attributes for individual and multiple nodes.")
-    print("F04: Verify lines 3 (1-2), 5 (2-6), 8 (1-6).")
-    print("F07: Verify one succeeded and one failed scenario.")
-    print("F07: Select nodes 1, 2 and 6 together.")
-    print("     Expected voltage sensors: 11, 12 and 13 respectively.")
-    print("F07: Deselect nodes and verify diagnostics update.")
-    print("\nRecord any discrepancies and capture browser evidence.")
+    print("1. Inspect available electrical information controls.")
+    print("2. Identify nodes and network components.")
+    print("3. Inspect attributes for individual and multiple nodes.")
+    print("4. Verify network connections and node positions.")
+    print("5. Select a node with a symmetric voltage sensor.")
+    print("6. Compare measured and estimated voltage series.")
+    print("7. Change the sigma multiplier and inspect the bands.")
+    print("8. Inspect the diagnostic overview, where available.")
+    print("\nRecord discrepancies and capture browser evidence.")
 
 
 def main():
     input_data = load_fixture()
     update_data = make_scenario_updates(input_data)
-    output_data, status = run_state_estimation(input_data, update_data)
+    output_data = run_state_estimation(input_data, update_data)
 
     interface = PowerGridModelInterface(input_data=input_data)
     grid = interface.create_grid_from_input_data()
 
-    print_test_information(input_data, status)
+    print_test_information(input_data)
 
     print("\nStarting visualiser: http://127.0.0.1:8050")
     visualize(
         grid,
         update_data=update_data,
         output_data=output_data,
-        scenario_status=status,
         debug=False,
         port=8050,
     )

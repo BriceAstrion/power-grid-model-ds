@@ -5,7 +5,7 @@
 from copy import deepcopy
 from math import isclose
 
-from dash import Input, Output, State, callback, html
+from dash import Input, Output, State, callback
 from dash.exceptions import PreventUpdate
 from power_grid_model import ComponentType
 
@@ -21,7 +21,6 @@ from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOpti
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
 from power_grid_model_ds._core.visualizer.layout.node_overlap import separate_coincident_nodes
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
-from power_grid_model_ds._core.visualizer.scenario_status import CalculationStatus
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 from power_grid_model_ds._core.visualizer.typing import STYLESHEET
 
@@ -276,26 +275,6 @@ def update_appliances(  # noqa: PLR0913, PLR0917
     if quantity not in ("u_pu", "u_angle"):
         raise ValueError(f"Unsupported electrical quantity: {quantity}")
 
-    # Suppress colouring for failed or unknown scenarios when status is available
-    scenario_status = server_state.get_scenario_status()
-
-    if scenario_status is not None:
-        status = scenario_status.status_for(int(scenario_index))
-
-        if status == CalculationStatus.FAILED:
-            return (
-                clear_electrical_colors(elements),
-                "State-estimation calculation failed for the selected scenario. Electrical values are not displayed.",
-                new_position_state,
-            )
-
-        if status == CalculationStatus.UNKNOWN:
-            return (
-                clear_electrical_colors(elements),
-                "Calculation status is unknown for the selected scenario. Electrical values are not displayed.",
-                new_position_state,
-            )
-
     values = extract_scenario_values(
         server_state.get_output_data(),
         ComponentType.node,
@@ -316,15 +295,5 @@ def update_appliances(  # noqa: PLR0913, PLR0917
         missing_count=legend["missing_count"],
         quantity=quantity,
     )
-
-    if scenario_status is None:
-        legend_content.children.append(
-            html.P(
-                "Calculation status was not provided. "
-                "Displayed values are not confirmed as successful "
-                "calculation results.",
-                className="electrical-legend-note",
-            )
-        )
 
     return colored_elements, legend_content, new_position_state

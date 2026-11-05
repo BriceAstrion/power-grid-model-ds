@@ -16,24 +16,6 @@ from power_grid_model_ds._core.visualizer.voltage_comparison_figure import (
 )
 
 
-def format_scenario_failure_message(scenario_status):
-    """Summarise solver-reported failures for the voltage comparison."""
-    if scenario_status is None or not scenario_status.failed_scenarios:
-        return ""
-
-    messages = []
-
-    for scenario in sorted(scenario_status.failed_scenarios):
-        reason = scenario_status.error_for(scenario)
-
-        if reason:
-            reason = " ".join(reason.split())
-            messages.append(f"Scenario {scenario} failed: {reason}")
-        else:
-            messages.append(f"Scenario {scenario} failed.")
-
-    return " ".join(messages)
-
 def find_voltage_sensors_for_selection(selected_nodes, grid):
     """Return symmetric voltage sensors for one selected network node."""
     if not selected_nodes or len(selected_nodes) != 1:
@@ -51,10 +33,7 @@ def find_voltage_sensors_for_selection(selected_nodes, grid):
     sensors = grid.sym_voltage_sensor
     matches = sensors.filter(measured_object=[node_id])
 
-    return [
-        {"label": f"Sensor {int(sensor_id)}", "value": int(sensor_id)}
-        for sensor_id in matches.id
-    ]
+    return [{"label": f"Sensor {int(sensor_id)}", "value": int(sensor_id)} for sensor_id in matches.id]
 
 
 @callback(
@@ -89,24 +68,16 @@ def update_voltage_comparison(sensor_id, multiplier):
         )
 
     try:
-        scenario_status = server_state.get_scenario_status()
-
         comparison = prepare_voltage_comparison(
             grid=server_state.get_grid(),
             update_data=server_state.get_update_data(),
             output_data=server_state.get_output_data(),
             sensor_id=int(sensor_id),
-            scenario_status=scenario_status,
         )
 
         figure = create_voltage_comparison_figure(
             comparison,
             multiplier=float(multiplier),
-            scenario_status=scenario_status,
-        )
-
-        failure_message = format_scenario_failure_message(
-            scenario_status
         )
 
     except (ValueError, TypeError, KeyError) as error:
@@ -116,4 +87,4 @@ def update_voltage_comparison(sensor_id, multiplier):
             f"Voltage comparison unavailable: {error}",
         )
 
-    return figure, {"display": "block"}, failure_message
+    return figure, {"display": "block"}, ""

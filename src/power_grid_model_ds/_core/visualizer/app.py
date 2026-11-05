@@ -41,9 +41,6 @@ from power_grid_model_ds._core.visualizer.layout.layout_config import (
 from power_grid_model_ds._core.visualizer.layout.node_overlap import (
     separate_coincident_nodes,
 )
-from power_grid_model_ds._core.visualizer.layout.scenario_status import (
-    get_scenario_status_html,
-)
 from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     SELECTION_OUTPUT_HTML,
@@ -359,8 +356,6 @@ def get_app_layout(grid: Grid) -> html.Div:
                                     "marginBottom": "12px",
                                 },
                             ),
-                            # F07: Batch calculation outcomes.
-                            get_scenario_status_html(server_state.get_scenario_status()),
                             html.Div(
                                 [
                                     html.Div(
@@ -381,7 +376,7 @@ def get_app_layout(grid: Grid) -> html.Div:
                                         },
                                     ),
                                     html.Div(
-                                        "Select a network node to inspect its diagnostics.",
+                                        "Select a network node to view diagnostics.",
                                         id="diagnostic-overview-content",
                                         role="status",
                                     ),

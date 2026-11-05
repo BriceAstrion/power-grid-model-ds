@@ -19,7 +19,6 @@ try:
     from power_grid_model_ds._core.visualizer.layout.layout_config import get_default_graph_layout, layout_with_config
     from power_grid_model_ds._core.visualizer.parsers import parse_element_data
     from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
-    from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
     from power_grid_model_ds._core.visualizer.timestamp_selection import validate_timestamps
 except ImportError as error:
     raise ImportError(
@@ -69,7 +68,6 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
     debug: bool = False,
     port: int = 8050,
     *,
-    scenario_status: ScenarioStatus | None = None,
     timestamps: tuple[str, ...] | list[str] | None = None,
 ) -> None:
     """Visualize the Grid.
@@ -77,10 +75,8 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
     grid: Grid
         The grid to visualize.
 
-    scenario_status: ScenarioStatus | None
-        Optional calculation status for batch state-estimation scenarios.
-        When omitted, calculation status is unknown. Status must come from
-        the calculation that produced output_data, not from inferred values.
+    timestamps: tuple[str, ...] | list[str] | None
+        Optional observation timestamps for F05 date-and-time selection.
 
     layout: str
         The layout to use.
@@ -95,7 +91,7 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
             - "circle": A layout that places the nodes in a circle.
             - "concentric": A layout that places the nodes in concentric circles.
             - "grid": A layout that places the nodes in a grid matrix.
-            - "cose": A layout that uses the CompoundSpring Embedder algorithm (force-directed layout)
+            - "cose": A layout that uses the Compound Spring Embedder algorithm (force-directed layout)
     """
     if update_data is not None and output_data is not None:
         dynamic_class_update = extend_grid_dynamically(type(grid), extra_dataset=update_data)
@@ -114,7 +110,6 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
         grid_obj,
         update_data,
         output_data,
-        scenario_status=scenario_status,
         timestamps=validated_timestamps,
     )
 

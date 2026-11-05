@@ -22,7 +22,6 @@ from power_grid_model import ComponentType
 from power_grid_model.data_types import DenseBatchArray
 
 from power_grid_model_ds._core.model.grids.base import Grid
-from power_grid_model_ds._core.visualizer.scenario_status import ScenarioStatus
 
 
 @dataclass
@@ -32,7 +31,6 @@ class _AppState:
     grid: Grid | None = None
     update_data: dict[ComponentType, DenseBatchArray] | None = None
     output_data: dict[ComponentType, DenseBatchArray] | None = None
-    scenario_status: ScenarioStatus | None = None
     timestamps: tuple[str, ...] | None = None
 
 
@@ -43,24 +41,21 @@ def set_app_state(
     grid: Grid,
     update_data: dict[ComponentType, DenseBatchArray] | None = None,
     output_data: dict[ComponentType, DenseBatchArray] | None = None,
-    scenario_status: ScenarioStatus | None = None,
     *,
     timestamps: tuple[str, ...] | None = None,
 ) -> None:
-    """Set the application state in a thread-safe manner."""
+    """Set the application state for the visualizer."""
     _state.grid = grid
     _state.update_data = update_data
     _state.output_data = output_data
-    _state.scenario_status = scenario_status
     _state.timestamps = timestamps
 
 
 def get_grid() -> Grid:
-    """Get the Grid instance in a thread-safe manner.
+    """Get the Grid instance.
 
     Raises:
         RuntimeError: If state has not been initialized.
-        Visualizer would not function properly if this happens, so we raise an error to catch this unexpected state.
     """
     if _state.grid is None:
         raise RuntimeError(
@@ -70,18 +65,13 @@ def get_grid() -> Grid:
 
 
 def get_update_data() -> dict[ComponentType, DenseBatchArray] | None:
-    """Get the update data in a thread-safe manner."""
+    """Get the update data."""
     return _state.update_data
 
 
 def get_output_data() -> dict[ComponentType, DenseBatchArray] | None:
-    """Get the output data in a thread-safe manner."""
+    """Get the output data."""
     return _state.output_data
-
-
-def get_scenario_status() -> ScenarioStatus | None:
-    """Return scenario status, or None if calculation status was not provided."""
-    return _state.scenario_status
 
 
 def get_timestamps() -> tuple[str, ...] | None:
