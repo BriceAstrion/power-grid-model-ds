@@ -42,74 +42,80 @@ def update_diagnostic_overview(selected_nodes):
     if not selected_nodes:
         return [message("Select a network node to view diagnostics.")]
 
-    if len(selected_nodes) != 1:
-        return [message("Select one network node at a time.")]
+    children = []
 
-    selected_node = selected_nodes[0]
+    for selected_node in selected_nodes:
+        try:
+            node_id = int(selected_node["id"])
+        except (KeyError, TypeError, ValueError):
+            children.append(message("The selected element is not a network node."))
+            continue
 
-    try:
-        node_id = int(selected_node["id"])
-    except (KeyError, TypeError, ValueError):
-        node_id = None
+        if node_id not in grid.node.id:
+            children.append(message("The selected element is not a network node."))
+            continue
 
-    if node_id is None or node_id not in grid.node.id:
-        return [message("The selected element is not a network node.")]
+        sensors = find_voltage_sensors_for_selection([selected_node], grid)
 
-    sensors = find_voltage_sensors_for_selection(selected_nodes, grid)
+        if sensors:
+            sensor_names = ", ".join(sensor["label"] for sensor in sensors)
+            sensor_text = f"Voltage sensors: {sensor_names}"
+        else:
+            sensor_text = "No associated symmetric voltage sensors"
 
-    children = [
-        html.Div(
-            [
-                html.I(
-                    className="bi bi-hash",
-                    **{"aria-hidden": "true"},
-                    style={"color": "#64748b"},
-                ),
-                html.Span("Node"),
-                html.Span(
-                    str(node_id),
-                    style={
-                        "backgroundColor": "#e9ecef",
-                        "borderRadius": "6px",
-                        "padding": "2px 9px",
-                        "fontWeight": "600",
-                        "color": "#212529",
-                    },
-                ),
-            ],
-            style={
-                "display": "flex",
-                "alignItems": "center",
-                "gap": "8px",
-                "fontSize": "13px",
-            },
+        children.append(
+            html.Div(
+                [
+                    html.Div(
+                        [
+                            html.I(
+                                className="bi bi-hash",
+                                **{"aria-hidden": "true"},
+                                style={"color": "#64748b"},
+                            ),
+                            html.Span("Node"),
+                            html.Span(
+                                str(node_id),
+                                style={
+                                    "backgroundColor": "#e9ecef",
+                                    "borderRadius": "6px",
+                                    "padding": "2px 9px",
+                                    "fontWeight": "600",
+                                    "color": "#212529",
+                                },
+                            ),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "gap": "8px",
+                            "fontSize": "13px",
+                        },
+                    ),
+                    html.Div(
+                        [
+                            html.I(
+                                className="bi bi-broadcast",
+                                **{"aria-hidden": "true"},
+                                style={"color": "#64748b"},
+                            ),
+                            html.Span(sensor_text),
+                        ],
+                        style={
+                            "display": "flex",
+                            "alignItems": "flex-start",
+                            "gap": "8px",
+                            "fontSize": "13px",
+                            "marginTop": "10px",
+                        },
+                    ),
+                ],
+                style={
+                    "paddingBottom": "10px",
+                    "marginBottom": "10px",
+                    "borderBottom": "1px solid #e2e8f0",
+                },
+            )
         )
-    ]
-
-    if sensors:
-        sensor_names = ", ".join(sensor["label"] for sensor in sensors)
-        sensor_text = f"Voltage sensors: {sensor_names}"
-    else:
-        sensor_text = "No associated symmetric voltage sensors"
-
-    children.append(
-        html.Div(
-            [
-                html.I(
-                    className="bi bi-broadcast",
-                    **{"aria-hidden": "true"},
-                    style={"color": "#64748b"},
-                ),
-                html.Span(sensor_text),
-            ],
-            style={
-                "display": "flex",
-                "alignItems": "flex-start",
-                "gap": "8px",
-                "fontSize": "13px",
-                "marginTop": "10px",
-            },
-        )
-    )
 
     return children
