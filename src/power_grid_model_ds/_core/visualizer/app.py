@@ -113,7 +113,7 @@ def _workspace_button(
         id=button_id,
         n_clicks=0,
         title=label,
-        **{"aria-label": label},
+        **{"aria-label": label},  # type: ignore[arg-type]
         style=TOOLBAR_BUTTON_STYLE.copy(),
     )
 
@@ -223,7 +223,7 @@ def _get_electrical_quantity_controls(
                     quantity_field,
                     html.Div(
                         className="electrical-controls-divider",
-                        **{"aria-hidden": "true"},
+                        **{"aria-hidden": "true"},  # type: ignore[arg-type]
                     ),
                     scenario_field,
                 ],
@@ -233,11 +233,11 @@ def _get_electrical_quantity_controls(
                 id="electrical-quantity-legend",
                 className="electrical-quantity-legend",
                 role="status",
-                **{"aria-live": "polite"},
+                **{"aria-live": "polite"},  # type: ignore[arg-type]
             ),
         ],
         className="electrical-quantity-panel",
-        **{"aria-label": "Electrical quantity configuration"},
+        **{"aria-label": "Electrical quantity configuration"},  # type: ignore[arg-type]
     )
 
 
@@ -334,7 +334,7 @@ def get_app_layout(grid: Grid) -> html.Div:
                                 [
                                     html.I(
                                         className="bi bi-activity",
-                                        **{"aria-hidden": "true"},
+                                        **{"aria-hidden": "true"},  # type: ignore[arg-type]
                                         style={
                                             "fontSize": "18px",
                                             "color": "#64748b",
@@ -362,7 +362,7 @@ def get_app_layout(grid: Grid) -> html.Div:
                                         [
                                             html.I(
                                                 className="bi bi-diagram-3",
-                                                **{"aria-hidden": "true"},
+                                                **{"aria-hidden": "true"},  # type: ignore[arg-type]
                                                 style={"color": "#64748b"},
                                             ),
                                             html.Span("Selected node"),

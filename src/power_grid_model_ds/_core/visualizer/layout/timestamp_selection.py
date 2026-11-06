@@ -66,7 +66,7 @@ def get_timestamp_selection_html() -> html.Div:
                         [
                             html.I(
                                 className="fas fa-clock network-state-icon",
-                                **{"aria-hidden": "true"},
+                                **{"aria-hidden": "true"},  # type: ignore[arg-type]
                             ),
                             html.H4(
                                 "Network state",
@@ -74,7 +74,7 @@ def get_timestamp_selection_html() -> html.Div:
                             ),
                             html.I(
                                 className="fas fa-chevron-down network-state-chevron",
-                                **{"aria-hidden": "true"},
+                                **{"aria-hidden": "true"},  # type: ignore[arg-type]
                             ),
                         ],
                         className="network-state-summary",

@@ -79,6 +79,8 @@ def apply_electrical_colors(
 
         value = matching_values[0]
         data["electrical_value"] = value
+        if minimum is None or maximum is None:
+            raise ValueError("Cannot interpolate electrical colours without a value range.")
         data["electrical_color"] = _interpolate_color(value, minimum, maximum)
 
     return updated_elements, {

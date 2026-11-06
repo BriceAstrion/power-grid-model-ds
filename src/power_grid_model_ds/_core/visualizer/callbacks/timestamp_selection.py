@@ -92,7 +92,7 @@ def _quantity_card(attribute: str, value: list[Any]) -> html.Div:
             html.Div(phases, className="row g-2"),
         ],
         className="rounded-3 border p-3 mb-3 bg-light",
-        **{"data-attribute": attribute},
+        **{"data-attribute": attribute},  # type: ignore[arg-type]
     )
 
 
@@ -107,7 +107,7 @@ def _scalar_row(attribute: str, value: object) -> html.Div:
             ),
         ],
         className="d-flex justify-content-between gap-3 py-2 border-bottom",
-        **{"data-attribute": attribute},
+        **{"data-attribute": attribute},  # type: ignore[arg-type]
     )
 
 
@@ -152,7 +152,7 @@ def _state_card(
             className="mb-4",
         )
 
-    available = []
+    available: list[Any] = []
     unavailable = []
 
     for attribute, value in state.items():
@@ -296,7 +296,7 @@ def update_available_times(
     if timestamps is None or selected_date is None:
         return [], None
 
-    options = [
+    options: list[dict[str, str | int]] = [
         {
             "label": timestamp[11:],
             "value": index,
@@ -308,7 +308,7 @@ def update_available_times(
     if not options:
         return [], None
 
-    return options, int(options[0]["value"])
+    return options, next(index for index, timestamp in enumerate(timestamps) if timestamp[:10] == selected_date)
 
 
 @callback(

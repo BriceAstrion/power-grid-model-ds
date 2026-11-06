@@ -107,7 +107,7 @@ def build_electrical_legend(
                         ),
                     },
                     role="img",
-                    **{
+                    **{  # type: ignore[arg-type]
                         "aria-label": (
                             f"Colour scale from {minimum:.4f} {unit} in blue to {maximum:.4f} {unit} in red."
                         ),
@@ -148,7 +148,7 @@ def build_electrical_legend(
                         style={
                             "backgroundColor": MISSING_COLOR,
                         },
-                        **{
+                        **{  # type: ignore[arg-type]
                             "aria-hidden": "true",
                         },
                     ),

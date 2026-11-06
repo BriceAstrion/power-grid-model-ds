@@ -4,6 +4,8 @@
 
 """Tests for electrical quantity Cytoscape styling."""
 
+from typing import Any, cast
+
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 
@@ -13,7 +15,7 @@ def _get_style(selector: str) -> dict:
     matching_rules = [rule["style"] for rule in DEFAULT_STYLESHEET if rule["selector"] == selector]
 
     assert len(matching_rules) == 1
-    return matching_rules[0]
+    return cast(dict[str, Any], matching_rules[0])
 
 
 def test_electrical_node_color_uses_element_data():
