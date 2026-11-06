@@ -69,9 +69,35 @@ def _attribute_text(panel, attribute):
 
 def test_selector_hidden_without_timestamp_metadata():
     configure_state(timestamps=None)
+
     panel = get_timestamp_selection_html()
+
     assert panel.id == "timestamp-selection-container"
-    assert not panel.children
+    assert panel.style == {"display": "none"}
+
+    components = {
+        component.id: component
+        for component in panel.children
+    }
+
+    assert set(components) == {
+        "timestamp-date",
+        "timestamp-time",
+        "timestamp-selector",
+        "timestamp-state-output",
+    }
+
+    assert components["timestamp-date"].disabled is True
+
+    assert components["timestamp-time"].disabled is True
+    assert components["timestamp-time"].options == []
+    assert components["timestamp-time"].value is None
+
+    assert components["timestamp-selector"].disabled is True
+    assert components["timestamp-selector"].options == []
+    assert components["timestamp-selector"].value is None
+
+    assert components["timestamp-state-output"].children is None
 
 
 def test_selector_uses_source_timestamps():

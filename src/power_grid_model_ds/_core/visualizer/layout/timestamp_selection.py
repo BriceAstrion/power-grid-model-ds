@@ -52,7 +52,32 @@ def get_timestamp_selection_html() -> html.Div:
     timestamps = get_timestamps()
 
     if not timestamps:
-        return html.Div(id="timestamp-selection-container")
+        return html.Div(
+            [
+                dcc.DatePickerSingle(
+                    id="timestamp-date",
+                    disabled=True,
+                ),
+                dcc.Dropdown(
+                    id="timestamp-time",
+                    options=[],
+                    value=None,
+                    disabled=True,
+                ),
+                dcc.Dropdown(
+                    id="timestamp-selector",
+                    options=[],
+                    value=None,
+                    disabled=True,
+                ),
+                html.Div(
+                    id="timestamp-state-output",
+                    children=None,
+                ),
+            ],
+            id="timestamp-selection-container",
+            style={"display": "none"},
+        )
 
     dates = _available_dates(timestamps)
     initial_date = timestamps[0][:10]
