@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-from dash import no_update
+from dash import html, no_update
 from dash.exceptions import PreventUpdate
 from plotly import graph_objs as go
 from power_grid_model import ComponentType, initialize_array
@@ -22,6 +22,7 @@ from power_grid_model_ds._core.visualizer.callbacks.config import (
     update_layout,
 )
 from power_grid_model_ds._core.visualizer.callbacks.element_selection import (
+    _attribute_value_button,
     _matches,
     cell_selection_graph,
     display_selected_elements,
@@ -208,10 +209,7 @@ def test_hidden_arrows_remain_hidden_after_scaling():
     )
 
     branch_rules = [
-        rule
-        for rule in displayed_stylesheet
-        if rule["selector"] == ".branch"
-        and "target-arrow-shape" in rule["style"]
+        rule for rule in displayed_stylesheet if rule["selector"] == ".branch" and "target-arrow-shape" in rule["style"]
     ]
 
     assert branch_rules[-1]["style"]["target-arrow-shape"] == "none"
@@ -316,7 +314,6 @@ def test_element_selection_callback():
         assert value.id["attribute"] == attribute
 
 
-
 def test_attribute_filter_popup_only_one_open():
     popup_ids = [
         {"type": "attribute-filter-popup", "group": "node", "attribute": attribute}
@@ -352,6 +349,7 @@ def test_attribute_filter_popup_across_groups():
     with patch(_CTX_PATH, ctx):
         result = toggle_attribute_filter([1, 1], popup_ids, [{"display": "block"}, {"display": "none"}])
     assert [style["display"] for style in result] == ["none", "block"]
+
 
 def test_attribute_filter_comparisons():
     assert _matches(100.0, ">", "90")
@@ -411,6 +409,63 @@ def mock_cell_clicked_ctx():
     ]
     ctx.triggered_id = {"type": "attribute-plot", "group": "node", "attribute": "u_rated", "pgm_id": 1}
     return ctx
+
+
+def test_missing_static_attribute_with_scenario_data_is_clickable():
+    """A missing static value remains selectable when batch output exists."""
+    dtype = np.dtype(
+        [
+            ("id", np.int32),
+            ("u_pu", np.float64),
+        ]
+    )
+
+    output_data = {
+        ComponentType.node: np.array(
+            [
+                [(1, 0.97)],
+                [(1, 0.98)],
+                [(1, 0.99)],
+                [(1, 1.00)],
+            ],
+            dtype=dtype,
+        )
+    }
+
+    server_state.set_app_state(
+        Grid.empty(),
+        output_data=output_data,
+    )
+
+    result = _attribute_value_button(
+        record={"id": 1, "u_pu": None},
+        attribute="u_pu",
+        group="node",
+        include_id=False,
+    )
+
+    assert isinstance(result, html.Button)
+    assert result.id == {
+        "type": "attribute-plot",
+        "group": "node",
+        "attribute": "u_pu",
+        "pgm_id": 1,
+    }
+
+
+def test_missing_static_attribute_without_scenario_data_is_not_clickable():
+    """A missing static value must not create a plot button without batch data."""
+    server_state.set_app_state(Grid.empty())
+
+    result = _attribute_value_button(
+        record={"id": 1, "u_ref": None},
+        attribute="u_ref",
+        group="source",
+        include_id=False,
+    )
+
+    assert isinstance(result, html.Span)
+    assert not isinstance(result, html.Button)
 
 
 def test_cell_selection_graph_invalid_trigger():
@@ -543,16 +598,19 @@ def mock_voltage_sensor_ctx():
     """Simulate clicking u_measured for symmetric voltage sensor 101."""
     ctx = MagicMock()
 
-    ctx.triggered = [{
-        "prop_id": (
-            '{"type":"attribute-plot","group":"sym_voltage_sensor",'
-            '"attribute":"u_measured","pgm_id":101}.n_clicks'
-        ),
-        "value": 1,
-    }]
+    ctx.triggered = [
+        {
+            "prop_id": (
+                '{"type":"attribute-plot","group":"sym_voltage_sensor","attribute":"u_measured","pgm_id":101}.n_clicks'
+            ),
+            "value": 1,
+        }
+    ]
     ctx.triggered_id = {
-        "type": "attribute-plot", "group": "sym_voltage_sensor",
-        "attribute": "u_measured", "pgm_id": 101,
+        "type": "attribute-plot",
+        "group": "sym_voltage_sensor",
+        "attribute": "u_measured",
+        "pgm_id": 101,
     }
 
     return ctx

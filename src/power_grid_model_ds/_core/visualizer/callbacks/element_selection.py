@@ -486,12 +486,23 @@ def _matching_attribute_records(records, active_filters):
     ]
 
 
+def _has_scenario_attribute_data(group: str, component_id: int, attribute: str) -> bool:
+    """Check whether a component has usable batch data for an attribute."""
+    try:
+        comp_type = ComponentType(group)
+        x_array, y_array = _get_y_data_for_cell_selection(comp_type, component_id, attribute)
+    except (KeyError, TypeError, ValueError, IndexError):
+        return False
+
+    return x_array is not None and y_array is not None and len(x_array) > 0 and len(y_array) > 0
+
+
 def _attribute_value_button(record, attribute, group, include_id):
     value = record.get(attribute)
     label = "—" if value is None else str(value)
     if include_id:
         label = f"ID {record['id']}: {label}"
-    if value is None:
+    if value is None and not _has_scenario_attribute_data(group, int(record["id"]), attribute):
         return html.Span(label)
     return html.Button(
         label,
@@ -517,8 +528,7 @@ def _attribute_value_button(record, attribute, group, include_id):
 
 def _attribute_value_cell(output_id, matching, include_id):
     buttons = [
-        _attribute_value_button(record, output_id["attribute"], output_id["group"], include_id)
-        for record in matching
+        _attribute_value_button(record, output_id["attribute"], output_id["group"], include_id) for record in matching
     ]
     if not buttons:
         return "—"
@@ -606,8 +616,10 @@ def _try_voltage_comparison(sensor_id, sigma_multiplier):
         return go.Figure(), hidden, visible
     try:
         comparison = get_symmetric_voltage_comparison(
-            grid=get_grid(), update_data=get_update_data(),
-            output_data=output_data, sensor_id=sensor_id,
+            grid=get_grid(),
+            update_data=get_update_data(),
+            output_data=output_data,
+            sensor_id=sensor_id,
         )
         fig = _create_voltage_comparison_figure(comparison, sensor_id, float(sigma_multiplier))
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -627,14 +639,22 @@ def _create_attribute_graph(comp_type: ComponentType, component_id: int, column:
     else:
         for index in range(y_array.shape[1]):
             colour = ["red", "green", "blue"][index % 3]
-            fig.add_trace(go.Scatter(
-                x=x_array, y=y_array[:, index], mode="lines",
-                line={"width": 2, "color": colour}, name=f"{column}_phase_{index}",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_array,
+                    y=y_array[:, index],
+                    mode="lines",
+                    line={"width": 2, "color": colour},
+                    name=f"{column}_phase_{index}",
+                )
+            )
     fig.update_layout(
         title=f"{comp_type.value} - {column} - id={component_id}",
-        xaxis_title="Scenario Index", yaxis_title=column,
-        template="plotly_white", hovermode="x unified", showlegend=False,
+        xaxis_title="Scenario Index",
+        yaxis_title=column,
+        template="plotly_white",
+        hovermode="x unified",
+        showlegend=False,
     )
     return fig, {"display": "block"}, hidden
 
@@ -674,22 +694,39 @@ def _render_retained_graph_card(index, selection, sigma_multiplier):
     if figure.data and figure.data[0].x is not None and len(figure.data[0].x) > 0:
         values = figure.data[0].x
         scenario_range = f"Scenario indices: {values[0]} to {values[-1]}"
-    voltage = (group == ComponentType.sym_voltage_sensor.value and column == "u_measured"
-               and graph_style.get("display") == "block" and figure.layout.yaxis.title.text == "Voltage (V)")
+    voltage = (
+        group == ComponentType.sym_voltage_sensor.value
+        and column == "u_measured"
+        and graph_style.get("display") == "block"
+        and figure.layout.yaxis.title.text == "Voltage (V)"
+    )
     unit_label = "Unit: V" if voltage else "Unit: not specified"
-    return html.Div([
-        html.Div([
-            html.H5(title),
-            html.Button([
-                html.I(className="fa-solid fa-xmark", style={"marginRight": "8px"}, **{"aria-hidden": "true"}),
-                "Remove",
-            ], id={"type": "remove-retained-graph", "index": index}, n_clicks=0,
-                className="btn btn-outline-danger", title=f"Remove graph for {title}",
-                style={**GRAPH_ACTION_BUTTON_STYLE, "minWidth": "110px"}),
-        ], style=GRAPH_ACTION_HEADER_STYLE),
-        html.P(f"{unit_label} | {scenario_range}"),
-        content,
-    ], style={"border": "1px solid #dddddd", "borderRadius": "6px", "padding": "12px", "marginBottom": "15px"})
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.H5(title),
+                    html.Button(
+                        [
+                            html.I(
+                                className="fa-solid fa-xmark", style={"marginRight": "8px"}, **{"aria-hidden": "true"}
+                            ),
+                            "Remove",
+                        ],
+                        id={"type": "remove-retained-graph", "index": index},
+                        n_clicks=0,
+                        className="btn btn-outline-danger",
+                        title=f"Remove graph for {title}",
+                        style={**GRAPH_ACTION_BUTTON_STYLE, "minWidth": "110px"},
+                    ),
+                ],
+                style=GRAPH_ACTION_HEADER_STYLE,
+            ),
+            html.P(f"{unit_label} | {scenario_range}"),
+            content,
+        ],
+        style={"border": "1px solid #dddddd", "borderRadius": "6px", "padding": "12px", "marginBottom": "15px"},
+    )
 
 
 def _get_y_data_for_cell_selection(
