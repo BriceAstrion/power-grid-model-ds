@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+﻿# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
 
@@ -7,10 +7,19 @@ from typing import Any
 import dash_ag_grid as dag
 import numpy as np
 import plotly.graph_objects as go
-from dash import ALL, Input, Output, callback, callback_context, html, no_update
+from dash import ALL, Input, Output, State, callback, callback_context, dcc, html, no_update
 from power_grid_model import ComponentType
 
 from power_grid_model_ds._core.model.grids.base import Grid
+from power_grid_model_ds._core.visualizer.graph_action_styles import (
+    GRAPH_ACTION_BUTTON_STYLE,
+    GRAPH_ACTION_HEADER_STYLE,
+)
+from power_grid_model_ds._core.visualizer.graph_selections import (
+    add_graph_selection,
+    clear_graph_selections,
+    remove_graph_selection,
+)
 from power_grid_model_ds._core.visualizer.grid_utils import get_attr_data_from_dataset
 from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_OUTPUT_HTML,
@@ -20,7 +29,11 @@ from power_grid_model_ds._core.visualizer.measurement_comparison import (
     get_symmetric_voltage_comparison,
     get_voltage_sigma_bounds,
 )
-from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
+from power_grid_model_ds._core.visualizer.server_state import (
+    get_grid,
+    get_output_data,
+    get_update_data,
+)
 from power_grid_model_ds.arrays import IdArray
 
 
@@ -29,7 +42,10 @@ from power_grid_model_ds.arrays import IdArray
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
 )
-def display_selected_elements(node_data: list[dict[str, Any]], edge_data: list[dict[str, Any]]):
+def display_selected_elements(
+    node_data: list[dict[str, Any]],
+    edge_data: list[dict[str, Any]],
+):
     """Display the selected elements and their associated components."""
     if not node_data and not edge_data:
         return SELECTION_OUTPUT_HTML.children
@@ -57,10 +73,18 @@ def display_selected_elements(node_data: list[dict[str, Any]], edge_data: list[d
         tables.append(
             html.H5(
                 comp_type,
-                style={"marginTop": "15px", "textAlign": "left"},
+                style={
+                    "marginTop": "15px",
+                    "textAlign": "left",
+                },
             )
         )
-        tables.append(_to_data_table(array_data=data, group=comp_type))
+        tables.append(
+            _to_data_table(
+                array_data=data,
+                group=comp_type,
+            )
+        )
 
     return tables
 
@@ -83,7 +107,10 @@ def _to_data_table(array_data: IdArray, group):
         list_array_data.append(record_dict)
 
     return dag.AgGrid(  # type: ignore[attr-defined]
-        id={"type": "selection-table", "group": group},
+        id={
+            "type": "selection-table",
+            "group": group,
+        },
         getRowId="params.data.id",
         rowData=list_array_data,
         columnDefs=data_table_headers,
@@ -141,7 +168,10 @@ def _create_voltage_comparison_figure(
             y=comparison.measured,
             mode="lines",
             name="Measured voltage",
-            line={"width": 2, "color": "royalblue"},
+            line={
+                "width": 2,
+                "color": "royalblue",
+            },
         )
     )
 
@@ -151,7 +181,11 @@ def _create_voltage_comparison_figure(
             y=comparison.estimated,
             mode="lines",
             name="Calculated voltage",
-            line={"width": 2, "color": "darkorange", "dash": "dash"},
+            line={
+                "width": 2,
+                "color": "darkorange",
+                "dash": "dash",
+            },
         )
     )
 
@@ -169,7 +203,10 @@ def _create_voltage_comparison_figure(
 
 @callback(
     Output("selected-selection-cell", "data"),
-    Input({"type": "selection-table", "group": ALL}, "cellClicked"),
+    Input(
+        {"type": "selection-table", "group": ALL},
+        "cellClicked",
+    ),
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
     prevent_initial_call=True,
@@ -178,8 +215,8 @@ def store_selected_cell(_, _node_data, _edge_data):
     """Remember a selected cell and clear it when network selection changes."""
     triggered_id = callback_context.triggered_id
 
-    # The displayed component tables may change with the network selection.
-    # Clear the previous cell so its graph is not shown for a new selection.
+    # Clear the temporary selection when the network selection changes.
+    # Previously retained graphs are managed by a separate store.
     if triggered_id == "cytoscape-graph":
         return None
 
@@ -216,6 +253,105 @@ def store_selected_cell(_, _node_data, _edge_data):
     }
 
 
+def _remove_retained_graph(triggered_id, retained):
+    """Remove a graph when a valid Remove button is clicked."""
+    if triggered_id.get("type") != "remove-retained-graph":
+        return no_update
+
+    triggered = callback_context.triggered
+
+    # A dynamically created button starts with n_clicks=0.
+    # Its initial appearance must not remove a graph.
+    if (
+        not triggered
+        or not isinstance(triggered[0].get("value"), int)
+        or isinstance(triggered[0]["value"], bool)
+        or triggered[0]["value"] <= 0
+    ):
+        return no_update
+
+    index = triggered_id.get("index")
+
+    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(retained):
+        return no_update
+
+    return remove_graph_selection(
+        retained,
+        retained[index],
+    )
+
+
+def _add_retained_graph(selected_cell, retained):
+    """Add a valid cell selection without duplicating a graph."""
+    if not isinstance(selected_cell, dict):
+        return no_update
+
+    group = selected_cell.get("group")
+    component_id = selected_cell.get("id")
+    column = selected_cell.get("column")
+
+    if (
+        not isinstance(group, str)
+        or not isinstance(component_id, int)
+        or isinstance(component_id, bool)
+        or not isinstance(column, str)
+    ):
+        return no_update
+
+    selection = {
+        "group": group,
+        "id": component_id,
+        "column": column,
+    }
+
+    return add_graph_selection(
+        retained,
+        selection,
+    )
+
+
+@callback(
+    Output("retained-graph-selections", "data"),
+    Input("selected-selection-cell", "data"),
+    Input("clear-retained-graphs", "n_clicks"),
+    Input(
+        {
+            "type": "remove-retained-graph",
+            "index": ALL,
+        },
+        "n_clicks",
+    ),
+    State("retained-graph-selections", "data"),
+    prevent_initial_call=True,
+)
+def update_retained_graph_selections(
+    selected_cell,
+    _clear_clicks,
+    _remove_clicks,
+    retained_selections,
+):
+    """Add, remove or clear retained graph selections."""
+    triggered_id = callback_context.triggered_id
+    retained = retained_selections or []
+
+    if triggered_id == "clear-retained-graphs":
+        return clear_graph_selections()
+
+    if isinstance(triggered_id, dict):
+        return _remove_retained_graph(
+            triggered_id,
+            retained,
+        )
+
+    if triggered_id != "selected-selection-cell":
+        return no_update
+
+    return _add_retained_graph(
+        selected_cell,
+        retained,
+    )
+
+
 @callback(
     Output("selection-graph", "figure"),
     Output("selection-graph", "style"),
@@ -234,10 +370,9 @@ def cell_selection_graph(
 ):
     """Render the selected attribute with optional voltage sigma bands."""
     hidden = {"display": "none"}
-    visible = {"display": "block"}
 
-    # Hide the graph when Cytoscape has no selected node or edge.
-    # The default arguments preserve existing direct unit-test calls.
+    # Hide the temporary graph when Cytoscape has no selected node or edge.
+    # Default arguments preserve existing direct unit-test calls.
     if not isinstance(selected_cell, dict) or (
         (node_data is not None or edge_data is not None) and not node_data and not edge_data
     ):
@@ -256,44 +391,57 @@ def cell_selection_graph(
         return go.Figure(), hidden, hidden
 
     if comp_type == ComponentType.sym_voltage_sensor and column_id == "u_measured":
-        output_data = get_output_data()
-
-        if output_data is not None and ComponentType.node in output_data:
-            node_output = output_data[ComponentType.node]
-
-            # Only dense, symmetric node output has one scalar voltage per node.
-            is_symmetric_batch = (
-                isinstance(node_output, np.ndarray)
-                and node_output.ndim == len(("scenario", "component"))
-                and node_output.dtype.names is not None
-                and {"id", "u"}.issubset(node_output.dtype.names)
-                and node_output.dtype.fields["u"][0].subdtype is None
-            )
-
-            if is_symmetric_batch:
-                if (
-                    not isinstance(sigma_multiplier, (int, float))
-                    or not np.isfinite(sigma_multiplier)
-                    or sigma_multiplier < 0
-                ):
-                    return go.Figure(), hidden, visible
-
-                comparison = get_symmetric_voltage_comparison(
-                    grid=get_grid(),
-                    update_data=get_update_data(),
-                    output_data=output_data,
-                    sensor_id=pgm_id,
-                )
-
-                fig = _create_voltage_comparison_figure(
-                    comparison,
-                    sensor_id=pgm_id,
-                    sigma_multiplier=float(sigma_multiplier),
-                )
-
-                return fig, visible, visible
+        comparison_result = _try_voltage_comparison(pgm_id, sigma_multiplier)
+        if comparison_result is not None:
+            return comparison_result
 
     # Preserve existing behaviour for other component attributes.
+    return _create_attribute_graph(comp_type, pgm_id, column_id)
+
+
+def _try_voltage_comparison(pgm_id: int, sigma_multiplier):
+    """Build the voltage comparison when compatible batch output is available."""
+    output_data = get_output_data()
+    if output_data is None or ComponentType.node not in output_data:
+        return None
+
+    node_output = output_data[ComponentType.node]
+    expected_batch_ndim = 2
+    is_symmetric_batch = (
+        isinstance(node_output, np.ndarray)
+        and node_output.ndim == expected_batch_ndim
+        and node_output.dtype.names is not None
+        and {"id", "u"}.issubset(node_output.dtype.names)
+        and node_output.dtype.fields is not None
+        and node_output.dtype.fields["u"][0].subdtype is None
+    )
+    if not is_symmetric_batch:
+        return None
+
+    hidden = {"display": "none"}
+    visible = {"display": "block"}
+    if not isinstance(sigma_multiplier, (int, float)) or not np.isfinite(sigma_multiplier) or sigma_multiplier < 0:
+        return go.Figure(), hidden, visible
+
+    comparison = get_symmetric_voltage_comparison(
+        grid=get_grid(),
+        update_data=get_update_data(),
+        output_data=output_data,
+        sensor_id=pgm_id,
+    )
+    fig = _create_voltage_comparison_figure(
+        comparison,
+        sensor_id=pgm_id,
+        sigma_multiplier=float(sigma_multiplier),
+    )
+    return fig, visible, visible
+
+
+def _create_attribute_graph(comp_type: ComponentType, pgm_id: int, column_id: str):
+    """Render a selected component attribute with the legacy graph format."""
+    group = comp_type.value
+    hidden = {"display": "none"}
+    visible = {"display": "block"}
     x_array, y_array = _get_y_data_for_cell_selection(
         comp_type,
         pgm_id,
@@ -325,7 +473,10 @@ def cell_selection_graph(
                     x=x_array,
                     y=y_array[:, i],
                     mode="lines",
-                    line={"width": 2, "color": color},
+                    line={
+                        "width": 2,
+                        "color": color,
+                    },
                     name=f"{column_id}_phase_{i}",
                 )
             )
@@ -340,6 +491,116 @@ def cell_selection_graph(
     )
 
     return fig, visible, hidden
+
+
+@callback(
+    Output("retained-graphs-container", "children"),
+    Input("retained-graph-selections", "data"),
+    Input("sigma-multiplier", "value"),
+)
+def render_retained_graphs(
+    retained_selections,
+    sigma_multiplier,
+):
+    """Render every retained graph using the existing figure logic."""
+    if not retained_selections:
+        return []
+
+    graph_cards = []
+    for index, selection in enumerate(retained_selections):
+        if not isinstance(selection, dict):
+            continue
+        group = selection.get("group")
+        component_id = selection.get("id")
+        column = selection.get("column")
+        if (
+            not isinstance(group, str)
+            or not isinstance(component_id, int)
+            or isinstance(component_id, bool)
+            or not isinstance(column, str)
+        ):
+            continue
+        graph_cards.append(_render_retained_graph_card(index, selection, sigma_multiplier))
+    return graph_cards
+
+
+def _render_retained_graph_card(index, selection, sigma_multiplier):
+    """Render one retained graph and its controls."""
+    group = selection["group"]
+    component_id = selection["id"]
+    column = selection["column"]
+    # Retained graphs do not depend on the current
+    # Cytoscape network selection.
+    figure, graph_style, _ = cell_selection_graph(
+        selection,
+        sigma_multiplier,
+    )
+
+    title = f"{group} | ID {component_id} | {column}"
+
+    if graph_style.get("display") == "none":
+        graph_content = html.P("Graph data unavailable for this selection or the current sigma multiplier is invalid.")
+    else:
+        graph_content = dcc.Graph(
+            figure=figure,
+            config={"displaylogo": False},
+        )
+
+    scenario_range = "Scenario range unavailable"
+
+    if figure.data and figure.data[0].x is not None:
+        x_values = figure.data[0].x
+
+        if len(x_values) > 0:
+            scenario_range = f"Scenario indices: {x_values[0]} to {x_values[-1]}"
+
+    # The voltage-comparison figure explicitly identifies volts.
+    # Other attribute figures do not yet provide unit metadata.
+    is_voltage_comparison = (
+        group == ComponentType.sym_voltage_sensor.value
+        and column == "u_measured"
+        and graph_style.get("display") == "block"
+        and figure.layout.yaxis.title.text == "Voltage (V)"
+    )
+
+    unit_label = "Unit: V" if is_voltage_comparison else "Unit: not specified"
+
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.H5(title),
+                    html.Button(
+                        [
+                            html.I(
+                                className="fa-solid fa-xmark",
+                                style={"marginRight": "8px"},
+                                **{"aria-hidden": "true"},
+                            ),
+                            "Remove",
+                        ],
+                        id={
+                            "type": "remove-retained-graph",
+                            "index": index,
+                        },
+                        n_clicks=0,
+                        className="btn btn-outline-danger",
+                        title=f"Remove graph for {title}",
+                        style={**GRAPH_ACTION_BUTTON_STYLE, "minWidth": "110px"},
+                    ),
+                ],
+                style=GRAPH_ACTION_HEADER_STYLE,
+            ),
+            html.P(f"{unit_label} | {scenario_range}"),
+            graph_content,
+        ],
+        style={
+            "border": "1px solid #dddddd",
+            "borderRadius": "6px",
+            "padding": "12px",
+            "marginBottom": "15px",
+        },
+    )
 
 
 def _get_y_data_for_cell_selection(
