@@ -17,7 +17,6 @@ from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # py
     header,
     search_form,
     timestamp_selection,
-    voltage_comparison,
     workspace,
 )
 from power_grid_model_ds._core.visualizer.callbacks.workspace import (
@@ -46,9 +45,6 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_OUTPUT_HTML,
 )
 from power_grid_model_ds._core.visualizer.layout.timestamp_selection import get_timestamp_selection_html
-from power_grid_model_ds._core.visualizer.layout.voltage_comparison import (
-    VOLTAGE_COMPARISON_HTML,
-)
 from power_grid_model_ds._core.visualizer.parsers import parse_element_data
 from power_grid_model_ds._core.visualizer.parsing_utils import (
     filter_out_appliances,
@@ -424,7 +420,6 @@ def get_app_layout(grid: Grid) -> html.Div:
             html.Div(
                 [
                     SELECTION_GRAPH_HTML,
-                    VOLTAGE_COMPARISON_HTML,
                 ],
                 id="workspace-diagnostics-panel",
                 style={

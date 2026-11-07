@@ -1,3 +1,4 @@
+
 # SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
@@ -7,9 +8,6 @@
 from dash import Input, Output, callback, html
 
 from power_grid_model_ds._core.visualizer import server_state
-from power_grid_model_ds._core.visualizer.callbacks.voltage_comparison import (
-    find_voltage_sensors_for_selection,
-)
 
 
 def find_voltage_sensors_for_node(node_id: int, grid) -> list[int]:
@@ -61,10 +59,10 @@ def update_diagnostic_overview(selected_nodes):
             children.append(message("The selected element is not a network node."))
             continue
 
-        sensors = find_voltage_sensors_for_selection([selected_node], grid)
+        sensor_ids = find_voltage_sensors_for_node(node_id, grid)
 
-        if sensors:
-            sensor_names = ", ".join(sensor["label"] for sensor in sensors)
+        if sensor_ids:
+            sensor_names = ", ".join(f"Sensor {sensor_id}" for sensor_id in sensor_ids)
             sensor_text = f"Voltage sensors: {sensor_names}"
         else:
             sensor_text = "No associated symmetric voltage sensors"

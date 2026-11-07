@@ -5,6 +5,7 @@
 from typing import Any
 from urllib.parse import quote
 
+import dash_ag_grid as dag
 import numpy as np
 import plotly.graph_objects as go
 from dash import ALL, MATCH, Input, Output, State, callback, callback_context, dcc, html, no_update
@@ -28,7 +29,11 @@ from power_grid_model_ds._core.visualizer.measurement_comparison import (
     get_symmetric_voltage_comparison,
     get_voltage_sigma_bounds,
 )
-from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
+from power_grid_model_ds._core.visualizer.server_state import (
+    get_grid,
+    get_output_data,
+    get_update_data
+)
 from power_grid_model_ds.arrays import IdArray
 
 # AG Grid-style narrowing horizontal bars, used only in the attribute inspector.
@@ -560,28 +565,59 @@ def update_attribute_values(operators, values, filter_ids, records, output_ids):
     Input("sigma-multiplier", "value"),
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
+    Input("retained-graph-selections", "data"),
     prevent_initial_call=True,
 )
-def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_data=None):
-    """Render a selected attribute; optionally show measured voltage and sigma bands."""
+def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_data=None, retained_selections=None):
+    """Render the legacy graph and keep controls available for retained comparisons."""
     hidden = {"display": "none"}
+    retained_controls = (
+        {"display": "block"} if _has_retained_voltage_comparison(retained_selections) else hidden
+    ) if retained_selections is not None else None
+
     if not isinstance(selected_cell, dict) or (
         (node_data is not None or edge_data is not None) and not node_data and not edge_data
     ):
-        return go.Figure(), hidden, hidden
+        return go.Figure(), hidden, retained_controls or hidden
     try:
         comp_type = ComponentType(selected_cell["group"])
         component_id = int(selected_cell["id"])
         column = selected_cell["column"]
         if not isinstance(column, str):
-            return go.Figure(), hidden, hidden
+            return go.Figure(), hidden, retained_controls or hidden
     except (KeyError, TypeError, ValueError):
-        return go.Figure(), hidden, hidden
+        return go.Figure(), hidden, retained_controls or hidden
     if comp_type == ComponentType.sym_voltage_sensor and column == "u_measured":
         result = _try_voltage_comparison(component_id, sigma_multiplier)
         if result is not None:
-            return result
-    return _create_attribute_graph(comp_type, component_id, column)
+            return result[:2] + (retained_controls if retained_controls is not None else result[2],)
+    result = _create_attribute_graph(comp_type, component_id, column)
+    return result[:2] + (retained_controls if retained_controls is not None else result[2],)
+
+
+def _has_retained_voltage_comparison(retained_selections) -> bool:
+    """Only enable sigma controls when a retained sensor has comparison data."""
+    if not isinstance(retained_selections, list):
+        return False
+    output_data = get_output_data()
+    if output_data is None or ComponentType.node not in output_data:
+        return False
+    if not _is_supported_node_output(output_data[ComponentType.node]):
+        return False
+    for selection in retained_selections:
+        if not isinstance(selection, dict):
+            continue
+        if selection.get("group") != ComponentType.sym_voltage_sensor.value or selection.get("column") != "u_measured":
+            continue
+        sensor_id = selection.get("id")
+        if not isinstance(sensor_id, int) or isinstance(sensor_id, bool):
+            continue
+        try:
+            get_symmetric_voltage_comparison(get_grid(), get_update_data(), output_data, sensor_id)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            continue
+        return True
+    return False
 
 
 def _is_supported_node_output(node_output: object) -> bool:

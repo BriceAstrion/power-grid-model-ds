@@ -273,8 +273,9 @@ SELECTION_GRAPH_HTML = html.Div(
     Input("sigma-multiplier", "value"),
     Input("selection-graph", "style"),
     Input("sigma-multiplier-controls", "style"),
+    Input("retained-graph-selections", "data"),
 )
-def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, controls_style):
+def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, controls_style, retained_selections=None):
     """Show validation or uncertainty guidance only for voltage comparisons."""
     hidden = {"display": "none"}
     error_visible = {
@@ -304,6 +305,8 @@ def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, c
         and selected_cell.get("column") == "u_measured"
     )
     controls_visible = isinstance(controls_style, dict) and controls_style.get("display") != "none"
+    if retained_selections is not None:
+        is_voltage_measurement = controls_visible
     if not is_voltage_measurement or not controls_visible:
         return hidden, hidden
 
@@ -312,6 +315,8 @@ def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, c
         return error_visible, hidden
 
     graph_visible = isinstance(graph_style, dict) and graph_style.get("display") != "none"
+    if retained_selections is not None:
+        graph_visible = controls_visible
     return hidden, note_visible if graph_visible else hidden
 
 
@@ -319,14 +324,20 @@ def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, c
     Output("sigma-guidance-timer", "n_intervals"),
     Output("sigma-guidance-timer", "disabled"),
     Input("selected-selection-cell", "data"),
+    Input("retained-graph-selections", "data"),
 )
-def restart_sigma_guidance_timer(selected_cell):
+def restart_sigma_guidance_timer(selected_cell, retained_selections=None):
     """Restart the five-second guidance window for a new measurement selection."""
     is_voltage_measurement = (
         isinstance(selected_cell, dict)
         and selected_cell.get("group") == "sym_voltage_sensor"
         and selected_cell.get("column") == "u_measured"
     )
+    if retained_selections is not None:
+        is_voltage_measurement = any(
+            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor"
+            and item.get("column") == "u_measured" for item in retained_selections
+        )
     return 0, not is_voltage_measurement
 
 
@@ -334,12 +345,18 @@ def restart_sigma_guidance_timer(selected_cell):
     Output("sigma-guidance-details", "open"),
     Input("selected-selection-cell", "data"),
     Input("sigma-guidance-timer", "n_intervals"),
+    Input("retained-graph-selections", "data"),
 )
-def update_sigma_guidance_expansion(selected_cell, n_intervals):
+def update_sigma_guidance_expansion(selected_cell, n_intervals, retained_selections=None):
     """Expand on selection, collapse after five seconds; allow manual reopening."""
     is_voltage_measurement = (
         isinstance(selected_cell, dict)
         and selected_cell.get("group") == "sym_voltage_sensor"
         and selected_cell.get("column") == "u_measured"
     )
+    if retained_selections is not None:
+        is_voltage_measurement = any(
+            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor"
+            and item.get("column") == "u_measured" for item in retained_selections
+        )
     return is_voltage_measurement and n_intervals == 0
