@@ -24,7 +24,7 @@ from power_grid_model_ds._core.visualizer.callbacks.workspace import (
     panel_styles,
 )
 from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
-    get_available_node_quantities,
+    get_available_scalar_attributes,
     get_scenario_count,
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_html import (
@@ -150,82 +150,94 @@ def _get_workspace_toolbar() -> html.Div:
 
 def _get_electrical_quantity_controls(
     scenario_count: int,
-    available_quantities: set[str],
+    available_attributes: dict[str, list[str]],
 ) -> html.Section:
-    """Build the electrical quantity controls and legend."""
-
-    quantity_field = html.Div(
-        [
-            html.Label(
-                "Quantity",
-                htmlFor="electrical-quantity-dropdown",
-                className="electrical-control-label",
+    """Build independent component/attribute controls for scalar output heatmaps."""
+    components = sorted(available_attributes)
+    fields = [
+        (
+            "Component",
+            "electrical-component-dropdown",
+            dcc.Dropdown(
+                id="electrical-component-dropdown",
+                options=[{"label": name.replace("_", " ").title(), "value": name} for name in components],
+                value=None,
+                placeholder="Select component",
+                clearable=True,
+                disabled=not components,
             ),
-            html.Div(
-                dcc.Dropdown(
-                    id="electrical-quantity-dropdown",
-                    options=[
-                        {
-                            "label": "No electrical colouring",
-                            "value": "none",
-                        },
-                        {
-                            "label": "Voltage magnitude (p.u.)",
-                            "value": "u_pu",
-                            "disabled": "u_pu" not in available_quantities,
-                        },
-                        {
-                            "label": "Voltage angle (rad)",
-                            "value": "u_angle",
-                            "disabled": "u_angle" not in available_quantities,
-                        },
+        ),
+        (
+            "Attribute",
+            "electrical-quantity-dropdown",
+            dcc.Dropdown(
+                id="electrical-quantity-dropdown",
+                options=[],
+                value=None,
+                placeholder="Select attribute",
+                clearable=True,
+                disabled=True,
+            ),
+        ),
+        (
+            "Scenario (1-based)",
+            "electrical-scenario-input",
+            dcc.Input(
+                id="electrical-scenario-input",
+                type="number",
+                step=1,
+                value=None,
+                placeholder="Scenario number",
+                disabled=scenario_count == 0,
+            ),
+        ),
+    ]
+    controls = []
+    for label, control_id, control in fields:
+        children = [
+            html.Label(label, htmlFor=control_id, className="electrical-control-label"),
+            html.Div(control, className="electrical-dropdown-container"),
+        ]
+        if control_id == "electrical-scenario-input":
+            children.append(
+                html.Div(
+                    [
+                        html.Div(className="electrical-scenario-callout-arrow"),
+                        html.Div(
+                            [
+                                html.Span("!", className="electrical-scenario-warning-icon", **{"aria-hidden": "true"}),
+                                html.Div(
+                                    [
+                                        html.Strong("Invalid scenario", className="electrical-scenario-warning-title"),
+                                        html.Div(id="electrical-scenario-warning-text"),
+                                    ],
+                                    className="electrical-scenario-warning-body",
+                                ),
+                            ],
+                            className="electrical-scenario-warning-row",
+                        ),
                     ],
-                    value="none",
-                    clearable=False,
-                    disabled=scenario_count == 0,
-                ),
-                className="electrical-dropdown-container",
-            ),
-        ],
-        className="electrical-control-field",
-    )
-
-    scenario_field = html.Div(
-        [
-            html.Label(
-                "Scenario",
-                htmlFor="electrical-scenario-dropdown",
-                className="electrical-control-label",
-            ),
+                    id="electrical-scenario-warning",
+                    className="electrical-scenario-warning",
+                    role="alert",
+                    style={"display": "none"},
+                )
+            )
+        controls.append(
             html.Div(
-                dcc.Dropdown(
-                    id="electrical-scenario-dropdown",
-                    options=[{"label": f"Scenario {index + 1}", "value": index} for index in range(scenario_count)],
-                    value=None,
-                    placeholder="No scenario selected",
-                    clearable=True,
-                    disabled=scenario_count == 0,
-                ),
-                className="electrical-dropdown-container",
-            ),
-        ],
-        className="electrical-control-field",
-    )
-
+                children,
+                className="electrical-control-field electrical-scenario-anchor"
+                if control_id == "electrical-scenario-input"
+                else "electrical-control-field",
+            )
+        )
     return html.Section(
         [
+            dcc.Store(id="electrical-available-attributes", data=available_attributes),
+            html.Div(controls, className="electrical-controls-grid"),
+            dcc.Store(id="electrical-scenario-count", data=scenario_count),
             html.Div(
-                [
-                    quantity_field,
-                    html.Div(
-                        className="electrical-controls-divider",
-                        **{"aria-hidden": "true"},  # type: ignore[arg-type]
-                    ),
-                    scenario_field,
-                ],
-                className="electrical-controls-grid",
-            ),
-            html.Div(
+                "",
                 id="electrical-quantity-legend",
                 className="electrical-quantity-legend",
                 role="status",
@@ -267,11 +279,11 @@ def get_app_layout(grid: Grid) -> html.Div:
     output_data = server_state.get_output_data()
 
     scenario_count = get_scenario_count(output_data)
-    available_quantities = get_available_node_quantities(output_data)
+    available_attributes = get_available_scalar_attributes(output_data)
 
     electrical_controls = _get_electrical_quantity_controls(
         scenario_count,
-        available_quantities,
+        available_attributes,
     )
 
     return html.Div(

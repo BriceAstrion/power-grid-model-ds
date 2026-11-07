@@ -1,4 +1,5 @@
 """Regression tests for F04 node positioning in the integrated visualiser."""
+
 from copy import deepcopy
 from unittest.mock import patch
 
@@ -46,8 +47,9 @@ def test_appliance_visibility_preserves_node_separation():
 
     hidden, hidden_legend, next_state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=2.0,
         parsed_elements=parsed_elements,
         current_elements=None,
@@ -57,8 +59,9 @@ def test_appliance_visibility_preserves_node_separation():
 
     visible, visible_legend, final_state = update_appliances(
         show_appliances=True,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=2.0,
         parsed_elements=parsed_elements,
         current_elements=hidden,
@@ -74,9 +77,7 @@ def test_appliance_visibility_preserves_node_separation():
 
     def node_positions(elements):
         return {
-            element["data"]["id"]: element["position"]
-            for element in elements
-            if element["data"]["group"] == "node"
+            element["data"]["id"]: element["position"] for element in elements if element["data"]["group"] == "node"
         }
 
     hidden_positions = node_positions(hidden)
@@ -113,8 +114,9 @@ def test_node_positions_restore_after_scaling():
 
     initial, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=None,
@@ -124,8 +126,9 @@ def test_node_positions_restore_after_scaling():
 
     enlarged, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=2.0,
         parsed_elements=parsed_elements,
         current_elements=initial,
@@ -135,8 +138,9 @@ def test_node_positions_restore_after_scaling():
 
     restored, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=enlarged,
@@ -146,9 +150,7 @@ def test_node_positions_restore_after_scaling():
 
     def positions(elements):
         return {
-            element["data"]["id"]: element["position"]
-            for element in elements
-            if element["data"]["group"] == "node"
+            element["data"]["id"]: element["position"] for element in elements if element["data"]["group"] == "node"
         }
 
     assert positions(enlarged) != positions(initial)
@@ -175,8 +177,9 @@ def test_dragged_node_position_preserved_during_scaling():
 
     initial, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=None,
@@ -191,8 +194,9 @@ def test_dragged_node_position_preserved_during_scaling():
 
     enlarged, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=2.0,
         parsed_elements=parsed_elements,
         current_elements=dragged,
@@ -201,9 +205,7 @@ def test_dragged_node_position_preserved_during_scaling():
     )
 
     positions = {
-        element["data"]["id"]: element["position"]
-        for element in enlarged
-        if element["data"]["group"] == "node"
+        element["data"]["id"]: element["position"] for element in enlarged if element["data"]["group"] == "node"
     }
 
     assert positions["2"] == {"x": 600.0, "y": -500.0}
@@ -247,8 +249,9 @@ def test_dragged_node_position_preserved_when_toggling_appliances():
 
     initial, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=None,
@@ -263,8 +266,9 @@ def test_dragged_node_position_preserved_when_toggling_appliances():
 
     visible, _, state = update_appliances(
         show_appliances=True,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=dragged,
@@ -273,9 +277,7 @@ def test_dragged_node_position_preserved_when_toggling_appliances():
     )
 
     positions = {
-        element["data"]["id"]: element["position"]
-        for element in visible
-        if element["data"]["group"] == "node"
+        element["data"]["id"]: element["position"] for element in visible if element["data"]["group"] == "node"
     }
     visible_ids = {element["data"]["id"] for element in visible}
 
@@ -314,8 +316,9 @@ def test_automatic_layout_positions_preserved_during_scaling():
 
     elements, _, position_state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=2.0,
         parsed_elements=parsed_elements,
         current_elements=current_elements,
@@ -326,10 +329,7 @@ def test_automatic_layout_positions_preserved_during_scaling():
         current_layout={"name": "breadthfirst"},
     )
 
-    positions = {
-        element["data"]["id"]: element["position"]
-        for element in elements
-    }
+    positions = {element["data"]["id"]: element["position"] for element in elements}
 
     assert positions["2"] == {"x": 100.0, "y": 300.0}
     assert positions["3"] == {"x": 500.0, "y": 300.0}
@@ -364,8 +364,9 @@ def test_electrical_quantity_change_preserves_dragged_node():
     # Initialise the graph without electrical colouring.
     initial, _, state = update_appliances(
         show_appliances=False,
+        component=None,
         quantity="none",
-        scenario_index=None,
+        scenario_number=None,
         node_scale=1.0,
         parsed_elements=parsed_elements,
         current_elements=None,
@@ -400,8 +401,9 @@ def test_electrical_quantity_change_preserves_dragged_node():
     ):
         updated, legend, state = update_appliances(
             show_appliances=False,
+            component="node",
             quantity="u_pu",
-            scenario_index=0,
+            scenario_number=1,
             node_scale=1.0,
             parsed_elements=parsed_elements,
             current_elements=dragged,
@@ -411,9 +413,7 @@ def test_electrical_quantity_change_preserves_dragged_node():
 
     # F04: The manually dragged node must retain its position.
     positions = {
-        element["data"]["id"]: element["position"]
-        for element in updated
-        if element["data"]["group"] == "node"
+        element["data"]["id"]: element["position"] for element in updated if element["data"]["group"] == "node"
     }
 
     assert positions["2"] == {"x": 600.0, "y": -500.0}
@@ -436,9 +436,7 @@ def test_electrical_quantity_change_preserves_dragged_node():
     }
 
     # F01: The legend must identify the selected electrical quantity.
-    assert legend.children[0].children == (
-        "Voltage magnitude (p.u.) - Scenario 1"
-    )
+    assert legend.children[0].children == ("Voltage magnitude (p.u.) - Scenario 1")
 
     # F04: Updating the graph must not modify the parsed topology.
     assert parsed_elements == original_elements

@@ -26,9 +26,6 @@ def get_scenario_count(
     scenario_counts = set()
 
     for component_array in output_data.values():
-        if component_array.ndim != BATCH_ARRAY_NDIM:
-            raise ValueError("Expected a two-dimensional dense batch output array.")
-
         scenario_counts.add(component_array.shape[0])
 
     if len(scenario_counts) != 1:
@@ -46,9 +43,6 @@ def get_available_node_quantities(
 
     node_output = output_data[ComponentType.node]
 
-    if node_output.ndim != BATCH_ARRAY_NDIM:
-        raise ValueError("Expected a two-dimensional dense batch output array.")
-
     if node_output.shape[0] == 0:
         return set()
 
@@ -60,6 +54,33 @@ def get_available_node_quantities(
     supported_quantities = {"u_pu", "u_angle"}
 
     return supported_quantities.intersection(field_names)
+
+
+def get_available_scalar_attributes(
+    output_data: Mapping[ComponentType, DenseBatchArray] | None,
+) -> dict[str, list[str]]:
+    """Discover real scalar output fields suitable for a component heatmap.
+
+    Exclude IDs, status flags, complex values, and phase/vector-valued fields.
+    The visualizer currently has no phase selector or complex-value policy.
+    """
+    if not output_data:
+        return {}
+
+    available: dict[str, list[str]] = {}
+    for component, array in output_data.items():
+        if array.shape[0] == 0 or not array.dtype.names or "id" not in array.dtype.names:
+            continue
+        attributes = [
+            field
+            for field in array.dtype.names
+            if field not in {"id", "energized", "status"}
+            and array.dtype.fields[field][0].subdtype is None
+            and array.dtype.fields[field][0].kind == "f"
+        ]
+        if attributes:
+            available[component.value] = attributes
+    return available
 
 
 def extract_scenario_values(

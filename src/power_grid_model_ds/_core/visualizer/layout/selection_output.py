@@ -275,7 +275,9 @@ SELECTION_GRAPH_HTML = html.Div(
     Input("sigma-multiplier-controls", "style"),
     Input("retained-graph-selections", "data"),
 )
-def update_voltage_comparison_guidance(selected_cell, multiplier, graph_style, controls_style, retained_selections=None):
+def update_voltage_comparison_guidance(
+    selected_cell, multiplier, graph_style, controls_style, retained_selections=None
+):
     """Show validation or uncertainty guidance only for voltage comparisons."""
     hidden = {"display": "none"}
     error_visible = {
@@ -335,8 +337,8 @@ def restart_sigma_guidance_timer(selected_cell, retained_selections=None):
     )
     if retained_selections is not None:
         is_voltage_measurement = any(
-            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor"
-            and item.get("column") == "u_measured" for item in retained_selections
+            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor" and item.get("column") == "u_measured"
+            for item in retained_selections
         )
     return 0, not is_voltage_measurement
 
@@ -356,7 +358,7 @@ def update_sigma_guidance_expansion(selected_cell, n_intervals, retained_selecti
     )
     if retained_selections is not None:
         is_voltage_measurement = any(
-            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor"
-            and item.get("column") == "u_measured" for item in retained_selections
+            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor" and item.get("column") == "u_measured"
+            for item in retained_selections
         )
     return is_voltage_measurement and n_intervals == 0

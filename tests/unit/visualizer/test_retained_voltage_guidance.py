@@ -4,6 +4,7 @@
 
 """Regression tests for retained voltage-comparison guidance (F10/F11 + F14)."""
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -32,7 +33,6 @@ def voltage_data():
     nodes = initialize_array("sym_output", "node", (2, 1))
     nodes["id"] = 10
     nodes["u"][:, 0] = [229.0, 231.0]
-    from types import SimpleNamespace
     sensor = SimpleNamespace(
         id=np.array([101]),
         measured_object=np.array([10]),
@@ -48,7 +48,7 @@ def voltage_data():
         yield
 
 
-def test_retained_comparison_available_after_selection_cleared(voltage_data):
+def test_retained_comparison_available_after_selection_cleared(voltage_data):  # noqa: ARG001
     assert _has_retained_voltage_comparison([VOLTAGE])
     figure, graph_style, controls = cell_selection_graph(None, 2.0, [], [], [VOLTAGE])
     assert len(figure.data) == 0
@@ -59,19 +59,19 @@ def test_retained_comparison_available_after_selection_cleared(voltage_data):
     assert note["display"] == "flex"
 
 
-def test_other_attribute_does_not_hide_retained_controls(voltage_data):
+def test_other_attribute_does_not_hide_retained_controls(voltage_data):  # noqa: ARG001
     _, _, controls = cell_selection_graph(OTHER, 2.0, retained_selections=[VOLTAGE])
     assert controls == VISIBLE
 
 
-def test_removing_last_comparison_hides_controls(voltage_data):
+def test_removing_last_comparison_hides_controls(voltage_data):  # noqa: ARG001
     assert not _has_retained_voltage_comparison([])
     assert not _has_retained_voltage_comparison([OTHER])
     _, _, controls = cell_selection_graph(None, 2.0, retained_selections=[OTHER])
     assert controls == HIDDEN
 
 
-def test_invalid_multiplier_keeps_controls_and_shows_error(voltage_data):
+def test_invalid_multiplier_keeps_controls_and_shows_error(voltage_data):  # noqa: ARG001
     _, _, controls = cell_selection_graph(None, -1, retained_selections=[VOLTAGE])
     assert controls == VISIBLE
     error, note = update_voltage_comparison_guidance(None, -1, HIDDEN, controls, [VOLTAGE])

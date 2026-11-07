@@ -15,7 +15,11 @@ from power_grid_model_ds._core.visualizer.electrical_quantity_styling import (
     apply_electrical_colors,
     clear_electrical_colors,
 )
-from power_grid_model_ds._core.visualizer.electrical_quantity_utils import extract_scenario_values
+from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
+    extract_scenario_values,
+    get_available_scalar_attributes,
+    get_scenario_count,
+)
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH_WIDTH, NODE_SIZE
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
@@ -197,12 +201,56 @@ def _apply_automatic_positions(display_elements, current_positions):
 
 
 @callback(
+    Output("electrical-quantity-dropdown", "options"),
+    Output("electrical-quantity-dropdown", "value"),
+    Output("electrical-quantity-dropdown", "disabled"),
+    Input("electrical-component-dropdown", "value"),
+    State("electrical-available-attributes", "data"),
+)
+def update_electrical_attributes(component, available_attributes):
+    """Offer only scalar output attributes of the selected component."""
+    attributes = (available_attributes or {}).get(component, [])
+    options = [{"label": name, "value": name} for name in attributes]
+    return options, None, not bool(options)
+
+
+def _scenario_validation_message(value, count):
+    """Return a warning for invalid user input, or None when valid."""
+    if not count:
+        return None
+    if value is None or value == "":
+        return f"Enter a whole-number scenario between 1 and {count}."
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return f"Enter a whole-number scenario between 1 and {count}."
+    if not float(value).is_integer():
+        return f"Scenario must be a whole number between 1 and {count}."
+    if not 1 <= value <= count:
+        return f"Scenario {int(value)} does not exist. Available scenarios: 1-{count}."
+    return None
+
+
+@callback(
+    Output("electrical-scenario-warning", "style"),
+    Output("electrical-scenario-warning-text", "children"),
+    Input("electrical-scenario-input", "value"),
+    State("electrical-scenario-count", "data"),
+)
+def update_scenario_warning(value, scenario_count):
+    """Show a floating warning only when a nonempty scenario is invalid."""
+    if value is None or value == "":
+        return {"display": "none"}, ""
+    message = _scenario_validation_message(value, scenario_count)
+    return ({"display": "none"} if message is None else {"display": "block"}), message or ""
+
+
+@callback(
     Output("cytoscape-graph", "elements"),
     Output("electrical-quantity-legend", "children"),
     Output("node-position-state-store", "data"),
     Input("show-appliances-store", "data"),
+    Input("electrical-component-dropdown", "value"),
     Input("electrical-quantity-dropdown", "value"),
-    Input("electrical-scenario-dropdown", "value"),
+    Input("electrical-scenario-input", "value"),
     Input("node-scale-input", "value"),
     State("parsed-elements-store", "data"),
     State("cytoscape-graph", "elements"),
@@ -211,89 +259,71 @@ def _apply_automatic_positions(display_elements, current_positions):
 )
 def update_appliances(  # noqa: PLR0913, PLR0917
     show_appliances,
+    component,
     quantity,
-    scenario_index,
+    scenario_number=None,
     node_scale=1.0,
     parsed_elements=None,
     current_elements=None,
     position_state=None,
     current_layout=None,
 ):
-    """Compose graph positions, appliance visibility, and electrical values."""
+    """Compose integrated node positioning with the generic scalar heatmap."""
     if parsed_elements is None or node_scale is None or node_scale <= 0:
         raise PreventUpdate
 
-    display_elements = separate_coincident_nodes(
-        parsed_elements,
-        node_scale=node_scale,
-    )
-
+    display_elements = separate_coincident_nodes(parsed_elements, node_scale=node_scale)
     previous_scale = position_state.get("scale", 1.0) if position_state else 1.0
     manual_positions = dict(position_state.get("manual_positions", {})) if position_state else {}
     current_positions = _node_positions(current_elements)
 
     if current_layout and current_layout.get("name") == LayoutOptions.PRESET.value:
         manual_positions = _apply_preset_positions(
-            parsed_elements,
-            display_elements,
-            current_positions,
-            previous_scale,
-            manual_positions,
+            parsed_elements, display_elements, current_positions, previous_scale, manual_positions
         )
     else:
         _apply_automatic_positions(display_elements, current_positions)
         manual_positions = {}
 
-    new_position_state = {
-        "scale": node_scale,
-        "manual_positions": manual_positions,
-    }
-
+    new_position_state = {"scale": node_scale, "manual_positions": manual_positions}
     elements = (
         list(display_elements.values())
         if show_appliances
         else filter_out_appliances(display_elements.values())
     )
 
-    # Reset electrical colouring and hide the legend when no quantity is selected.
-    if quantity in (None, "none"):
-        return (
-            clear_electrical_colors(elements),
-            "",
-            new_position_state,
-        )
-
-    # A quantity alone is insufficient: a scenario must also be selected.
-    if scenario_index is None:
+    if not component or not quantity or quantity == "none":
+        return clear_electrical_colors(elements), "", new_position_state
+    if scenario_number is None:
         return (
             clear_electrical_colors(elements),
             "Select a scenario to display electrical values.",
             new_position_state,
         )
 
-    # F01 supports two node quantities.
-    if quantity not in ("u_pu", "u_angle"):
-        raise ValueError(f"Unsupported electrical quantity: {quantity}")
+    output_data = server_state.get_output_data()
+    available = get_available_scalar_attributes(output_data)
+    if quantity not in available.get(component, []):
+        return (
+            clear_electrical_colors(elements),
+            "The selected attribute is unavailable.",
+            new_position_state,
+        )
 
-    values = extract_scenario_values(
-        server_state.get_output_data(),
-        ComponentType.node,
-        quantity,
-        scenario_index,
-    )
+    scenario_count = get_scenario_count(output_data)
+    if _scenario_validation_message(scenario_number, scenario_count) is not None:
+        return (
+            clear_electrical_colors(elements),
+            f"Enter a scenario between 1 and {scenario_count}.",
+            new_position_state,
+        )
 
-    colored_elements, legend = apply_electrical_colors(
-        elements,
-        ComponentType.node.value,
-        values,
-    )
-
+    values = extract_scenario_values(output_data, ComponentType(component), quantity, int(scenario_number) - 1)
+    colored_elements, summary = apply_electrical_colors(elements, component, values)
     legend_content = build_electrical_legend(
-        scenario_index=scenario_index,
-        minimum=legend["minimum"],
-        maximum=legend["maximum"],
-        missing_count=legend["missing_count"],
+        scenario_index=int(scenario_number) - 1,
+        summary=summary,
         quantity=quantity,
+        component_group=component,
     )
-
     return colored_elements, legend_content, new_position_state

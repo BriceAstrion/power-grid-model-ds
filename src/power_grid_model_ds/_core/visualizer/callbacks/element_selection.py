@@ -5,7 +5,6 @@
 from typing import Any
 from urllib.parse import quote
 
-import dash_ag_grid as dag
 import numpy as np
 import plotly.graph_objects as go
 from dash import ALL, MATCH, Input, Output, State, callback, callback_context, dcc, html, no_update
@@ -29,11 +28,7 @@ from power_grid_model_ds._core.visualizer.measurement_comparison import (
     get_symmetric_voltage_comparison,
     get_voltage_sigma_bounds,
 )
-from power_grid_model_ds._core.visualizer.server_state import (
-    get_grid,
-    get_output_data,
-    get_update_data
-)
+from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
 from power_grid_model_ds.arrays import IdArray
 
 # AG Grid-style narrowing horizontal bars, used only in the attribute inspector.
@@ -572,8 +567,10 @@ def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_d
     """Render the legacy graph and keep controls available for retained comparisons."""
     hidden = {"display": "none"}
     retained_controls = (
-        {"display": "block"} if _has_retained_voltage_comparison(retained_selections) else hidden
-    ) if retained_selections is not None else None
+        ({"display": "block"} if _has_retained_voltage_comparison(retained_selections) else hidden)
+        if retained_selections is not None
+        else None
+    )
 
     if not isinstance(selected_cell, dict) or (
         (node_data is not None or edge_data is not None) and not node_data and not edge_data
@@ -590,9 +587,9 @@ def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_d
     if comp_type == ComponentType.sym_voltage_sensor and column == "u_measured":
         result = _try_voltage_comparison(component_id, sigma_multiplier)
         if result is not None:
-            return result[:2] + (retained_controls if retained_controls is not None else result[2],)
+            return (*result[:2], retained_controls if retained_controls is not None else result[2])
     result = _create_attribute_graph(comp_type, component_id, column)
-    return result[:2] + (retained_controls if retained_controls is not None else result[2],)
+    return (*result[:2], retained_controls if retained_controls is not None else result[2])
 
 
 def _has_retained_voltage_comparison(retained_selections) -> bool:

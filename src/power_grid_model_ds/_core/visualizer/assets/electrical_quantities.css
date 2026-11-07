@@ -11,222 +11,88 @@
     color: #ffffff;
 }
 
-/*
- * Control layout
- *
- * Quantity [dropdown] | Scenario [dropdown]
- *
- * Equal-width columns place the divider at the horizontal centre.
- * Each control group uses the full width of its assigned column.
- */
+/* Three independent controls: labels above inputs prevent horizontal collisions. */
 .electrical-controls-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr);
-    align-items: center;
-    column-gap: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 20px;
     width: 100%;
+    align-items: start;
 }
-
-/*
- * Field layout
- * Keep the label close to its dropdown and avoid fixed label widths.
- */
 .electrical-control-field {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
     min-width: 0;
 }
-
 .electrical-control-label {
-    flex: 0 0 auto;
+    display: block;
     margin: 0;
     color: #ffffff;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    white-space: nowrap;
-}
-
-/*
- * Dropdown container
- * Fill the remaining space after the label in each control group.
- */
-.electrical-dropdown-container {
-    flex: 1 1 0;
-    width: 100%;
-    min-width: 0;
-}
-
-.electrical-dropdown-container > * {
-    box-sizing: border-box;
-    width: 100% !important;
-    min-width: 0;
-}
-
-/*
- * Vertical divider
- * Occupies the centre grid column independently of dropdown width.
- */
-.electrical-controls-divider {
-    width: 2px;
-    height: 48px;
-    background-color: #a3adb8;
-    align-self: center;
-}
-
-/*
- * Dropdown buttons
- * Keep the selected value left-aligned and reserve space for the arrow.
- */
-.electrical-quantity-panel button#electrical-quantity-dropdown,
-.electrical-quantity-panel button#electrical-scenario-dropdown {
-    box-sizing: border-box;
-    position: relative;
-
-    display: flex !important;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start !important;
-
-    width: 100% !important;
-    min-width: 0;
-    min-height: 46px;
-
-    padding: 8px 14px;
-
-    background-color: #ffffff;
-    border: 1px solid #8795a5;
-    border-radius: 5px;
-
-    color: #202a35 !important;
-    -webkit-text-fill-color: #202a35 !important;
-
-    font-size: 16px;
     line-height: 1.4;
-    text-align: left !important;
-    opacity: 1 !important;
 }
+.electrical-dropdown-container { width: 100%; min-width: 0; }
+.electrical-dropdown-container > * { box-sizing: border-box; width: 100%; min-width: 0; }
 
-/*
- * Selected-value text
- * Allow text to occupy the available space without pushing the arrow.
- */
-.electrical-quantity-panel button#electrical-quantity-dropdown > span,
-.electrical-quantity-panel button#electrical-scenario-dropdown > span {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin: 0 !important;
-
-    color: #202a35 !important;
-    -webkit-text-fill-color: #202a35 !important;
-
-    text-align: left !important;
-    opacity: 1 !important;
-}
-
-/*
- * Dropdown chevrons
- * Use the SVG icons already rendered by Dash.
- * Keep their size consistent and align them to the right.
- */
-.electrical-quantity-panel button#electrical-quantity-dropdown svg,
-.electrical-quantity-panel button#electrical-scenario-dropdown svg {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px;
-    min-height: 20px;
-
-    flex: 0 0 20px;
-    margin-left: auto !important;
-
-    color: #202a35 !important;
-    stroke: currentColor;
-    stroke-width: 2;
-}
-
-/*
- * Selected-value visibility
- * Prevent inherited styles from hiding the dropdown text.
- */
-.electrical-quantity-panel button#electrical-quantity-dropdown *,
-.electrical-quantity-panel button#electrical-scenario-dropdown * {
-    color: #202a35 !important;
-    -webkit-text-fill-color: #202a35 !important;
-    opacity: 1 !important;
-}
-
-/*
- * Keyboard focus
- * Make the focused dropdown identifiable to keyboard users.
- */
-.electrical-quantity-panel button#electrical-quantity-dropdown:focus-visible,
-.electrical-quantity-panel button#electrical-scenario-dropdown:focus-visible {
-    outline: 3px solid #80b8ff !important;
-    outline-offset: 3px;
-}
-
-/* Hover feedback */
-.electrical-quantity-panel button#electrical-quantity-dropdown:hover:not(:disabled),
-.electrical-quantity-panel button#electrical-scenario-dropdown:hover:not(:disabled) {
-    border-color: #245c9b;
-}
-
-/* Disabled controls */
-.electrical-quantity-panel button#electrical-quantity-dropdown:disabled,
-.electrical-quantity-panel button#electrical-scenario-dropdown:disabled {
-    background-color: #e5e7eb;
-    color: #4b5563 !important;
-    -webkit-text-fill-color: #4b5563 !important;
-    cursor: not-allowed;
-}
-
-/*
- * Legacy React Select compatibility
- * These styles apply only when the older dropdown markup is present.
- */
+/* Dash dcc.Dropdown (React Select) */
 .electrical-quantity-panel .Select-control {
     box-sizing: border-box;
+    min-height: 44px;
     width: 100%;
-    min-height: 46px;
-    background-color: #ffffff;
     border: 1px solid #8795a5;
     border-radius: 5px;
+    background: #ffffff;
 }
-
-.electrical-quantity-panel .Select-value,
 .electrical-quantity-panel .Select-value-label,
 .electrical-quantity-panel .Select-placeholder,
 .electrical-quantity-panel .Select-input input {
     color: #202a35 !important;
-    opacity: 1 !important;
+    -webkit-text-fill-color: #202a35 !important;
 }
-
-.electrical-quantity-panel .is-focused:not(.is-open) > .Select-control {
-    outline: 3px solid #80b8ff;
-    outline-offset: 3px;
-}
-
-/* Legacy dropdown menu */
 .electrical-quantity-panel .Select-menu-outer {
     z-index: 1000;
-    background-color: #ffffff;
     color: #202a35;
+    background: #ffffff;
+}
+.electrical-quantity-panel .Select-option { color: #202a35; background: #ffffff; }
+.electrical-quantity-panel .Select-option.is-focused { background: #dbeafe; }
+.electrical-quantity-panel .Select-option.is-selected { color: #ffffff; background: #245c9b; }
+.electrical-quantity-panel .is-focused:not(.is-open) > .Select-control {
+    outline: 2px solid #80b8ff;
+    outline-offset: 1px;
 }
 
-.electrical-quantity-panel .Select-option {
-    background-color: #ffffff;
-    color: #202a35;
+/* Dash dcc.Input(type=number): explicitly style the actual input element. */
+.electrical-quantity-panel input#electrical-scenario-input {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #8795a5;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #202a35 !important;
+    -webkit-text-fill-color: #202a35 !important;
+    font-size: 16px;
+    opacity: 1;
 }
-
-.electrical-quantity-panel .Select-option.is-focused {
-    background-color: #dbeafe;
-    color: #111827;
+.electrical-quantity-panel input#electrical-scenario-input::placeholder {
+    color: #64748b;
+    opacity: 1;
 }
-
-.electrical-quantity-panel .Select-option.is-selected {
-    background-color: #245c9b;
-    color: #ffffff;
+.electrical-quantity-panel input#electrical-scenario-input:focus-visible {
+    outline: 2px solid #80b8ff;
+    outline-offset: 1px;
+}
+.electrical-quantity-panel input#electrical-scenario-input:disabled {
+    background: #e5e7eb;
+    color: #4b5563 !important;
+    -webkit-text-fill-color: #4b5563 !important;
 }
 
 /*
@@ -244,9 +110,6 @@
     min-height: 28px;
 }
 
-.electrical-quantity-legend:empty {
-    display: none;
-}
 
 /*
  * F01 electrical legend
@@ -342,46 +205,77 @@
 }
 
 
-/*
- * Responsive layout
- * Stack the fields when horizontal space becomes insufficient.
- */
-@media (max-width: 900px) {
-    .electrical-quantity-panel {
-        padding: 16px 24px;
-    }
-
-    .electrical-controls-grid {
-        grid-template-columns: minmax(0, 1fr);
-        row-gap: 16px;
-    }
-
-    .electrical-controls-divider {
-        width: 100%;
-        height: 1px;
-    }
+/* Responsive controls and legend. */
+@media (max-width: 1100px) {
+    .electrical-controls-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .electrical-quantity-panel { padding: 16px; }
+    .electrical-controls-grid { grid-template-columns: minmax(0, 1fr); }
+    .electrical-legend-statistics { gap: 12px; }
+    .electrical-stat-value { font-size: 17px; }
+    .electrical-scale-endpoints { flex-wrap: wrap; }
 }
 
-@media (max-width: 640px) {
-    .electrical-quantity-panel {
-        padding: 16px;
-    }
-
-    .electrical-control-field {
-        gap: 10px;
-    }
+/* F01: Ensure selected dropdown values remain visible. */
+.electrical-quantity-panel .dash-dropdown-value,
+.electrical-quantity-panel .dash-dropdown-value span,
+.electrical-quantity-panel .Select-value-label,
+.electrical-quantity-panel .Select-single-value {
+    color: #202a35 !important;
+    -webkit-text-fill-color: #202a35 !important;
+    opacity: 1 !important;
 }
 
-@media (max-width: 640px) {
-    .electrical-legend-statistics {
-        gap: 12px;
-    }
 
-    .electrical-stat-value {
-        font-size: 17px;
-    }
+/* Speech-bubble annotation: floats over the graph and never increases toolbar height. */
+.electrical-scenario-anchor { position: relative; overflow: visible; }
+.electrical-scenario-warning {
+    position: absolute;
+    z-index: 9999;
+    top: calc(100% + 13px);
+    right: 0;
+    width: min(350px, 90vw);
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 2px solid #e9a23b;
+    border-radius: 12px;
+    background-color: #fff8e7;
+    color: #54320c;
+    box-shadow: 0 9px 24px rgba(0,0,0,.38);
+    font-size: 14px;
+    line-height: 1.45;
+    pointer-events: none;
+}
+.electrical-scenario-callout-arrow {
+    position: absolute;
+    top: -9px;
+    right: 25px;
+    width: 16px;
+    height: 16px;
+    background: #fff8e7;
+    border-top: 2px solid #e9a23b;
+    border-left: 2px solid #e9a23b;
+    transform: rotate(45deg);
+}
+.electrical-scenario-warning-row { display: flex; align-items: flex-start; gap: 10px; }
+.electrical-scenario-warning-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #c2410c;
+    color: white;
+    font-size: 16px;
+    font-weight: 800;
+}
+.electrical-scenario-warning-body { flex: 1; min-width: 0; }
+.electrical-scenario-warning-title { display: block; margin-bottom: 4px; font-weight: 700; }
 
-    .electrical-scale-endpoints {
-        flex-wrap: wrap;
-    }
+/* Hide the unused legend container in the default electrical view. */
+.electrical-quantity-legend:empty {
+    display: none;
 }
