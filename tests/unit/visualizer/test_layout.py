@@ -21,8 +21,8 @@ def test_get_app_layout():
     assert get_app_layout(grid)
 
 
-def test_diagnostic_overview_container_exists_in_app_layout():
-    """The diagnostics callback must have exactly one output container."""
+def test_diagnostic_overview_container_removed_from_app_layout():
+    """The removed diagnostic overview must not appear in the layout."""
 
     layout = get_app_layout(Grid.from_txt("S1 2 12", "2 3 23"))
 
@@ -33,7 +33,12 @@ def test_diagnostic_overview_container_exists_in_app_layout():
         if not isinstance(node, Component):
             return 0
 
-        count = int(getattr(node, "id", None) == "diagnostic-overview-content")
-        return count + count_diagnostic_containers(getattr(node, "children", None))
+        count = int(
+            getattr(node, "id", None) == "diagnostic-overview-content"
+        )
 
-    assert count_diagnostic_containers(layout) == 1
+        return count + count_diagnostic_containers(
+            getattr(node, "children", None)
+        )
+
+    assert count_diagnostic_containers(layout) == 0

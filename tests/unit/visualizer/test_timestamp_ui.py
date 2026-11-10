@@ -67,37 +67,32 @@ def _attribute_text(panel, attribute):
     raise AssertionError(f"Attribute {attribute!r} not displayed")
 
 
-def test_selector_hidden_without_timestamp_metadata():
+def test_network_state_visible_without_timestamp_metadata():
+    """Network state remains visible when timestamps are unavailable."""
+
     configure_state(timestamps=None)
 
     panel = get_timestamp_selection_html()
 
     assert panel.id == "timestamp-selection-container"
-    assert panel.style == {"display": "none"}
+    assert panel.style.get("display") != "none"
 
-    components = {
-        component.id: component
-        for component in panel.children
-    }
+    details = next(
+        child
+        for child in panel.children
+        if getattr(child, "id", None) == "network-state-details"
+    )
 
-    assert set(components) == {
-        "timestamp-date",
-        "timestamp-time",
-        "timestamp-selector",
-        "timestamp-state-output",
-    }
+    assert details.open is True
 
-    assert components["timestamp-date"].disabled is True
+    selector = next(
+        child
+        for child in panel.children
+        if getattr(child, "id", None) == "timestamp-selector"
+    )
 
-    assert components["timestamp-time"].disabled is True
-    assert components["timestamp-time"].options == []
-    assert components["timestamp-time"].value is None
-
-    assert components["timestamp-selector"].disabled is True
-    assert components["timestamp-selector"].options == []
-    assert components["timestamp-selector"].value is None
-
-    assert components["timestamp-state-output"].children is None
+    assert selector.disabled is True
+    assert selector.value is None
 
 
 def test_selector_uses_source_timestamps():

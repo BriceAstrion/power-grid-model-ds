@@ -12,7 +12,6 @@ from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # pylint: disable=unused-import
     config,
-    diagnostic_overview,
     element_selection,
     header,
     search_form,
@@ -54,6 +53,28 @@ GOOGLE_FONTS = "https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&d
 MDBOOTSTRAP = "https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.2.0/mdb.min.css"
 
 PANEL_BORDER = "1px solid #dee2e6"
+
+# Shared static layout styles. Keep component-specific callback state in its
+# existing stores rather than in module-level mutable variables.
+HEADER_DIVIDER_STYLE = {"borderColor": "white", "margin": "0"}
+WORKSPACE_TOOLBAR_ACTIONS_STYLE = {
+    "display": "flex",
+    "alignItems": "center",
+    "gap": "4px",
+}
+NETWORK_PANEL_STYLE = {
+    "gridColumn": "2",
+    "minWidth": "0",
+    "width": "100%",
+    "overflow": "hidden",
+}
+GRAPH_PANEL_STYLE = {
+    "width": "100%",
+    "padding": "1rem",
+    "borderTop": PANEL_BORDER,
+}
+SCENARIO_WARNING_HIDDEN_STYLE = {"display": "none"}
+NODE_POSITION_INITIAL_STATE = {"scale": 1.0, "manual_positions": {}}
 
 TOOLBAR_STYLE = {
     "height": "32px",
@@ -121,7 +142,7 @@ def _get_workspace_toolbar() -> html.Div:
             _workspace_button(
                 "workspace-toggle-left",
                 "lucide:panel-left-close",
-                "Toggle diagnostic panel",
+                "Toggle network state panel",
             ),
             html.Div(
                 [
@@ -136,11 +157,7 @@ def _get_workspace_toolbar() -> html.Div:
                         "Toggle attributes panel",
                     ),
                 ],
-                style={
-                    "display": "flex",
-                    "alignItems": "center",
-                    "gap": "4px",
-                },
+                style=WORKSPACE_TOOLBAR_ACTIONS_STYLE.copy(),
             ),
         ],
         id="workspace-toolbar",
@@ -220,7 +237,7 @@ def _get_electrical_quantity_controls(
                     id="electrical-scenario-warning",
                     className="electrical-scenario-warning",
                     role="alert",
-                    style={"display": "none"},
+                    style=SCENARIO_WARNING_HIDDEN_STYLE.copy(),
                 )
             )
         controls.append(
@@ -303,8 +320,8 @@ def get_app_layout(grid: Grid) -> html.Div:
             dcc.Store(
                 id="node-position-state-store",
                 data={
-                    "scale": 1.0,
-                    "manual_positions": {},
+                    "scale": NODE_POSITION_INITIAL_STATE["scale"],
+                    "manual_positions": NODE_POSITION_INITIAL_STATE["manual_positions"].copy(),
                 },
             ),
             dcc.Store(
@@ -322,12 +339,7 @@ def get_app_layout(grid: Grid) -> html.Div:
             ),
             # Preserve the existing navigation bar.
             HEADER_HTML,
-            html.Hr(
-                style={
-                    "borderColor": "white",
-                    "margin": "0",
-                }
-            ),
+            html.Hr(style=HEADER_DIVIDER_STYLE.copy()),
             # F01: Electrical quantity and scenario controls.
             electrical_controls,
             # Compact toolbar above the workspace.
@@ -335,69 +347,9 @@ def get_app_layout(grid: Grid) -> html.Div:
             # Three-column workspace.
             html.Div(
                 [
-                    # Left: diagnostic overview.
+                    # Left: network state (moved from the details panel).
                     html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.I(
-                                        className="bi bi-activity",
-                                        **{"aria-hidden": "true"},  # type: ignore[arg-type]
-                                        style={
-                                            "fontSize": "18px",
-                                            "color": "#64748b",
-                                        },
-                                    ),
-                                    html.H5(
-                                        "Diagnostics",
-                                        style={
-                                            "margin": "0",
-                                            "fontSize": "18px",
-                                            "fontWeight": "600",
-                                        },
-                                    ),
-                                ],
-                                style={
-                                    "display": "flex",
-                                    "alignItems": "center",
-                                    "gap": "10px",
-                                    "marginBottom": "12px",
-                                },
-                            ),
-                            html.Div(
-                                [
-                                    html.Div(
-                                        [
-                                            html.I(
-                                                className="bi bi-diagram-3",
-                                                **{"aria-hidden": "true"},  # type: ignore[arg-type]
-                                                style={"color": "#64748b"},
-                                            ),
-                                            html.Span("Selected node"),
-                                        ],
-                                        style={
-                                            "display": "flex",
-                                            "alignItems": "center",
-                                            "gap": "8px",
-                                            "fontWeight": "600",
-                                            "marginBottom": "10px",
-                                        },
-                                    ),
-                                    html.Div(
-                                        "Select a network node to view diagnostics.",
-                                        id="diagnostic-overview-content",
-                                        role="status",
-                                    ),
-                                ],
-                                style={
-                                    "backgroundColor": "#ffffff",
-                                    "border": "1px solid #dee2e6",
-                                    "borderRadius": "8px",
-                                    "padding": "12px",
-                                    "marginTop": "12px",
-                                },
-                            ),
-                        ],
+                        [get_timestamp_selection_html()],
                         id="workspace-left-panel",
                         style=left_style,
                     ),
@@ -408,19 +360,11 @@ def get_app_layout(grid: Grid) -> html.Div:
                             cytoscape_html,
                         ],
                         id="workspace-network-panel",
-                        style={
-                            "gridColumn": "2",
-                            "minWidth": "0",
-                            "width": "100%",
-                            "overflow": "hidden",
-                        },
+                        style=NETWORK_PANEL_STYLE.copy(),
                     ),
-                    # Right: timestamp selection and component attributes.
+                    # Right: selected component attributes and comparisons.
                     html.Div(
-                        [
-                            get_timestamp_selection_html(),
-                            SELECTION_OUTPUT_HTML,
-                        ],
+                        [SELECTION_OUTPUT_HTML],
                         id="workspace-details-panel",
                         style=right_style,
                     ),
@@ -428,17 +372,13 @@ def get_app_layout(grid: Grid) -> html.Div:
                 id="workspace-main",
                 style=grid_style,
             ),
-            # Preserve the existing bottom diagnostic plots.
+            # Preserve retained attribute and measurement-comparison graphs.
             html.Div(
                 [
                     SELECTION_GRAPH_HTML,
                 ],
                 id="workspace-diagnostics-panel",
-                style={
-                    "width": "100%",
-                    "padding": "1rem",
-                    "borderTop": PANEL_BORDER,
-                },
+                style=GRAPH_PANEL_STYLE.copy(),
             ),
         ],
     )
