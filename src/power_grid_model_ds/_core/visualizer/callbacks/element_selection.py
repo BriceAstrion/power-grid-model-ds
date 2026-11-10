@@ -528,8 +528,10 @@ def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return
         return None
 
     if comparison.sigma is not None and (
-        not isinstance(sigma_multiplier, (int, float)) or isinstance(sigma_multiplier, bool)
-        or not np.isfinite(sigma_multiplier) or sigma_multiplier < 0
+        not isinstance(sigma_multiplier, (int, float))
+        or isinstance(sigma_multiplier, bool)
+        or not np.isfinite(sigma_multiplier)
+        or sigma_multiplier < 0
     ):
         return go.Figure(), {"display": "none"}, {"display": "block"}
     quantity = "active power" if measurement_attribute == "p_measured" else "reactive power"
@@ -539,7 +541,9 @@ def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return
         title=f"sym_power_sensor - {quantity} comparison - id={sensor_id}",
         quantity=quantity,
         unit=unit,
-        sigma_multiplier=float(sigma_multiplier) if isinstance(sigma_multiplier, (int, float)) and np.isfinite(sigma_multiplier) else 2.0,
+        sigma_multiplier=float(sigma_multiplier)
+        if isinstance(sigma_multiplier, (int, float)) and np.isfinite(sigma_multiplier)
+        else 2.0,
     )
     controls_style = {"display": "block"} if comparison.sigma is not None else {"display": "none"}
     return figure, {"display": "block"}, controls_style
@@ -605,11 +609,15 @@ def _has_retained_voltage_comparison(retained_selections) -> bool:
             continue
         try:
             if group == ComponentType.sym_voltage_sensor.value and column == "u_measured":
-                if ComponentType.node not in output_data or not _is_supported_node_output(output_data[ComponentType.node]):
+                if ComponentType.node not in output_data or not _is_supported_node_output(
+                    output_data[ComponentType.node]
+                ):
                     continue
                 comparison = get_symmetric_voltage_comparison(get_grid(), update_data, output_data, sensor_id)
             elif group == ComponentType.sym_power_sensor.value and column in ("p_measured", "q_measured"):
-                if ComponentType.source not in output_data or not _is_dense_batch_array(output_data[ComponentType.source]):
+                if ComponentType.source not in output_data or not _is_dense_batch_array(
+                    output_data[ComponentType.source]
+                ):
                     continue
                 comparison = get_symmetric_power_comparison(get_grid(), update_data, output_data, sensor_id, column)
             else:
