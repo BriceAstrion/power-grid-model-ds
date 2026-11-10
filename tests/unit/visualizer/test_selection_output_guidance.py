@@ -12,6 +12,7 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     restart_sigma_guidance_timer,
     update_sigma_guidance_expansion,
+    update_sigma_multiplier_input_style,
     update_voltage_comparison_guidance,
 )
 
@@ -128,3 +129,43 @@ def test_new_voltage_selection_starts_five_second_timer():
 
 def test_timer_collapses_details():
     assert update_sigma_guidance_expansion(VOLTAGE_CELL, 1) is False
+
+
+@pytest.mark.parametrize("multiplier", [0, 1, 2.0, 3.0, 3.5])
+def test_valid_multiplier_has_normal_input_style(multiplier):
+    assert update_sigma_multiplier_input_style(VOLTAGE_CELL, multiplier, VISIBLE) == {
+        "width": "100px",
+        "padding": "6px 8px",
+    }
+
+
+@pytest.mark.parametrize("multiplier", [None, -1, math.nan, math.inf, -math.inf, "invalid"])
+def test_invalid_multiplier_highlights_input(multiplier):
+    style = update_sigma_multiplier_input_style(VOLTAGE_CELL, multiplier, VISIBLE)
+    assert style["border"] == "2px solid #b42318"
+    assert style["color"] == "#b42318"
+
+
+@pytest.mark.parametrize("cell", [None, {}, {"group": "node", "column": "u"}])
+def test_other_selection_does_not_highlight_multiplier(cell):
+    assert "border" not in update_sigma_multiplier_input_style(cell, -1, VISIBLE)
+
+
+def test_hidden_controls_do_not_highlight_multiplier():
+    assert "border" not in update_sigma_multiplier_input_style(VOLTAGE_CELL, -1, HIDDEN)
+
+
+def test_retained_voltage_selection_keeps_guidance_and_validation():
+    retained = [VOLTAGE_CELL]
+    assert update_voltage_comparison_guidance(None, 2.0, HIDDEN, VISIBLE, retained) == (HIDDEN, NOTE_VISIBLE)
+    assert update_voltage_comparison_guidance(None, -1, HIDDEN, VISIBLE, retained) == (ERROR_VISIBLE, HIDDEN)
+    assert update_sigma_multiplier_input_style(None, -1, VISIBLE, retained)["border"] == "2px solid #b42318"
+    assert restart_sigma_guidance_timer(None, retained) == (0, False)
+    assert update_sigma_guidance_expansion(None, 0, retained) is True
+    assert update_sigma_guidance_expansion(None, 1, retained) is False
+
+
+def test_non_voltage_retained_selection_does_not_start_guidance_timer():
+    retained = [{"group": "node", "id": 1, "column": "u_rated"}]
+    assert restart_sigma_guidance_timer(None, retained) == (0, True)
+    assert update_sigma_guidance_expansion(None, 0, retained) is False

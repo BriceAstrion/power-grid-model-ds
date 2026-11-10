@@ -24,6 +24,7 @@ from power_grid_model_ds._core.visualizer.graph_selections import (
 from power_grid_model_ds._core.visualizer.grid_utils import get_attr_data_from_dataset
 from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTION_OUTPUT_HTML
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
+    DENSE_BATCH_NDIM,
     VoltageComparison,
     get_symmetric_voltage_comparison,
     get_voltage_sigma_bounds,
@@ -49,7 +50,7 @@ _OPERATORS = [
 ]
 
 
-BATCH_DIMENSIONS = 2
+BATCH_DIMENSIONS = DENSE_BATCH_NDIM
 
 
 @callback(
@@ -601,6 +602,15 @@ def _has_retained_voltage_comparison(retained_selections) -> bool:
         return False
     if not _is_supported_node_output(output_data[ComponentType.node]):
         return False
+    update_data = get_update_data()
+    if update_data is not None and ComponentType.sym_voltage_sensor in update_data:
+        sensor_updates = update_data[ComponentType.sym_voltage_sensor]
+        if (
+            not _is_dense_batch_array(sensor_updates)
+            or sensor_updates.dtype.names is None
+            or "id" not in sensor_updates.dtype.names
+        ):
+            return False
     for selection in retained_selections:
         if not isinstance(selection, dict):
             continue
@@ -633,31 +643,65 @@ def _is_supported_node_output(node_output: object) -> bool:
     return fields is not None and fields["u"][0].subdtype is None
 
 
-def _try_voltage_comparison(sensor_id, sigma_multiplier):
-    """Attempt a dense-batch sensor comparison without affecting other attribute plots."""
+def _is_dense_batch_array(component_data: Any) -> bool:
+    """Whether the component uses a supported dense batch representation."""
+    return isinstance(component_data, np.ndarray) and component_data.ndim == DENSE_BATCH_NDIM
+
+
+def _require_explicit_ids(component_data: np.ndarray) -> None:
+    """Reject dense batch arrays with implicit component IDs."""
+    if component_data.dtype.names is None or "id" not in component_data.dtype.names:
+        raise NotImplementedError("Batch data without explicit component IDs are not implemented.")
+
+
+def _voltage_comparison_graph(sensor_id: int, sigma_multiplier: float | None):
+    """Render a supported dense voltage comparison, preserving unsupported-data behavior."""
     output_data = get_output_data()
     if output_data is None or ComponentType.node not in output_data:
         return None
     node_output = output_data[ComponentType.node]
-
-    if not _is_supported_node_output(node_output):
+    if (
+        not _is_dense_batch_array(node_output)
+        or node_output.dtype.fields is None
+        or "u" not in node_output.dtype.fields
+        or node_output.dtype.fields["u"][0].subdtype is not None
+    ):
         return None
+    _require_explicit_ids(node_output)
+
+    update_data = get_update_data()
+    if update_data is not None and ComponentType.sym_voltage_sensor in update_data:
+        sensor_updates = update_data[ComponentType.sym_voltage_sensor]
+        if not _is_dense_batch_array(sensor_updates):
+            return None
+        _require_explicit_ids(sensor_updates)
 
     hidden = {"display": "none"}
     visible = {"display": "block"}
-    if not isinstance(sigma_multiplier, (int, float)) or not np.isfinite(sigma_multiplier) or sigma_multiplier < 0:
+    if (
+        not isinstance(sigma_multiplier, (int, float))
+        or isinstance(sigma_multiplier, bool)
+        or not np.isfinite(sigma_multiplier)
+        or sigma_multiplier < 0
+    ):
         return go.Figure(), hidden, visible
+
     try:
         comparison = get_symmetric_voltage_comparison(
             grid=get_grid(),
-            update_data=get_update_data(),
+            update_data=update_data,
             output_data=output_data,
             sensor_id=sensor_id,
         )
-        fig = _create_voltage_comparison_figure(comparison, sensor_id, float(sigma_multiplier))
+        figure = _create_voltage_comparison_figure(comparison, sensor_id, float(sigma_multiplier))
     except (ValueError, TypeError, KeyError, AttributeError):
         return go.Figure(), hidden, visible
-    return fig, visible, visible
+    return figure, visible, visible
+
+
+def _try_voltage_comparison(sensor_id: int, sigma_multiplier: float | None):
+    """Compatibility entry point for integrated retained-graph rendering."""
+    return _voltage_comparison_graph(sensor_id, sigma_multiplier)
 
 
 def _create_attribute_graph(comp_type: ComponentType, component_id: int, column: str):
@@ -767,19 +811,14 @@ def _get_y_data_for_cell_selection(
     pgm_id: int,
     attr: str,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Extract data from update_data or output_data."""
-    update_data = get_update_data()
-
-    if update_data is not None and comp_type in update_data:
-        update_names = update_data[comp_type].dtype.names
-
-        if update_names is not None and attr in update_names:
-            return get_attr_data_from_dataset(update_data, comp_type, attr, pgm_id)
-    output_data = get_output_data()
-
-    if output_data is not None and comp_type in output_data:
-        output_names = output_data[comp_type].dtype.names
-
-        if output_names is not None and attr in output_names:
-            return get_attr_data_from_dataset(output_data, comp_type, attr, pgm_id)
+    """Extract an attribute from supported dense update or output data."""
+    for dataset in (get_update_data(), get_output_data()):
+        if dataset is None or comp_type not in dataset:
+            continue
+        component_data = dataset[comp_type]
+        if not _is_dense_batch_array(component_data):
+            continue
+        names = component_data.dtype.names
+        if names is not None and "id" in names and attr in names:
+            return get_attr_data_from_dataset(dataset, comp_type, attr, pgm_id)
     return None, None

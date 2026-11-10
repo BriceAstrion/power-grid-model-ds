@@ -362,3 +362,35 @@ def update_sigma_guidance_expansion(selected_cell, n_intervals, retained_selecti
             for item in retained_selections
         )
     return is_voltage_measurement and n_intervals == 0
+
+
+_MULTIPLIER_INPUT_STYLE = {"width": "100px", "padding": "6px 8px"}
+_INVALID_MULTIPLIER_INPUT_STYLE = {**_MULTIPLIER_INPUT_STYLE, "border": "2px solid #b42318", "color": "#b42318"}
+
+
+@callback(
+    Output("sigma-multiplier", "style"),
+    Input("selected-selection-cell", "data"),
+    Input("sigma-multiplier", "value"),
+    Input("sigma-multiplier-controls", "style"),
+    Input("retained-graph-selections", "data"),
+)
+def update_sigma_multiplier_input_style(selected_cell, multiplier, controls_style, retained_selections=None):
+    """Highlight invalid sigma multipliers when comparison controls are visible."""
+    controls_visible = isinstance(controls_style, dict) and controls_style.get("display") != "none"
+    is_voltage_measurement = (
+        isinstance(selected_cell, dict)
+        and selected_cell.get("group") == "sym_voltage_sensor"
+        and selected_cell.get("column") == "u_measured"
+    )
+    if retained_selections is not None:
+        is_voltage_measurement = controls_visible
+    if not controls_visible or not is_voltage_measurement:
+        return _MULTIPLIER_INPUT_STYLE
+    valid_multiplier = (
+        isinstance(multiplier, (int, float))
+        and not isinstance(multiplier, bool)
+        and math.isfinite(multiplier)
+        and multiplier >= 0
+    )
+    return _MULTIPLIER_INPUT_STYLE if valid_multiplier else _INVALID_MULTIPLIER_INPUT_STYLE
