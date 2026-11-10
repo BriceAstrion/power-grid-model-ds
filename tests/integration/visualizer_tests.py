@@ -3,19 +3,18 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import sys
-from pathlib import Path
-
-# Add repo root to path so tests module can be imported
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 from power_grid_model import AttributeType, ComponentType, DatasetType, initialize_array
 
+# Add repo root to path so tests module can be imported.
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.dtypes.typing import NDArray3
-from power_grid_model_ds.arrays import LineArray, SourceArray
+from power_grid_model_ds.arrays import LineArray, SourceArray, SymVoltageSensorArray
 from power_grid_model_ds.generators import RadialGridGenerator
 from power_grid_model_ds.visualizer import visualize
 from tests.unit.visualizer.test_parsers import CoordinatedNodeArray
@@ -64,10 +63,7 @@ def visualize_grid():
 
 
 def visualize_coordinated_three_phase_grid():
-    visualize(
-        grid=get_coordinated_three_phase_grid(),
-        debug=True,
-    )
+    visualize(grid=get_coordinated_three_phase_grid(), debug=True)
 
 
 def visualize_grid_with_links():
@@ -97,6 +93,7 @@ def visualize_grid_with_all_open_types():
 
 
 def visualize_grid_with_batch_data():
+    """Original asymmetric-output scenario, retained for regression checks."""
     grid = get_coordinated_three_phase_grid()
     lines_update = initialize_array(DatasetType.update, ComponentType.line, (4, 2))
     lines_update[AttributeType.id] = grid.line.id[:2]
@@ -118,10 +115,57 @@ def visualize_grid_with_batch_data():
     visualize(grid=grid, update_data=update_data, output_data=output_data, debug=True)
 
 
+def visualize_grid_with_voltage_comparison():
+    """Manual test fixture for u_measured, estimated voltage, and sigma bands.
+
+    Values are synthetic and intentionally do not represent a real state-estimation run.
+    """
+    grid = get_coordinated_three_phase_grid()
+    sensor = SymVoltageSensorArray.empty(1)
+    sensor.id = np.array([12001], dtype=np.int32)
+    sensor.measured_object = grid.node.id[0]
+    sensor.u_measured = 400.0
+    sensor.u_sigma = 2.0
+    grid.append(sensor)
+
+    sensor_id = int(grid.sym_voltage_sensor.id[0])
+    sensor_node_id = int(grid.sym_voltage_sensor.measured_object[0])
+
+    sensor_updates = initialize_array(DatasetType.update, ComponentType.sym_voltage_sensor, (4, 1))
+    sensor_updates[AttributeType.id] = sensor_id
+    sensor_updates[AttributeType.u_measured][:, 0] = [400.0, 405.0, 410.0, 415.0]
+    sensor_updates[AttributeType.u_sigma][:, 0] = [2.0, 2.0, 3.0, 2.0]
+
+    nodes_output = initialize_array(DatasetType.sym_output, ComponentType.node, (4, 3))
+    nodes_output[AttributeType.id] = grid.node.id[:3]
+    nodes_output[AttributeType.u] = [
+        [401.0, 404.0, 407.0],
+        [404.0, 413.0, 416.0],
+        [412.0, 422.0, 425.0],
+        [414.0, 431.0, 434.0],
+    ]
+    nodes_output[AttributeType.energized][:] = 1
+
+    assert sensor_node_id in nodes_output[AttributeType.id][0], "Sensor node must have matching output."
+
+    print(f"Voltage comparison fixture: sensor id={sensor_id}, node id={sensor_node_id}")
+    print("Select the symmetric voltage sensor and its u_measured attribute.")
+    print("Expected measured series: [400, 405, 410, 415]")
+    print("Expected estimated series: [401, 404, 412, 414]")
+    print("Expected sigma series: [2, 2, 3, 2]")
+    visualize(
+        grid=grid,
+        update_data={ComponentType.sym_voltage_sensor: sensor_updates},
+        output_data={ComponentType.node: nodes_output},
+        debug=True,
+    )
+
+
 if __name__ == "__main__":
     # visualize_grid()
     # visualize_coordinated_three_phase_grid()
     # visualize_grid_with_links()
     # visualize_grid_with_all_types()
     # visualize_grid_with_batch_data()
-    visualize_grid_with_all_open_types()
+    # visualize_grid_with_all_open_types()
+    visualize_grid_with_voltage_comparison()
