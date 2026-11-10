@@ -17,6 +17,8 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
 )
 
 VOLTAGE_CELL = {"group": "sym_voltage_sensor", "id": 101, "column": "u_measured"}
+POWER_P_CELL = {"group": "sym_power_sensor", "id": 201, "column": "p_measured"}
+POWER_Q_CELL = {"group": "sym_power_sensor", "id": 201, "column": "q_measured"}
 VISIBLE = {"display": "block"}
 HIDDEN = {"display": "none"}
 
@@ -30,6 +32,13 @@ NOTE_VISIBLE = {
     "fontSize": "14px",
     "color": "#694100",
 }
+COMPARISON_FIGURE = {
+    "data": [
+        {"type": "scatter", "name": "Measured voltage"},
+        {"type": "scatter", "name": "Calculated voltage"},
+    ]
+}
+ATTRIBUTE_FIGURE = {"data": [{"type": "scatter", "name": "u_measured"}]}
 
 ERROR_VISIBLE = {
     "display": "flex",
@@ -48,7 +57,7 @@ def test_guidance_layout_and_timer():
         child for child in SELECTION_GRAPH_HTML.children if getattr(child, "id", None) == "sigma-multiplier-controls"
     )
     assert controls.id == "sigma-multiplier-controls"
-    assert controls.style["display"] == "none"
+    assert controls.style == HIDDEN | {"marginBottom": "12px"}
 
     header, input_row = controls.children
     assert header.style["display"] == "flex"
@@ -131,17 +140,27 @@ def test_timer_collapses_details():
     assert update_sigma_guidance_expansion(VOLTAGE_CELL, 1) is False
 
 
+def test_ordinary_attribute_graph_does_not_show_note():
+    assert update_voltage_comparison_guidance(VOLTAGE_CELL, 3.0, VISIBLE, HIDDEN) == (HIDDEN, HIDDEN)
+
+
+def test_missing_figure_does_not_show_note():
+    assert update_voltage_comparison_guidance(VOLTAGE_CELL, 3.0, HIDDEN, HIDDEN) == (HIDDEN, HIDDEN)
+
+
+@pytest.mark.parametrize("cell", [VOLTAGE_CELL, POWER_P_CELL, POWER_Q_CELL])
 @pytest.mark.parametrize("multiplier", [0, 1, 2.0, 3.0, 3.5])
-def test_valid_multiplier_has_normal_input_style(multiplier):
-    assert update_sigma_multiplier_input_style(VOLTAGE_CELL, multiplier, VISIBLE) == {
+def test_valid_multiplier_has_normal_input_style(cell, multiplier):
+    assert update_sigma_multiplier_input_style(cell, multiplier, VISIBLE) == {
         "width": "100px",
         "padding": "6px 8px",
     }
 
 
+@pytest.mark.parametrize("cell", [VOLTAGE_CELL, POWER_P_CELL, POWER_Q_CELL])
 @pytest.mark.parametrize("multiplier", [None, -1, math.nan, math.inf, -math.inf, "invalid"])
-def test_invalid_multiplier_highlights_input(multiplier):
-    style = update_sigma_multiplier_input_style(VOLTAGE_CELL, multiplier, VISIBLE)
+def test_invalid_multiplier_highlights_input(cell, multiplier):
+    style = update_sigma_multiplier_input_style(cell, multiplier, VISIBLE)
     assert style["border"] == "2px solid #b42318"
     assert style["color"] == "#b42318"
 
@@ -169,3 +188,13 @@ def test_non_voltage_retained_selection_does_not_start_guidance_timer():
     retained = [{"group": "node", "id": 1, "column": "u_rated"}]
     assert restart_sigma_guidance_timer(None, retained) == (0, True)
     assert update_sigma_guidance_expansion(None, 0, retained) is False
+
+
+def test_power_selection_starts_guidance_timer():
+    assert restart_sigma_guidance_timer(POWER_P_CELL) == (0, False)
+    assert restart_sigma_guidance_timer(POWER_Q_CELL) == (0, False)
+    assert update_sigma_guidance_expansion(POWER_P_CELL, 0) is True
+
+
+def test_power_multiplier_highlights_invalid_value():
+    assert update_sigma_multiplier_input_style(POWER_P_CELL, -1, VISIBLE)["border"] == "2px solid #b42318"

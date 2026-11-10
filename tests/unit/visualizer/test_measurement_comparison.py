@@ -16,10 +16,14 @@ from power_grid_model_ds import Grid
 from power_grid_model_ds._core.visualizer.callbacks.element_selection import (
     _create_voltage_comparison_figure,
 )
+from power_grid_model_ds._core.visualizer.comparison_plot import create_measurement_comparison_figure
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
+    MeasurementComparison,
     VoltageComparison,
     align_voltage_series,
     calculate_sigma_bands,
+    get_measurement_sigma_bounds,
+    get_symmetric_power_comparison,
     get_symmetric_voltage_comparison,
     get_voltage_sigma_bounds,
     prepare_voltage_comparison,
@@ -617,3 +621,145 @@ def test_preserves_available_estimates_without_status_metadata():
 
     np.testing.assert_array_equal(comparison.scenarios, [0, 1])
     np.testing.assert_allclose(comparison.estimated, [229.5, 230.5])
+
+def test_generic_comparison_without_sigma_plots_two_series():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0, 1]),
+        measured=np.array([10.0, 11.0]),
+        estimated=np.array([9.5, 10.5]),
+    )
+    figure = create_measurement_comparison_figure(comparison, title="Power comparison", quantity="power", unit="W")
+    assert len(figure.data) == 2
+    assert figure.data[0].name == "Measured power"
+    assert figure.data[1].name == "Calculated power"
+    assert figure.layout.yaxis.title.text == "Power (W)"
+
+
+def test_generic_comparison_sigma_bounds_and_labels():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0, 1]),
+        measured=np.array([10.0, 11.0]),
+        estimated=np.array([9.5, 10.5]),
+        sigma=np.array([1.0, 2.0]),
+    )
+    lower, upper = get_measurement_sigma_bounds(comparison, 2.0)
+    assert_array_equal(lower, [8.0, 7.0])
+    assert_array_equal(upper, [12.0, 15.0])
+    figure = create_measurement_comparison_figure(comparison, title="Power comparison", quantity="power", unit="W")
+    assert len(figure.data) == 4
+    assert figure.data[2].name == "Measured power"
+    assert figure.data[3].name == "Calculated power"
+
+
+def test_generic_sigma_bounds_require_uncertainty():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0]),
+        measured=np.array([10.0]),
+        estimated=np.array([9.5]),
+    )
+    with pytest.raises(ValueError, match="Measurement sigma is required"):
+        get_measurement_sigma_bounds(comparison, 2.0)
+
+
+@pytest.fixture
+def power_grid():
+    """Minimal source-terminal symmetric power sensor with independent sigmas."""
+    sensors = SimpleNamespace(
+        id=np.array([201], dtype=np.int32),
+        measured_object=np.array([20], dtype=np.int32),
+        measured_terminal_type=np.array([2], dtype=np.int8),
+        p_measured=np.array([10.0]),
+        q_measured=np.array([5.0]),
+        power_sigma=np.array([999.0]),
+        p_sigma=np.array([2.0]),
+        q_sigma=np.array([1.0]),
+    )
+    return SimpleNamespace(sym_power_sensor=sensors)
+
+
+@pytest.fixture
+def power_output():
+    source = initialize_array("sym_output", "source", (3, 1))
+    source["id"] = 20
+    source["p"][:, 0] = [9.0, 11.0, 8.0]
+    source["q"][:, 0] = [4.0, 6.0, 3.0]
+    return {ComponentType.source: source}
+
+
+@pytest.mark.parametrize(
+    ("attribute", "expected_estimated", "expected_sigma"),
+    [
+        ("p_measured", [9.0, 11.0, 8.0], [2.0, 2.0, 2.0]),
+        ("q_measured", [4.0, 6.0, 3.0], [1.0, 1.0, 1.0]),
+    ],
+)
+def test_power_comparison_uses_separate_sigma_fields(
+    power_grid, power_output, attribute, expected_estimated, expected_sigma
+):
+    result = get_symmetric_power_comparison(power_grid, None, power_output, 201, attribute)
+    assert_array_equal(result.scenario_indices, [0, 1, 2])
+    assert_array_equal(result.estimated, expected_estimated)
+    assert_array_equal(result.sigma, expected_sigma)
+    lower, upper = get_measurement_sigma_bounds(result, 2.0)
+    assert_array_equal(lower, result.measured - 2 * np.array(expected_sigma))
+    assert_array_equal(upper, result.measured + 2 * np.array(expected_sigma))
+
+
+def test_power_updates_preserve_other_scenarios(power_grid, power_output):
+    updates = initialize_array("update", "sym_power_sensor", (3, 1))
+    updates["id"] = 201
+    updates["p_measured"][1, 0] = 15.0
+    updates["p_sigma"][2, 0] = 4.0
+    updates["power_sigma"][:, 0] = [1000.0, 2000.0, 3000.0]
+    result = get_symmetric_power_comparison(
+        power_grid, {ComponentType.sym_power_sensor: updates}, power_output, 201, "p_measured"
+    )
+    assert_array_equal(result.measured, [10.0, 15.0, 10.0])
+    assert_array_equal(result.sigma, [2.0, 2.0, 4.0])
+
+
+def test_power_without_individual_sigma_has_two_traces(power_grid, power_output):
+    power_grid.sym_power_sensor.p_sigma[:] = np.nan
+    result = get_symmetric_power_comparison(power_grid, None, power_output, 201, "p_measured")
+    assert result.sigma is None
+    fig = create_measurement_comparison_figure(result, title="P", quantity="active power", unit="W")
+    assert len(fig.data) == 2
+
+
+def test_power_zero_sigma_is_provided(power_grid, power_output):
+    power_grid.sym_power_sensor.p_sigma[:] = 0.0
+    result = get_symmetric_power_comparison(power_grid, None, power_output, 201, "p_measured")
+    assert_array_equal(result.sigma, [0.0, 0.0, 0.0])
+
+
+def test_unsupported_power_terminal_is_explicit(power_grid, power_output):
+    power_grid.sym_power_sensor.measured_terminal_type[:] = 0
+    with pytest.raises(NotImplementedError, match="terminal type"):
+        get_symmetric_power_comparison(power_grid, None, power_output, 201, "p_measured")
+
+
+def test_power_selection_displays_four_traces(monkeypatch, power_grid, power_output):
+    monkeypatch.setattr(selection, "get_grid", lambda: power_grid)
+    monkeypatch.setattr(selection, "get_update_data", lambda: None)
+    monkeypatch.setattr(selection, "get_output_data", lambda: power_output)
+    figure, graph_style, controls_style = selection.cell_selection_graph(
+        {"group": "sym_power_sensor", "id": 201, "column": "p_measured"}, 2.0
+    )
+    assert len(figure.data) == 4
+    assert_array_equal(figure.data[0].y, [6.0, 6.0, 6.0])
+    assert_array_equal(figure.data[1].y, [14.0, 14.0, 14.0])
+    assert graph_style == {"display": "block"}
+    assert controls_style == {"display": "block"}
+
+
+def test_power_selection_without_sigma_hides_controls(monkeypatch, power_grid, power_output):
+    power_grid.sym_power_sensor.q_sigma[:] = np.nan
+    monkeypatch.setattr(selection, "get_grid", lambda: power_grid)
+    monkeypatch.setattr(selection, "get_update_data", lambda: None)
+    monkeypatch.setattr(selection, "get_output_data", lambda: power_output)
+    figure, graph_style, controls_style = selection.cell_selection_graph(
+        {"group": "sym_power_sensor", "id": 201, "column": "q_measured"}, 2.0
+    )
+    assert len(figure.data) == 2
+    assert graph_style == {"display": "block"}
+    assert controls_style == {"display": "none"}

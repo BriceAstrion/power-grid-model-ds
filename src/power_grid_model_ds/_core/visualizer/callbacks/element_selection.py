@@ -12,6 +12,7 @@ from dash.exceptions import PreventUpdate
 from power_grid_model import ComponentType
 
 from power_grid_model_ds._core.model.grids.base import Grid
+from power_grid_model_ds._core.visualizer.comparison_plot import create_measurement_comparison_figure
 from power_grid_model_ds._core.visualizer.graph_action_styles import (
     GRAPH_ACTION_BUTTON_STYLE,
     GRAPH_ACTION_HEADER_STYLE,
@@ -26,8 +27,8 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTI
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     DENSE_BATCH_NDIM,
     VoltageComparison,
+    get_symmetric_power_comparison,
     get_symmetric_voltage_comparison,
-    get_voltage_sigma_bounds,
 )
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
 from power_grid_model_ds.arrays import IdArray
@@ -180,77 +181,14 @@ def _create_voltage_comparison_figure(
     sensor_id: int,
     sigma_multiplier: float = 2.0,
 ) -> go.Figure:
-    """Plot measured and calculated voltages with measurement-centred bands."""
-    lower, upper = get_voltage_sigma_bounds(
+    """Preserve the existing voltage presentation via the shared plotter."""
+    return create_measurement_comparison_figure(
         comparison,
-        sigma_multiplier,
-    )
-
-    fig = go.Figure()
-
-    # Draw the uncertainty interval behind the voltage series.
-    fig.add_trace(
-        go.Scatter(
-            x=comparison.scenario_indices,
-            y=lower,
-            mode="lines",
-            line={"width": 0},
-            showlegend=False,
-            hoverinfo="skip",
-            name="Lower sigma bound",
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=comparison.scenario_indices,
-            y=upper,
-            mode="lines",
-            line={"width": 0},
-            fill="tonexty",
-            fillcolor="rgba(100, 149, 237, 0.20)",
-            name=f"Measurement +/- {sigma_multiplier:g} sigma",
-            hoverinfo="skip",
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=comparison.scenario_indices,
-            y=comparison.measured,
-            mode="lines",
-            name="Measured voltage",
-            line={
-                "width": 2,
-                "color": "royalblue",
-            },
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=comparison.scenario_indices,
-            y=comparison.estimated,
-            mode="lines",
-            name="Calculated voltage",
-            line={
-                "width": 2,
-                "color": "darkorange",
-                "dash": "dash",
-            },
-        )
-    )
-
-    fig.update_layout(
         title=f"sym_voltage_sensor - voltage comparison - id={sensor_id}",
-        xaxis_title="Scenario Index",
-        yaxis_title="Voltage (V)",
-        template="plotly_white",
-        hovermode="x unified",
-        showlegend=True,
+        quantity="voltage",
+        unit="V",
+        sigma_multiplier=sigma_multiplier,
     )
-
-    return fig
 
 
 @callback(
@@ -553,6 +491,60 @@ def update_attribute_values(operators, values, filter_ids, records, output_ids):
     return [_attribute_value_cell(output_id, matching, include_id) for output_id in output_ids]
 
 
+def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return-statements
+    sensor_id: int, measurement_attribute: str, sigma_multiplier: float | None
+):
+    """Build a source-terminal power comparison when calculated output is available."""
+    output_data = get_output_data()
+    if output_data is None or ComponentType.source not in output_data:
+        return None
+    source_output = output_data[ComponentType.source]
+    if not _is_dense_batch_array(source_output):
+        return None
+    field = measurement_attribute[0]
+    if source_output.dtype.fields is None or field not in source_output.dtype.fields:
+        return None
+    if source_output.dtype.fields[field][0].subdtype is not None:
+        return None
+    _require_explicit_ids(source_output)
+
+    update_data = get_update_data()
+    if update_data is not None and ComponentType.sym_power_sensor in update_data:
+        updates = update_data[ComponentType.sym_power_sensor]
+        if not _is_dense_batch_array(updates):
+            return None
+        _require_explicit_ids(updates)
+
+    try:
+        comparison = get_symmetric_power_comparison(
+            grid=get_grid(),
+            update_data=update_data,
+            output_data=output_data,
+            sensor_id=sensor_id,
+            measurement_attribute=measurement_attribute,
+        )
+    except NotImplementedError:
+        # An unsupported terminal must not be displayed as source power.
+        return None
+
+    if comparison.sigma is not None and (
+        not isinstance(sigma_multiplier, (int, float)) or isinstance(sigma_multiplier, bool)
+        or not np.isfinite(sigma_multiplier) or sigma_multiplier < 0
+    ):
+        return go.Figure(), {"display": "none"}, {"display": "block"}
+    quantity = "active power" if measurement_attribute == "p_measured" else "reactive power"
+    unit = "W" if measurement_attribute == "p_measured" else "var"
+    figure = create_measurement_comparison_figure(
+        comparison,
+        title=f"sym_power_sensor - {quantity} comparison - id={sensor_id}",
+        quantity=quantity,
+        unit=unit,
+        sigma_multiplier=float(sigma_multiplier) if isinstance(sigma_multiplier, (int, float)) and np.isfinite(sigma_multiplier) else 2.0,
+    )
+    controls_style = {"display": "block"} if comparison.sigma is not None else {"display": "none"}
+    return figure, {"display": "block"}, controls_style
+
+
 @callback(
     Output("selection-graph", "figure"),
     Output("selection-graph", "style"),
@@ -589,41 +581,43 @@ def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_d
         result = _try_voltage_comparison(component_id, sigma_multiplier)
         if result is not None:
             return (*result[:2], retained_controls if retained_controls is not None else result[2])
+    if comp_type == ComponentType.sym_power_sensor and column in ("p_measured", "q_measured"):
+        result = _power_comparison_graph(component_id, column, sigma_multiplier)
+        if result is not None:
+            return (*result[:2], retained_controls if retained_controls is not None else result[2])
     result = _create_attribute_graph(comp_type, component_id, column)
     return (*result[:2], retained_controls if retained_controls is not None else result[2])
 
 
 def _has_retained_voltage_comparison(retained_selections) -> bool:
-    """Only enable sigma controls when a retained sensor has comparison data."""
+    """Enable sigma controls for retained voltage or power comparisons with uncertainty."""
     if not isinstance(retained_selections, list):
         return False
     output_data = get_output_data()
-    if output_data is None or ComponentType.node not in output_data:
-        return False
-    if not _is_supported_node_output(output_data[ComponentType.node]):
+    if output_data is None:
         return False
     update_data = get_update_data()
-    if update_data is not None and ComponentType.sym_voltage_sensor in update_data:
-        sensor_updates = update_data[ComponentType.sym_voltage_sensor]
-        if (
-            not _is_dense_batch_array(sensor_updates)
-            or sensor_updates.dtype.names is None
-            or "id" not in sensor_updates.dtype.names
-        ):
-            return False
     for selection in retained_selections:
         if not isinstance(selection, dict):
             continue
-        if selection.get("group") != ComponentType.sym_voltage_sensor.value or selection.get("column") != "u_measured":
-            continue
-        sensor_id = selection.get("id")
+        group, column, sensor_id = selection.get("group"), selection.get("column"), selection.get("id")
         if not isinstance(sensor_id, int) or isinstance(sensor_id, bool):
             continue
         try:
-            get_symmetric_voltage_comparison(get_grid(), get_update_data(), output_data, sensor_id)
-        except (ValueError, TypeError, KeyError, AttributeError):
+            if group == ComponentType.sym_voltage_sensor.value and column == "u_measured":
+                if ComponentType.node not in output_data or not _is_supported_node_output(output_data[ComponentType.node]):
+                    continue
+                comparison = get_symmetric_voltage_comparison(get_grid(), update_data, output_data, sensor_id)
+            elif group == ComponentType.sym_power_sensor.value and column in ("p_measured", "q_measured"):
+                if ComponentType.source not in output_data or not _is_dense_batch_array(output_data[ComponentType.source]):
+                    continue
+                comparison = get_symmetric_power_comparison(get_grid(), update_data, output_data, sensor_id, column)
+            else:
+                continue
+        except (ValueError, TypeError, KeyError, AttributeError, NotImplementedError):
             continue
-        return True
+        if comparison.sigma is not None:
+            return True
     return False
 
 

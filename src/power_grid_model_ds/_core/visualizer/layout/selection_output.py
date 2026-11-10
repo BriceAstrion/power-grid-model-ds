@@ -266,6 +266,16 @@ SELECTION_GRAPH_HTML = html.Div(
 )
 
 
+def _is_measurement_comparison_selection(selected_cell):
+    """Identify supported voltage and symmetric power measurements."""
+    if not isinstance(selected_cell, dict):
+        return False
+    group, column = selected_cell.get("group"), selected_cell.get("column")
+    return (group == "sym_voltage_sensor" and column == "u_measured") or (
+        group == "sym_power_sensor" and column in ("p_measured", "q_measured")
+    )
+
+
 @callback(
     Output("sigma-multiplier-error", "style"),
     Output("voltage-comparison-uncertainty-note", "style"),
@@ -301,11 +311,7 @@ def update_voltage_comparison_guidance(
         "color": "#694100",
     }
 
-    is_voltage_measurement = (
-        isinstance(selected_cell, dict)
-        and selected_cell.get("group") == "sym_voltage_sensor"
-        and selected_cell.get("column") == "u_measured"
-    )
+    is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     controls_visible = isinstance(controls_style, dict) and controls_style.get("display") != "none"
     if retained_selections is not None:
         is_voltage_measurement = controls_visible
@@ -330,14 +336,10 @@ def update_voltage_comparison_guidance(
 )
 def restart_sigma_guidance_timer(selected_cell, retained_selections=None):
     """Restart the five-second guidance window for a new measurement selection."""
-    is_voltage_measurement = (
-        isinstance(selected_cell, dict)
-        and selected_cell.get("group") == "sym_voltage_sensor"
-        and selected_cell.get("column") == "u_measured"
-    )
+    is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     if retained_selections is not None:
         is_voltage_measurement = any(
-            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor" and item.get("column") == "u_measured"
+            _is_measurement_comparison_selection(item)
             for item in retained_selections
         )
     return 0, not is_voltage_measurement
@@ -351,14 +353,10 @@ def restart_sigma_guidance_timer(selected_cell, retained_selections=None):
 )
 def update_sigma_guidance_expansion(selected_cell, n_intervals, retained_selections=None):
     """Expand on selection, collapse after five seconds; allow manual reopening."""
-    is_voltage_measurement = (
-        isinstance(selected_cell, dict)
-        and selected_cell.get("group") == "sym_voltage_sensor"
-        and selected_cell.get("column") == "u_measured"
-    )
+    is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     if retained_selections is not None:
         is_voltage_measurement = any(
-            isinstance(item, dict) and item.get("group") == "sym_voltage_sensor" and item.get("column") == "u_measured"
+            _is_measurement_comparison_selection(item)
             for item in retained_selections
         )
     return is_voltage_measurement and n_intervals == 0
@@ -378,11 +376,7 @@ _INVALID_MULTIPLIER_INPUT_STYLE = {**_MULTIPLIER_INPUT_STYLE, "border": "2px sol
 def update_sigma_multiplier_input_style(selected_cell, multiplier, controls_style, retained_selections=None):
     """Highlight invalid sigma multipliers when comparison controls are visible."""
     controls_visible = isinstance(controls_style, dict) and controls_style.get("display") != "none"
-    is_voltage_measurement = (
-        isinstance(selected_cell, dict)
-        and selected_cell.get("group") == "sym_voltage_sensor"
-        and selected_cell.get("column") == "u_measured"
-    )
+    is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     if retained_selections is not None:
         is_voltage_measurement = controls_visible
     if not controls_visible or not is_voltage_measurement:
