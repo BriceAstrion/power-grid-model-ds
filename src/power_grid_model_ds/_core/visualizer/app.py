@@ -14,8 +14,8 @@ from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # py
     config,
     element_selection,
     header,
+    scenario_selection,
     search_form,
-    timestamp_selection,
     workspace,
 )
 from power_grid_model_ds._core.visualizer.callbacks.workspace import (
@@ -39,11 +39,11 @@ from power_grid_model_ds._core.visualizer.layout.layout_config import (
 from power_grid_model_ds._core.visualizer.layout.node_overlap import (
     separate_coincident_nodes,
 )
+from power_grid_model_ds._core.visualizer.layout.scenario_selection import get_scenario_selection_html
 from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_GRAPH_HTML,
     SELECTION_OUTPUT_HTML,
 )
-from power_grid_model_ds._core.visualizer.layout.timestamp_selection import get_timestamp_selection_html
 from power_grid_model_ds._core.visualizer.parsers import parse_element_data
 from power_grid_model_ds._core.visualizer.parsing_utils import (
     filter_out_appliances,
@@ -349,7 +349,7 @@ def get_app_layout(grid: Grid) -> html.Div:
                 [
                     # Left: network state (moved from the details panel).
                     html.Div(
-                        [get_timestamp_selection_html()],
+                        [get_scenario_selection_html()],
                         id="workspace-left-panel",
                         style=left_style,
                     ),

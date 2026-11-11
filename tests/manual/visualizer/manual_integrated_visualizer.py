@@ -31,13 +31,13 @@ from power_grid_model import (
 from power_grid_model_ds._core.power_grid_model_interface import PowerGridModelInterface
 from power_grid_model_ds.visualizer import visualize
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_PATH = REPO_ROOT / "tests/integration/visualizer/_state_estimation_fixture.py"
 TIMESTAMPS = (
     "2026-11-07T10:00:00+01:00",
     "2026-11-07T10:15:00+01:00",
 )
+
 
 def load_input_data():
     """Reuse the repository's actual, multi-component SE fixture."""
@@ -90,7 +90,10 @@ def show_reference_data(input_data, result):
 
     print("\nLine connectivity (line ID: from -> to):")
     for line in input_data[ComponentType.line]:
-        print(f"  {int(line[AttributeType.id])}: {int(line[AttributeType.from_node])} -> {int(line[AttributeType.to_node])}")
+        print(
+            f"  {int(line[AttributeType.id])}: "
+            f"{int(line[AttributeType.from_node])} -> {int(line[AttributeType.to_node])}"
+        )
 
     print("\nVoltage sensors (sensor ID -> node, measurement, sigma):")
     for sensor in input_data[ComponentType.sym_voltage_sensor]:
@@ -109,16 +112,34 @@ def show_reference_data(input_data, result):
 
 def show_checklist():
     print("\n=== MANUAL BROWSER ACCEPTANCE CHECKLIST ===")
-    print("[ ] F01: Select two available electrical quantities; verify network encoding, legend, units, and unavailable-value handling.")
+    print(
+        "[ ] F01: Select two available electrical quantities; verify network encoding, "
+        "legend, units, and unavailable-value handling."
+    )
     print("[ ] F02: Select nodes 1, 2, 6 and lines 3, 5, 8; verify IDs against the source data above.")
-    print("[ ] F03: Open node, line, load and sensor details; verify source values and that unrelated detail plots do not open automatically.")
-    print("[ ] F04: Inspect line connectivity and arrow directions; compare each line with the from/to node references printed above.")
-    print("[ ] F04: Check whether topology remains understandable after layout/configuration changes; overlap/crossing edge cases are NOT covered by this fixture.")
+    print(
+        "[ ] F03: Open node, line, load and sensor details; verify source values "
+        "and that unrelated detail plots do not open automatically."
+    )
+    print(
+        "[ ] F04: Inspect line connectivity and arrow directions; compare each line "
+        "with the from/to node references printed above."
+    )
+    print(
+        "[ ] F04: Check whether topology remains understandable after layout/configuration changes; "
+        "overlap/crossing edge cases are NOT covered by this fixture."
+    )
     print("[ ] F05: Expand Network state; verify observation date and the two available times.")
-    print("[ ] F05: Select each time and a node; compare displayed output values with the printed calculated node voltages.")
+    print(
+        "[ ] F05: Select each time and a node; compare displayed output values "
+        "with the printed calculated node voltages."
+    )
     print("[ ] F05: Verify available update values for selected sensors, where provided.")
     print("[ ] F05 NOT COVERED: Missing-result handling requires a deliberately incomplete result fixture.")
-    print("[ ] F10: Select a symmetric voltage sensor and u_measured; compare measured/estimated series over both scenario indices.")
+    print(
+        "[ ] F10: Select a symmetric voltage sensor and u_measured; "
+        "compare measured/estimated series over both scenario indices."
+    )
     print("[ ] F10: Check plotted values against the reference data and confirm sensor-to-node mapping.")
     print("[ ] F11: Set sigma multiplier to 1, 2, 3; check band widths and unchanged measured/estimated traces.")
     print("[ ] F11: Open 'Why?' guidance; verify it does not equate in-band values with valid results.")

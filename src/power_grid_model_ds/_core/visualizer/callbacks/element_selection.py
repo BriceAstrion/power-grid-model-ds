@@ -30,6 +30,11 @@ from power_grid_model_ds._core.visualizer.measurement_comparison import (
     get_symmetric_power_comparison,
     get_symmetric_voltage_comparison,
 )
+from power_grid_model_ds._core.visualizer.scenario_selection import (
+    get_component_state,
+    get_effective_component_state,
+    get_scenario_count,
+)
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
 from power_grid_model_ds.arrays import IdArray
 
@@ -51,6 +56,10 @@ _OPERATORS = [
 ]
 
 
+OUTPUT_PREFIX = "output__"
+SCALAR_ARRAY_DIMENSIONS = 2
+PHASE_COLORS = ("red", "green", "blue")
+
 BATCH_DIMENSIONS = DENSE_BATCH_NDIM
 
 
@@ -58,8 +67,13 @@ BATCH_DIMENSIONS = DENSE_BATCH_NDIM
     Output("selection-output", "children"),
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
+    Input("scenario-selector", "value"),
 )
-def display_selected_elements(node_data: list[dict[str, Any]], edge_data: list[dict[str, Any]]):
+def display_selected_elements(
+    node_data: list[dict[str, Any]] | None,
+    edge_data: list[dict[str, Any]] | None,
+    scenario_index: int | None = None,
+):
     """Show the attributes of selected network components."""
     if not node_data and not edge_data:
         return SELECTION_OUTPUT_HTML.children
@@ -75,7 +89,7 @@ def display_selected_elements(node_data: list[dict[str, Any]], edge_data: list[d
     for group, ids in items_to_visualize.items():
         data = getattr(grid, group).filter(id=list(set(ids)))
         panels.append(html.H5(group, style={"marginTop": "15px", "textAlign": "left"}))
-        panels.append(_to_data_table(data, group))
+        panels.append(_to_data_table(data, group, _scenario_rows(data, group, scenario_index)))
     return panels
 
 
@@ -98,7 +112,12 @@ def _attribute_row(attribute: str, group: str) -> html.Div:
         [
             html.Div(
                 [
-                    html.Span(attribute, style={"overflowWrap": "anywhere"}),
+                    html.Span(
+                        f"Output: {attribute.removeprefix('output__')}"
+                        if attribute.startswith("output__")
+                        else attribute,
+                        style={"overflowWrap": "anywhere"},
+                    ),
                     html.Div(
                         [
                             html.Button(
@@ -350,18 +369,50 @@ def toggle_attribute_filter(_clicks, popup_ids, popup_styles):
     ]
 
 
-def _to_data_table(array_data: IdArray, group: str) -> html.Div:
-    """Render attribute rows with an independent filter for every attribute."""
-    records: list[dict[str, Any]] = []
+def _base_rows(array_data: IdArray) -> list[dict[str, Any]]:
+    """Return independent Python values for the existing attribute inspector."""
+    rows = []
     for entry in array_data:
-        record: dict[str, Any] = {}
+        row = {}
         for attribute in array_data.columns:
             value = entry[attribute]
-            record[attribute] = value.item() if value.ndim == 1 else value.tolist().pop()
-        records.append(record)
+            row[attribute] = value.item() if value.ndim == 1 else value.tolist().pop()
+        rows.append(row)
+    return rows
 
-    attribute_rows = [_attribute_row(attribute, group) for attribute in array_data.columns]
 
+def _scenario_rows(array_data: IdArray, group: str, scenario_index: int | None):
+    """Overlay scenario inputs and append outputs to existing inspector records."""
+    rows = _base_rows(array_data)
+    update_data, output_data = get_update_data(), get_output_data()
+    count = get_scenario_count(update_data, output_data)
+    if (
+        count is None
+        or not isinstance(scenario_index, (int, np.integer))
+        or isinstance(scenario_index, (bool, np.bool_))
+        or not 0 <= scenario_index < count
+    ):
+        return rows
+    component_type = ComponentType(group)
+    for row in rows:
+        component_id = int(row["id"])
+        effective = get_effective_component_state(row, update_data, component_type, component_id, int(scenario_index))
+        if output_data is not None:
+            output = get_component_state(output_data, component_type, component_id, int(scenario_index))
+            if output:
+                effective.update({f"{OUTPUT_PREFIX}{key}": value for key, value in output.items() if key != "id"})
+        row.clear()
+        row.update(effective)
+    return rows
+
+
+def _to_data_table(array_data: IdArray, group: str, records: list[dict[str, Any]] | None = None) -> html.Div:
+    """Preserve the integrated inspector and expose scenario-effective attributes."""
+    if records is None:
+        records = _base_rows(array_data)
+    attributes = list(array_data.columns)
+    attributes.extend(sorted({key for record in records for key in record if key.startswith(OUTPUT_PREFIX)}))
+    attribute_rows = [_attribute_row(attribute, group) for attribute in attributes]
     return html.Div(
         [
             dcc.Store(id={"type": "attribute-records", "group": group}, data=records),
@@ -438,7 +489,7 @@ def _has_scenario_attribute_data(group: str, component_id: int, attribute: str) 
 
 def _attribute_value_button(record, attribute, group, include_id):
     value = record.get(attribute)
-    label = "—" if value is None else str(value)
+    label = "ΓÇö" if value is None else str(value)
     if include_id:
         label = f"ID {record['id']}: {label}"
     if value is None and not _has_scenario_attribute_data(group, int(record["id"]), attribute):
@@ -470,7 +521,7 @@ def _attribute_value_cell(output_id, matching, include_id):
         _attribute_value_button(record, output_id["attribute"], output_id["group"], include_id) for record in matching
     ]
     if not buttons:
-        return "—"
+        return "ΓÇö"
     return html.Div(buttons, style={"display": "flex", "flexDirection": "column", "gap": "4px"})
 
 
@@ -808,13 +859,63 @@ def _render_retained_graph_card(index, selection, sigma_multiplier):
     )
 
 
+def _add_attribute_traces(
+    fig: go.Figure,
+    x_array: np.ndarray,
+    y_array: np.ndarray,
+    column_id: str,
+) -> bool:
+    """Add scalar or multi-series traces without assuming exactly three phases."""
+    x_values = np.asarray(x_array)
+    y_values = np.asarray(y_array)
+
+    if x_values.ndim != 1 or x_values.size == 0:
+        return False
+
+    if y_values.ndim == 1:
+        if y_values.size != x_values.size:
+            return False
+
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=y_values,
+                mode="lines",
+                line={"width": 2},
+            )
+        )
+        return True
+
+    if y_values.ndim != SCALAR_ARRAY_DIMENSIONS or y_values.shape[0] != x_values.size or y_values.shape[1] == 0:
+        return False
+
+    for index in range(y_values.shape[1]):
+        color = PHASE_COLORS[index % len(PHASE_COLORS)]
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=y_values[:, index],
+                mode="lines",
+                line={"width": 2, "color": color},
+                name=f"{column_id}_phase_{index}",
+            )
+        )
+
+    return True
+
+
 def _get_y_data_for_cell_selection(
     comp_type: ComponentType,
     pgm_id: int,
     attr: str,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
     """Extract an attribute from supported dense update or output data."""
-    for dataset in (get_update_data(), get_output_data()):
+    if attr.startswith(OUTPUT_PREFIX):
+        attr = attr.removeprefix(OUTPUT_PREFIX)
+        datasets = (get_output_data(),)
+    else:
+        datasets = (get_update_data(), get_output_data())
+    for dataset in datasets:
         if dataset is None or comp_type not in dataset:
             continue
         component_data = dataset[comp_type]
