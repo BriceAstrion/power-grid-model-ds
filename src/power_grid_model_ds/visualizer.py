@@ -106,24 +106,13 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
 
     validated_timestamps = validate_timestamps(timestamps, update_data, output_data) if timestamps is not None else None
 
-    server_state.set_app_state(
-        grid_obj,
-        update_data,
-        output_data,
-        timestamps=validated_timestamps,
-    )
+    server_state.set_app_state(grid_obj, update_data, output_data, timestamps=validated_timestamps)
 
     assets_folder = Path(__file__).resolve().parent / "_core" / "visualizer" / "assets"
 
     app = Dash(
         assets_folder=str(assets_folder),
-        external_stylesheets=[
-            dbc.themes.BOOTSTRAP,
-            dbc.icons.BOOTSTRAP,
-            MDBOOTSTRAP,
-            FONT_AWESOME,
-            GOOGLE_FONTS,
-        ],
+        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS]
     )
     app.layout = get_app_layout(grid)
     app.run(debug=debug, port=port, threaded=False)

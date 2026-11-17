@@ -4,10 +4,17 @@
 
 """Contains selectors for the Cytoscape stylesheet."""
 
-import base64
-
 from power_grid_model_ds._core.visualizer.layout.colors import CYTO_COLORS
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
+from power_grid_model_ds._core.visualizer.transformer_constants import (
+    TRANSFORMER_CONNECTION_CLASS,
+    TRANSFORMER_HIDDEN_CLASS,
+    TRANSFORMER_OPEN_CLASS,
+    TRANSFORMER_OPEN_FROM_CLASS,
+    TRANSFORMER_OPEN_TO_CLASS,
+    TRANSFORMER_STROKE_WIDTH,
+    TRANSFORMER_SYMBOL_CLASS,
+)
 
 NODE_SIZE = 75
 BRANCH_WIDTH = 10
@@ -216,87 +223,60 @@ _OPEN_GENERATING_EDGE_STYLE = {
     },
 }
 
-_TRANSFORMER_SYMBOL_SVG = """
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="90" height="60" viewBox="0 0 90 60">
-  <circle cx="33" cy="30" r="22"
-          fill="none" stroke="#42B7FF" stroke-width="5"/>
-  <circle cx="57" cy="30" r="22"
-          fill="none" stroke="#42B7FF" stroke-width="5"/>
-</svg>
-"""
+_TRANSFORMER_COLOR = CYTO_COLORS[StyleClass.TRANSFORMER]
 
-_TRANSFORMER_SYMBOL_IMAGE = (
-    "data:image/svg+xml;base64,"
-    + base64.b64encode(_TRANSFORMER_SYMBOL_SVG.encode("utf-8")).decode("ascii")
-)
 
 _TRANSFORMER_ORIGINAL_HIDDEN_STYLE = {
-    "selector": ".transformer-original-hidden",
-    "style": {
-        "display": "none",
-    },
+    "selector": f".{TRANSFORMER_HIDDEN_CLASS}",
+    "style": {"display": "none"},
 }
-
 _TRANSFORMER_SYMBOL_STYLE = {
-    "selector": ".transformer-symbol",
+    "selector": f".{TRANSFORMER_SYMBOL_CLASS}",
     "style": {
         "shape": "rectangle",
+        "width": 112,
+        "height": 76,
         "background-opacity": 0,
-        "background-image": _TRANSFORMER_SYMBOL_IMAGE,
-        "background-fit": "contain",
-        "background-image-opacity": 1,
+        "background-image-opacity": 0,
         "border-width": 0,
-        "label": "",
         "padding": 0,
-        "min-width": 120,
-        "min-height": 80,
-    },
-}
-
-_TRANSFORMER_ANCHOR_STYLE = {
-    "selector": ".transformer-anchor",
-    "style": {
-        "shape": "ellipse",
-        "width": 1,
-        "height": 1,
-        "background-opacity": 0,
-        "border-width": 0,
         "label": "",
     },
 }
-
 _TRANSFORMER_VISUAL_CONNECTION_STYLE = {
-    "selector": ".transformer-visual-connection",
+    "selector": f".{TRANSFORMER_CONNECTION_CLASS}",
     "style": {
-        "width": BRANCH_WIDTH,
-        "line-color": "#FFD13B",
+        "width": TRANSFORMER_STROKE_WIDTH,
+        "line-color": _TRANSFORMER_COLOR,
         "line-style": "solid",
         "curve-style": "straight",
         "target-arrow-shape": "none",
         "source-arrow-shape": "none",
         "source-endpoint": "outside-to-node",
         "target-endpoint": "outside-to-node",
+        "opacity": 0,
     },
 }
-
+_TRANSFORMER_VISUAL_OPEN_STYLE = {
+    "selector": f".{TRANSFORMER_OPEN_CLASS}",
+    "style": {"line-style": "dashed"},
+}
 _TRANSFORMER_VISUAL_OPEN_FROM_STYLE = {
-    "selector": ".transformer-visual-open-from",
+    "selector": f".{TRANSFORMER_OPEN_FROM_CLASS}",
     "style": {
         "line-style": "dashed",
         "source-arrow-shape": "diamond",
         "source-arrow-fill": "hollow",
-        "source-arrow-color": "#FFD13B",
+        "source-arrow-color": _TRANSFORMER_COLOR,
     },
 }
-
 _TRANSFORMER_VISUAL_OPEN_TO_STYLE = {
-    "selector": ".transformer-visual-open-to",
+    "selector": f".{TRANSFORMER_OPEN_TO_CLASS}",
     "style": {
         "line-style": "dashed",
         "target-arrow-shape": "diamond",
         "target-arrow-fill": "hollow",
-        "target-arrow-color": "#FFD13B",
+        "target-arrow-color": _TRANSFORMER_COLOR,
     },
 }
 
@@ -346,8 +326,8 @@ DEFAULT_STYLESHEET = [
     _OPEN_GENERATING_EDGE_STYLE,
     _TRANSFORMER_ORIGINAL_HIDDEN_STYLE,
     _TRANSFORMER_SYMBOL_STYLE,
-    _TRANSFORMER_ANCHOR_STYLE,
     _TRANSFORMER_VISUAL_CONNECTION_STYLE,
+    _TRANSFORMER_VISUAL_OPEN_STYLE,
     _TRANSFORMER_VISUAL_OPEN_FROM_STYLE,
     _TRANSFORMER_VISUAL_OPEN_TO_STYLE,
 ]
