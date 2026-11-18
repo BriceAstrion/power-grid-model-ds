@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-from typing import Any
+from typing import Any, LiteralString, cast
 from urllib.parse import quote
 
 import numpy as np
@@ -18,6 +18,7 @@ from power_grid_model_ds._core.visualizer.graph_action_styles import (
     GRAPH_ACTION_HEADER_STYLE,
 )
 from power_grid_model_ds._core.visualizer.graph_selections import (
+    GraphSelection,
     add_graph_selection,
     clear_graph_selections,
     remove_graph_selection,
@@ -203,7 +204,7 @@ def _create_voltage_comparison_figure(
 ) -> go.Figure:
     """Preserve the existing voltage presentation via the shared plotter."""
     return create_measurement_comparison_figure(
-        comparison,
+        cast(Any, comparison),
         title=f"sym_voltage_sensor - voltage comparison - id={sensor_id}",
         quantity="voltage",
         unit="V",
@@ -283,7 +284,7 @@ def _add_retained_graph(selected_cell, retained):
     ):
         return no_update
 
-    selection = {
+    selection: GraphSelection = {
         "group": group,
         "id": component_id,
         "column": column,
@@ -387,14 +388,14 @@ def _scenario_rows(array_data: IdArray, group: str, scenario_index: int | None):
     rows = _base_rows(array_data)
     update_data, output_data = get_update_data(), get_output_data()
     count = get_scenario_count(update_data, output_data)
-    if not is_valid_scenario_index(scenario_index, count):
+    if scenario_index is None or not is_valid_scenario_index(scenario_index, count):
         return rows
     component_type = ComponentType(group)
     for row in rows:
         component_id = int(row["id"])
-        effective = get_effective_component_state(row, update_data, component_type, component_id, int(scenario_index))
+        effective = get_effective_component_state(row, update_data, component_type, component_id, scenario_index)
         if output_data is not None:
-            output = get_component_state(output_data, component_type, component_id, int(scenario_index))
+            output = get_component_state(output_data, component_type, component_id, scenario_index)
             if output:
                 effective.update({f"{OUTPUT_PREFIX}{key}": value for key, value in output.items() if key != "id"})
         row.clear()
@@ -485,7 +486,7 @@ def _has_scenario_attribute_data(group: str, component_id: int, attribute: str) 
 
 def _attribute_value_button(record, attribute, group, include_id):
     value = record.get(attribute)
-    label = "ΓÇö" if value is None else str(value)
+    label = "—" if value is None else str(value)
     if include_id:
         label = f"ID {record['id']}: {label}"
     if value is None and not _has_scenario_attribute_data(group, int(record["id"]), attribute):
@@ -517,7 +518,7 @@ def _attribute_value_cell(output_id, matching, include_id):
         _attribute_value_button(record, output_id["attribute"], output_id["group"], include_id) for record in matching
     ]
     if not buttons:
-        return "ΓÇö"
+        return "—"
     return html.Div(buttons, style={"display": "flex", "flexDirection": "column", "gap": "4px"})
 
 
@@ -551,7 +552,7 @@ def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return
     field = measurement_attribute[0]
     if source_output.dtype.fields is None or field not in source_output.dtype.fields:
         return None
-    if source_output.dtype.fields[field][0].subdtype is not None:
+    if source_output.dtype.fields[cast(LiteralString, field)][0].subdtype is not None:
         return None
     _require_explicit_ids(source_output)
 
@@ -835,7 +836,8 @@ def _render_retained_graph_card(index, selection, sigma_multiplier):
                     html.Button(
                         [
                             html.I(
-                                className="fa-solid fa-xmark", style={"marginRight": "8px"}, **{"aria-hidden": "true"}
+                                className="fa-solid fa-xmark",
+                                style={"marginRight": "8px"},
                             ),
                             "Remove",
                         ],
@@ -901,23 +903,27 @@ def _add_attribute_traces(
 
 
 def _get_y_data_for_cell_selection(
-    comp_type: ComponentType,
-    pgm_id: int,
-    attr: str,
+    comp_type: ComponentType, pgm_id: int, attr: str
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
     """Extract an attribute from supported dense update or output data."""
     if attr.startswith(OUTPUT_PREFIX):
         attr = attr.removeprefix(OUTPUT_PREFIX)
-        datasets = (get_output_data(),)
+        datasets = ((get_output_data(), False),)
     else:
-        datasets = (get_update_data(), get_output_data())
-    for dataset in datasets:
+        datasets = ((get_update_data(), True), (get_output_data(), False))
+
+    for dataset, is_update in datasets:
         if dataset is None or comp_type not in dataset:
             continue
+
         component_data = dataset[comp_type]
         if not _is_dense_batch_array(component_data):
             continue
+
         names = component_data.dtype.names
-        if names is not None and "id" in names and attr in names:
-            return get_attr_data_from_dataset(dataset, comp_type, attr, pgm_id)
+        if names is None or "id" not in names or attr not in names:
+            continue
+
+        return get_attr_data_from_dataset(dataset, comp_type, attr, pgm_id, grid=get_grid() if is_update else None)
+
     return None, None

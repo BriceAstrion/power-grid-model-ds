@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 """Regression tests for F04 node positioning in the integrated visualiser."""
 
 from copy import deepcopy

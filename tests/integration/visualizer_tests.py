@@ -101,9 +101,9 @@ def visualize_grid_with_batch_data():
     lines_update[AttributeType.from_status][1, 0] = 0
     update_data = {ComponentType.line: lines_update}
 
-    nodes_output = initialize_array(DatasetType.asym_output, ComponentType.node, (4, 3))
-    nodes_output[AttributeType.id] = grid.node.id[:3]
-    nodes_output[AttributeType.u] = [
+    nodes_output = initialize_array(DatasetType.asym_output, ComponentType.node, (4, len(grid.node.id)))
+    nodes_output[AttributeType.id] = grid.node.id
+    nodes_output[AttributeType.u][:, :3] = [
         [[401.0, 402.0, 403.0], [404.0, 405.0, 406.0], [407.0, 408.0, 409.0]],
         [[410.0, 411.0, 412.0], [413.0, 414.0, 415.0], [416.0, 417.0, 418.0]],
         [[419.0, 420.0, 421.0], [422.0, 423.0, 424.0], [425.0, 426.0, 427.0]],
@@ -136,9 +136,9 @@ def visualize_grid_with_voltage_comparison():
     sensor_updates[AttributeType.u_measured][:, 0] = [400.0, 405.0, 410.0, 415.0]
     sensor_updates[AttributeType.u_sigma][:, 0] = [2.0, 2.0, 3.0, 2.0]
 
-    nodes_output = initialize_array(DatasetType.sym_output, ComponentType.node, (4, 3))
-    nodes_output[AttributeType.id] = grid.node.id[:3]
-    nodes_output[AttributeType.u] = [
+    nodes_output = initialize_array(DatasetType.sym_output, ComponentType.node, (4, len(grid.node.id)))
+    nodes_output[AttributeType.id] = grid.node.id
+    nodes_output[AttributeType.u][:, :3] = [
         [401.0, 404.0, 407.0],
         [404.0, 413.0, 416.0],
         [412.0, 422.0, 425.0],

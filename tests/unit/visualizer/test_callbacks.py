@@ -4,6 +4,7 @@
 
 from copy import deepcopy
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -55,10 +56,6 @@ _VOLTAGE_SELECTION = {
 
 class ThreePhaseNodeArray(NodeArray):
     three_phase_quantity: NDArray3[np.float64]
-
-
-class ThreePhaseGrid(Grid):
-    node: ThreePhaseNodeArray
 
 
 def test_scale_elements():
@@ -272,20 +269,27 @@ def test_scaling_preserves_search_highlights_without_storing_them():
 
 
 def test_element_selection_callback():
-    grid = ThreePhaseGrid.empty()
-    grid.node = ThreePhaseNodeArray.empty(1)
-    grid.node.id = [1]
-    grid.node.u_rated = [100.0]
-    grid.node.three_phase_quantity = [[1.0, 2.0, 3.0]]
+    grid = Grid.empty()
+    grid.node = cast(NodeArray, ThreePhaseNodeArray.empty(1))
+
+    grid.node.id = np.array([1], dtype=np.int32)
+    grid.node.u_rated = np.array([100.0], dtype=np.float64)
+    grid.node.three_phase_quantity = np.array(
+        [[1.0, 2.0, 3.0]],
+        dtype=np.float64,
+    )
 
     server_state.set_app_state(grid)
     node_data = [{"id": "1", "group": "node", "associated_ids": {"node": [1]}}]
 
     result = display_selected_elements(node_data, [])
+
+    assert result is not None
     assert result[0].children == "node"
 
     inspector = result[1]
     assert inspector.id == {"type": "selection-inspector", "group": "node"}
+
     records = inspector.children[0].data
     assert records == [
         {
@@ -376,9 +380,17 @@ def test_attribute_filter_restricts_multiple_components():
     ]
     cells = update_attribute_values([">", "="], ["150", "0"], filter_ids, records, output_ids)
     assert len(cells) == 2
-    assert len(cells[0].children) == 1
-    assert cells[0].children[0].children == "ID 2: 2"
-    assert cells[1].children[0].children == "ID 2: 200.0"
+
+    first_cell, second_cell = cells
+    assert isinstance(first_cell, html.Div)
+    assert isinstance(second_cell, html.Div)
+
+    assert isinstance(first_cell.children, list)
+    assert len(first_cell.children) == 1
+    assert first_cell.children[0].children == "ID 2: 2"
+    assert isinstance(second_cell.children, list)
+    assert len(second_cell.children) == 1
+    assert second_cell.children[0].children == "ID 2: 200.0"
 
 
 @pytest.mark.parametrize(
@@ -394,7 +406,10 @@ def test_display_selected_element_none(node_data, edge_data):
 
 
 def test_update_layout():
-    assert update_layout("circle", [0, 1, 2]) == {"name": "circle", "animate": True}
+    assert update_layout("circle", source_available=False) == {
+        "name": "circle",
+        "animate": True,
+    }
 
 
 @pytest.fixture
@@ -432,20 +447,19 @@ def test_missing_static_attribute_with_scenario_data_is_clickable():
         )
     }
 
-    server_state.set_app_state(
-        Grid.empty(),
-        output_data=output_data,
-    )
-
-    result = _attribute_value_button(
-        record={"id": 1, "u_pu": None},
-        attribute="u_pu",
-        group="node",
-        include_id=False,
-    )
+    with patch(
+        f"{_CALLBACK_PATH}.get_output_data",
+        return_value=output_data,
+    ):
+        result = _attribute_value_button(
+            record={"id": 1, "u_pu": None},
+            attribute="u_pu",
+            group="node",
+            include_id=False,
+        )
 
     assert isinstance(result, html.Button)
-    assert result.id == {
+    assert result.to_plotly_json()["props"]["id"] == {
         "type": "attribute-plot",
         "group": "node",
         "attribute": "u_pu",
@@ -516,15 +530,14 @@ def test_cell_selection_graph_with_output_data():
         )
     }
 
-    server_state.set_app_state(
-        Grid.empty(),
-        output_data=output_data,
-    )
-
-    fig, style, controls_style = cell_selection_graph(
-        _NODE_SELECTION,
-        2.0,
-    )
+    with patch(
+        f"{_CALLBACK_PATH}.get_output_data",
+        return_value=output_data,
+    ):
+        fig, style, controls_style = cell_selection_graph(
+            _NODE_SELECTION,
+            2.0,
+        )
 
     assert style == {"display": "block"}
     assert controls_style == {"display": "none"}
@@ -559,15 +572,14 @@ def test_cell_selection_graph_three_phase_output_data():
         )
     }
 
-    server_state.set_app_state(
-        Grid.empty(),
-        output_data=output_data,
-    )
-
-    fig, style, controls_style = cell_selection_graph(
-        _NODE_SELECTION,
-        2.0,
-    )
+    with patch(
+        f"{_CALLBACK_PATH}.get_output_data",
+        return_value=output_data,
+    ):
+        fig, style, controls_style = cell_selection_graph(
+            _NODE_SELECTION,
+            2.0,
+        )
 
     assert style == {"display": "block"}
     assert controls_style == {"display": "none"}

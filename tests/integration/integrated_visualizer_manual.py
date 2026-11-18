@@ -63,8 +63,8 @@ def _scalar_output(grid, scenario_count=4):
     ):
         arr = initialize_array(DatasetType.sym_output, component, (scenario_count, len(ids)))
         arr[AttributeType.id] = np.broadcast_to(ids, (scenario_count, len(ids)))
-        for field in arr.dtype.names or ():
-            field_dtype = arr.dtype.fields[field][0]
+        for field, field_info in (arr.dtype.fields or {}).items():
+            field_dtype = field_info[0]
             if field != "id" and field_dtype.subdtype is None and field_dtype.kind == "f":
                 # Different scenarios and components yield distinguishable values.
                 offset = 100.0 if component == ComponentType.line else 0.0
@@ -123,8 +123,8 @@ def _case_missing():
     output = _scalar_output(grid)
     nodes = output[ComponentType.node]
     # Missing values in selected nodes and scenarios, leaving other data intact.
-    for field in nodes.dtype.names or ():
-        dtype = nodes.dtype.fields[field][0]
+    for field, field_info in (nodes.dtype.fields or {}).items():
+        dtype = field_info[0]
         if field != "id" and dtype.subdtype is None and dtype.kind == "f":
             nodes[field][1, 0] = np.nan
             nodes[field][3, -1] = np.nan
@@ -136,8 +136,8 @@ def _case_sparse():
     # Only three nodes have output; other grid elements remain present.
     nodes = initialize_array(DatasetType.sym_output, ComponentType.node, (4, 3))
     nodes[AttributeType.id] = np.broadcast_to(grid.node.id[:3], (4, 3))
-    for field in nodes.dtype.names or ():
-        dtype = nodes.dtype.fields[field][0]
+    for field, field_info in (nodes.dtype.fields or {}).items():
+        dtype = field_info[0]
         if field != "id" and dtype.subdtype is None and dtype.kind == "f":
             nodes[field] = np.array([[10.0 * (scenario + 1) + i for i in range(3)] for scenario in range(4)])
     return grid, None, {ComponentType.node: nodes}
@@ -224,10 +224,16 @@ def _comparison_output(grid, *, voltage=True, power=True):
         arr["energized"][:, 0] = 1
         output[ComponentType.node] = arr
     if power:
-        arr = initialize_array(DatasetType.sym_output, ComponentType.source, (4, 1))
-        arr["id"] = 910002
-        arr["p"][:, 0] = [101.0, 103.0, 112.0, 114.0]
-        arr["q"][:, 0] = [41.0, 42.0, 48.0, 48.0]
+        source_ids = grid.source.id
+        arr = initialize_array(DatasetType.sym_output, ComponentType.source, (4, len(source_ids)))
+        arr["id"] = source_ids
+
+        source_index = np.flatnonzero(source_ids == 910002)
+        if len(source_index) != 1:
+            raise RuntimeError("Comparison source 910002 must exist exactly once")
+
+        arr["p"][:, source_index[0]] = [101.0, 103.0, 112.0, 114.0]
+        arr["q"][:, source_index[0]] = [41.0, 42.0, 48.0, 48.0]
         output[ComponentType.source] = arr
     return output
 

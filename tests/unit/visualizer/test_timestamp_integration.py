@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 """Tests for F05 timestamp integration with the visualizer entry point."""
 
 from unittest.mock import patch
@@ -15,8 +19,18 @@ def make_grid():
 
 
 def make_output_data():
-    nodes = initialize_array(DatasetType.asym_output, ComponentType.node, (2, 1))
-    nodes["id"] = [[1], [1]]
+    """Create complete node output for both scenarios."""
+    nodes = initialize_array(
+        DatasetType.asym_output,
+        ComponentType.node,
+        (2, 3),
+    )
+
+    nodes["id"] = [
+        [1, 2, 3],
+        [1, 2, 3],
+    ]
+
     return {ComponentType.node: nodes}
 
 

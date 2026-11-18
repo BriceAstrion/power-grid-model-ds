@@ -1,8 +1,14 @@
+# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+#
+# SPDX-License-Identifier: MPL-2.0
+
 """Tests for the F05 timestamp selector and component cards."""
 
+import numpy as np
 from dash import dcc, html
 from power_grid_model import ComponentType, DatasetType, initialize_array
 
+from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks.timestamp_selection import (
     _selected_components,
@@ -29,8 +35,16 @@ def make_output_data():
 
 
 def configure_state(timestamps=TIMESTAMPS, output_data=None):
+    """Configure state with grid IDs matching the batch output."""
+    grid = Grid.empty()
+
+    if output_data is not None:
+        node_ids = output_data[ComponentType.node]["id"][0]
+        grid.node = grid.node.__class__.empty(len(node_ids))
+        grid.node.id = node_ids.copy()
+
     server_state.set_app_state(
-        grid=None,
+        grid=grid,
         output_data=output_data,
         timestamps=timestamps,
     )
@@ -73,16 +87,13 @@ def test_network_state_visible_without_timestamp_metadata():
     configure_state(timestamps=None)
 
     panel = get_timestamp_selection_html()
+    assert getattr(panel, "id", None) == "timestamp-selection-container"
+    assert getattr(panel, "style", {}).get("display") != "none"
 
-    assert panel.id == "timestamp-selection-container"
-    assert panel.style.get("display") != "none"
-
-    details = next(child for child in panel.children if getattr(child, "id", None) == "network-state-details")
-
+    details = next(child for child in (panel.children or []) if getattr(child, "id", None) == "network-state-details")
     assert details.open is True
 
-    selector = next(child for child in panel.children if getattr(child, "id", None) == "timestamp-selector")
-
+    selector = next(child for child in (panel.children or []) if getattr(child, "id", None) == "timestamp-selector")
     assert selector.disabled is True
     assert selector.value is None
 
@@ -93,10 +104,12 @@ def test_selector_uses_source_timestamps():
     selector = next(
         component
         for component in _walk(panel)
-        if isinstance(component, dcc.Dropdown) and component.id == "timestamp-selector"
+        if isinstance(component, dcc.Dropdown) and getattr(component, "id", None) == "timestamp-selector"
     )
-    assert selector.value == 0
-    assert selector.options == [{"label": timestamp, "value": index} for index, timestamp in enumerate(TIMESTAMPS)]
+    assert getattr(selector, "value", None) == 0
+    assert getattr(selector, "options", None) == [
+        {"label": timestamp, "value": index} for index, timestamp in enumerate(TIMESTAMPS)
+    ]
 
 
 def test_selected_components_are_unique():
@@ -196,8 +209,12 @@ def test_output_and_update_data_remain_separate():
     updates = initialize_array(DatasetType.update, ComponentType.node, (2, 1))
     updates["id"] = [[10], [10]]
 
+    grid = Grid.empty()
+    grid.node = grid.node.__class__.empty(2)
+    grid.node.id = np.array([10, 20], dtype=np.int32)
+
     server_state.set_app_state(
-        grid=None,
+        grid=grid,
         output_data=output_data,
         update_data={ComponentType.node: updates},
         timestamps=TIMESTAMPS,
@@ -209,6 +226,8 @@ def test_output_and_update_data_remain_separate():
         None,
     )
 
+    assert isinstance(panel, html.Div)
+    assert panel.children is not None
     component = panel.children[0]
     output_section = component.children[1]
     update_section = component.children[2]

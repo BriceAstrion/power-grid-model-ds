@@ -12,6 +12,7 @@ from power_grid_model.data_types import BatchDataset
 
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.arrays.base.array import FancyArray
+from power_grid_model_ds._core.model.constants import empty
 from power_grid_model_ds._core.model.dtypes.typing import NDArray3
 
 
@@ -80,12 +81,36 @@ def dynamic_grid_obj_from_grid(dynamic_grid_class: type[Grid], grid: Grid):
 
 
 def get_attr_data_from_dataset(
-    dataset: BatchDataset, comp_type: ComponentType, attr: str, pgm_id: int
+    dataset: BatchDataset, comp_type: ComponentType, attr: str, pgm_id: int, grid: Grid | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Find the data for the given component type, attribute, and pgm_id from a batch dataset across all scenarios.
-    Only returns if there is valid data (not all empty values) for the given pgm_id for all scenarios of dataset."""
-    array_mask = dataset[comp_type]["id"] == pgm_id
+    """Extract matching scenario values, optionally resolving missing updates from the base grid.
 
+    Passing ``grid`` is appropriate for update data, not calculated output data.
+    Scenario indices include only rows containing the requested component ID.
+    """
+    component_data = dataset[comp_type]
+    array_mask = component_data["id"] == pgm_id
     scenario_indices, _ = np.nonzero(array_mask)
-    match_data = dataset[comp_type][attr][array_mask]
-    return scenario_indices, match_data
+    match_data = component_data[attr][array_mask]
+
+    if grid is None or scenario_indices.size == 0:
+        return scenario_indices, match_data
+
+    empty_value = empty(component_data.dtype.fields[attr][0])
+
+    if isinstance(empty_value, (float, np.floating)) and np.isnan(empty_value):
+        missing_mask = np.isnan(match_data)
+    else:
+        missing_mask = match_data == empty_value
+
+    if not np.any(missing_mask):
+        return scenario_indices, match_data
+
+    base_component = getattr(grid, comp_type.value)
+    base_matches = getattr(base_component, attr)[base_component.id == pgm_id]
+
+    if len(base_matches) != 1:
+        raise ValueError(f"Expected one base-grid {comp_type.value} with ID {pgm_id}")
+
+    filled_match_data = np.where(missing_mask, base_matches[0], match_data)
+    return scenario_indices, filled_match_data

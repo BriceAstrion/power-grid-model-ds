@@ -7,6 +7,7 @@
 from dash import dcc, html
 from power_grid_model import ComponentType, DatasetType, initialize_array
 
+from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.layout.scenario_selection import (
     get_scenario_selection_html,
@@ -30,9 +31,16 @@ def make_output_data():
 
 
 def configure_state(timestamps=TIMESTAMPS, output_data=None):
-    """Configure the visualizer state used by the layout."""
+    """Configure state with grid IDs matching the batch output."""
+    grid = Grid.empty()
+
+    if output_data is not None:
+        node_ids = output_data[ComponentType.node]["id"][0]
+        grid.node = grid.node.__class__.empty(len(node_ids))
+        grid.node.id = node_ids.copy()
+
     server_state.set_app_state(
-        grid=None,
+        grid=grid,
         output_data=output_data,
         timestamps=timestamps,
     )
@@ -64,7 +72,7 @@ def test_selector_hidden_without_batch_data():
     panel = get_scenario_selection_html()
 
     assert isinstance(panel, html.Div)
-    assert panel.id == "timestamp-selection-container"
+    assert getattr(panel, "id", None) == "timestamp-selection-container"
     assert not panel.children
 
 
@@ -76,12 +84,12 @@ def test_selector_is_numeric_and_initially_empty():
     selector = _component_by_id(panel, "scenario-selector")
 
     assert isinstance(selector, dcc.Input)
-    assert selector.type == "number"
-    assert selector.value is None
-    assert selector.step == 1
-    assert selector.placeholder == "e.g. 0"
-    assert selector.debounce is False
-    assert selector.style == {"width": "100%"}
+    assert selector.to_plotly_json()["props"]["type"] == "number"
+    assert selector.to_plotly_json()["props"].get("value") is None
+    assert selector.to_plotly_json()["props"]["step"] == 1
+    assert selector.to_plotly_json()["props"]["placeholder"] == "e.g. 0"
+    assert selector.to_plotly_json()["props"]["debounce"] is False
+    assert selector.to_plotly_json()["props"]["style"] == {"width": "100%"}
 
 
 def test_selector_has_no_browser_range_constraints():
@@ -114,7 +122,7 @@ def test_validation_message_is_available():
     validation = _component_by_id(panel, "scenario-validation")
 
     assert isinstance(validation, html.Div)
-    assert "Enter a scenario index" in validation.children
+    assert validation.children == "Enter a scenario index to inspect its network state."
 
 
 def test_timestamp_controls_are_initially_empty():
@@ -126,11 +134,11 @@ def test_timestamp_controls_are_initially_empty():
     time_selector = _component_by_id(panel, "timestamp-time")
 
     assert isinstance(date_picker, dcc.DatePickerSingle)
-    assert date_picker.date is None
+    assert date_picker.to_plotly_json()["props"].get("date") is None
 
     assert isinstance(time_selector, dcc.Dropdown)
-    assert time_selector.value is None
-    assert time_selector.options == []
+    assert time_selector.to_plotly_json()["props"].get("value") is None
+    assert time_selector.to_plotly_json()["props"]["options"] == []
 
 
 def test_selector_available_without_timestamp_metadata():
@@ -141,15 +149,15 @@ def test_selector_available_without_timestamp_metadata():
     selector = _component_by_id(panel, "scenario-selector")
 
     assert isinstance(selector, dcc.Input)
-    assert selector.value is None
-    assert selector.placeholder == "e.g. 0"
+    assert selector.to_plotly_json()["props"].get("value") is None
+    assert selector.to_plotly_json()["props"]["placeholder"] == "e.g. 0"
 
     # Hidden controls remain mounted because Dash callbacks reference their IDs.
     for control_id in ("timestamp-date", "timestamp-time"):
         control = _component_by_id(panel, control_id)
         assert control is not None
         wrappers = [item for item in _walk(panel) if isinstance(item, html.Div) and item.children is control]
-        assert any(wrapper.style == {"display": "none"} for wrapper in wrappers)
+        assert any(wrapper.to_plotly_json()["props"].get("style") == {"display": "none"} for wrapper in wrappers)
 
 
 def test_no_duplicate_component_state_cards():
@@ -171,7 +179,7 @@ def test_selector_does_not_require_timestamps():
     panel = get_scenario_selection_html()
 
     selector = _component_by_id(panel, "scenario-selector")
-    assert selector.type == "number"
-    assert selector.value is None
-    assert selector.step == 1
+    assert selector.to_plotly_json()["props"]["type"] == "number"
+    assert selector.to_plotly_json()["props"].get("value") is None
+    assert selector.to_plotly_json()["props"]["step"] == 1
     assert "scenario-clear" not in {getattr(component, "id", None) for component in _walk(panel)}

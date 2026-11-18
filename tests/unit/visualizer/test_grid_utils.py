@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 from power_grid_model import AttributeType, ComponentType, DatasetType, initialize_array
 
+from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.arrays.base.array import FancyArray
 from power_grid_model_ds._core.model.constants import empty
-from power_grid_model_ds._core.model.grids.base import Grid
 from power_grid_model_ds._core.visualizer.grid_utils import (
     dynamic_grid_obj_from_grid,
     extend_grid_dynamically,
@@ -124,3 +124,30 @@ def test_get_attr_data_from_dataset_3ph():
         y_actual, np.array([[22.1, 22.2, 22.3], [32.1, 32.2, 32.3], [42.1, 42.2, 42.3], [52.1, 52.2, 52.3]])
     )
     assert np.array_equal(x_actual, np.array([0, 1, 2, 3]))
+
+
+def test_get_attr_data_from_dataset_fills_empty_update_values():
+    """Empty update attributes use base-grid values for matching scenarios."""
+    grid = Grid.empty()
+    grid.sym_load = grid.sym_load.__class__.empty(1)
+    grid.sym_load.id = np.array([12], dtype=np.int32)
+    grid.sym_load.p_specified = np.array([100.0])
+
+    loads = initialize_array(
+        DatasetType.update,
+        ComponentType.sym_load,
+        (3, 1),
+    )
+    loads["id"] = [[12], [12], [12]]
+    loads["p_specified"] = [[20.0], [np.nan], [40.0]]
+
+    scenarios, values = get_attr_data_from_dataset(
+        {ComponentType.sym_load: loads},
+        ComponentType.sym_load,
+        "p_specified",
+        pgm_id=12,
+        grid=grid,
+    )
+
+    np.testing.assert_array_equal(scenarios, [0, 1, 2])
+    np.testing.assert_array_equal(values, [20.0, 100.0, 40.0])
