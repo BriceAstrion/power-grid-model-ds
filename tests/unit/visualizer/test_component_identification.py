@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+# SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
 
@@ -14,10 +14,7 @@ def _records(panel):
 
 def _selection_records(node_data, edge_data):
     result = display_selected_elements(node_data, edge_data)
-    return {
-        result[index].children: _records(result[index + 1])
-        for index in range(0, len(result), 2)
-    }
+    return {result[index].children: _records(result[index + 1]) for index in range(0, len(result), 2)}
 
 
 def test_multiple_selected_nodes_preserve_component_ids():
@@ -75,9 +72,7 @@ def test_associated_component_types_are_displayed():
     grid = Grid.from_txt("1 2 19")
     server_state.set_app_state(grid)
 
-    selected_nodes = [
-        {"associated_ids": {"node": [1], "line": [19]}}
-    ]
+    selected_nodes = [{"associated_ids": {"node": [1], "line": [19]}}]
 
     records = _selection_records(selected_nodes, [])
 
@@ -91,9 +86,7 @@ def test_duplicate_component_ids_are_not_displayed_twice():
     server_state.set_app_state(grid)
 
     selected_nodes = [{"associated_ids": {"node": [1]}}]
-    selected_edges = [
-        {"associated_ids": {"node": [1], "line": [19]}}
-    ]
+    selected_edges = [{"associated_ids": {"node": [1], "line": [19]}}]
 
     records = _selection_records(selected_nodes, selected_edges)
 
@@ -105,12 +98,8 @@ def test_component_details_update_when_selection_changes():
     grid = Grid.from_txt("1 2 19")
     server_state.set_app_state(grid)
 
-    first = _selection_records(
-        [{"associated_ids": {"node": [1]}}], []
-    )
-    second = _selection_records(
-        [{"associated_ids": {"node": [2]}}], []
-    )
+    first = _selection_records([{"associated_ids": {"node": [1]}}], [])
+    second = _selection_records([{"associated_ids": {"node": [2]}}], [])
 
     assert [record["id"] for record in first["node"]] == [1]
     assert [record["id"] for record in second["node"]] == [2]

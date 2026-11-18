@@ -147,8 +147,6 @@ def _case_no_output():
     return _grid(), None, None
 
 
-
-
 # Issue #378: deterministic sensor comparisons, without running state estimation.
 # Power comparison currently supports source terminals only. The comparison
 # implementation reads p_sigma/q_sigma, not the legacy power_sigma field.
@@ -236,9 +234,7 @@ def _comparison_output(grid, *, voltage=True, power=True):
 
 def _case_comparison(*, voltage=True, power=True, missing_sigma=False):
     grid = _grid()
-    updates = _append_comparison_sensors(
-        grid, voltage=voltage, power=power, missing_sigma=missing_sigma
-    )
+    updates = _append_comparison_sensors(grid, voltage=voltage, power=power, missing_sigma=missing_sigma)
     output = _comparison_output(grid, voltage=voltage, power=power)
     return grid, updates, output
 
@@ -291,8 +287,6 @@ def _case_integrated():
     output[ComponentType.node]["u"][:, int(node_rows[0])] = [401.0, 404.0, 412.0, 414.0]
     output.update(_comparison_output(grid, voltage=False, power=True))
     return grid, updates, output
-
-
 
 
 COMPARISON_CHECKS = (
@@ -353,7 +347,8 @@ CASES = {
         (
             "Select voltage u_measured and power p_measured/q_measured; verify both comparison lines appear.",
             "Verify no sigma bands or active sigma controls appear for these selections.",
-            COMPARISON_CHECKS[5], COMPARISON_CHECKS[7],
+            COMPARISON_CHECKS[5],
+            COMPARISON_CHECKS[7],
         ),
         _case_missing_sigma,
     ),
@@ -454,8 +449,10 @@ def main():
     grid, update_data, output_data = case.build()
     _print_case(case, output_data)
     timestamps = (
-        TOPOLOGY_TIMESTAMPS if args.case in ("topology", "integrated")
-        else COMPARISON_TIMESTAMPS if "comparison" in args.case or args.case == "missing-sigma"
+        TOPOLOGY_TIMESTAMPS
+        if args.case in ("topology", "integrated")
+        else COMPARISON_TIMESTAMPS
+        if "comparison" in args.case or args.case == "missing-sigma"
         else None
     )
     visualize(

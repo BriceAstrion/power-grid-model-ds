@@ -13,9 +13,7 @@ from power_grid_model.data_types import DenseBatchArray
 BATCH_ARRAY_NDIM = 2
 
 
-def get_scenario_count(
-    output_data: Mapping[ComponentType, DenseBatchArray] | None,
-) -> int:
+def get_scenario_count(output_data: Mapping[ComponentType, DenseBatchArray] | None) -> int:
     """Return the number of scenarios in a dense batch output dataset.
 
     All component arrays must have the same scenario count.
@@ -34,9 +32,7 @@ def get_scenario_count(
     return scenario_counts.pop()
 
 
-def get_available_node_quantities(
-    output_data: Mapping[ComponentType, DenseBatchArray] | None,
-) -> set[str]:
+def get_available_node_quantities(output_data: Mapping[ComponentType, DenseBatchArray] | None) -> set[str]:
     """Return supported node quantities present in the batch output."""
     if not output_data or ComponentType.node not in output_data:
         return set()
@@ -69,18 +65,62 @@ def get_available_scalar_attributes(
 
     available: dict[str, list[str]] = {}
     for component, array in output_data.items():
-        if array.shape[0] == 0 or not array.dtype.names or "id" not in array.dtype.names:
+        field_names = array.dtype.names
+        field_definitions = array.dtype.fields
+        if array.shape[0] == 0 or not field_names or field_definitions is None or "id" not in field_names:
             continue
-        attributes = [
-            field
-            for field in array.dtype.names
-            if field not in {"id", "energized", "status"}
-            and array.dtype.fields[field][0].subdtype is None
-            and array.dtype.fields[field][0].kind == "f"
-        ]
+        attributes = []
+        for field, field_info in zip(field_names, field_definitions.values(), strict=True):
+            if field in {"id", "energized", "status"} or field_info is None:
+                continue
+
+            field_dtype = field_info[0]
+            if field_dtype.subdtype is None and field_dtype.kind == "f":
+                attributes.append(field)
         if attributes:
             available[component.value] = attributes
     return available
+
+
+def _select_phase_values(values: np.ndarray, attribute: str, phase_index: int | None) -> np.ndarray:
+    """Select a phase when required, preserving scalar attribute validation."""
+    if values.ndim == BATCH_ARRAY_NDIM:
+        if phase_index is None:
+            raise ValueError(f"Attribute '{attribute}' contains phase values; an explicit phase index is required.")
+
+        if not 0 <= phase_index < values.shape[1]:
+            raise IndexError(f"Phase index {phase_index} is out of range.")
+
+        return values[:, phase_index]
+
+    if values.ndim == 1:
+        if phase_index is not None:
+            raise ValueError(f"Attribute '{attribute}' is scalar and does not support phase selection.")
+
+        return values
+
+    raise ValueError(f"Unsupported shape for attribute '{attribute}'.")
+
+
+def _collect_finite_values(ids: np.ndarray, values: np.ndarray, scenario_index: int) -> dict[int, float]:
+    """Collect finite values and reject duplicate component IDs."""
+    result: dict[int, float] = {}
+    seen_ids: set[int] = set()
+
+    for raw_component_id, value in zip(ids, values, strict=True):
+        component_id = int(raw_component_id)
+
+        if component_id in seen_ids:
+            raise ValueError(f"Duplicate component ID {component_id} in scenario {scenario_index}.")
+
+        seen_ids.add(component_id)
+
+        if not np.isfinite(value):
+            continue
+
+        result[component_id] = float(value)
+
+    return result
 
 
 def extract_scenario_values(
@@ -117,39 +157,6 @@ def extract_scenario_values(
         return {}
 
     scenario_data = component_array[scenario_index]
-    ids = scenario_data["id"]
-    values = scenario_data[attribute]
+    values = _select_phase_values(scenario_data[attribute], attribute, phase_index)
 
-    if values.ndim == BATCH_ARRAY_NDIM:
-        if phase_index is None:
-            raise ValueError(f"Attribute '{attribute}' contains phase values; an explicit phase index is required.")
-
-        if not 0 <= phase_index < values.shape[1]:
-            raise IndexError(f"Phase index {phase_index} is out of range.")
-
-        values = values[:, phase_index]
-
-    elif values.ndim == 1:
-        if phase_index is not None:
-            raise ValueError(f"Attribute '{attribute}' is scalar and does not support phase selection.")
-
-    else:
-        raise ValueError(f"Unsupported shape for attribute '{attribute}'.")
-
-    result: dict[int, float] = {}
-    seen_ids: set[int] = set()
-
-    for raw_component_id, value in zip(ids, values, strict=True):
-        component_id = int(raw_component_id)
-
-        if component_id in seen_ids:
-            raise ValueError(f"Duplicate component ID {component_id} in scenario {scenario_index}.")
-
-        seen_ids.add(component_id)
-
-        if not np.isfinite(value):
-            continue
-
-        result[component_id] = float(value)
-
-    return result
+    return _collect_finite_values(scenario_data["id"], values, scenario_index)

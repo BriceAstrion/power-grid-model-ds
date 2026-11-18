@@ -61,6 +61,7 @@ def save_html(
     Path(path).write_text(html_content, encoding="utf-8")
 
 
+# pylint: disable-next=too-many-arguments
 def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
     grid: Grid,
     update_data=None,
@@ -112,7 +113,7 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
 
     app = Dash(
         assets_folder=str(assets_folder),
-        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS]
+        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS],
     )
     app.layout = get_app_layout(grid)
     app.run(debug=debug, port=port, threaded=False)

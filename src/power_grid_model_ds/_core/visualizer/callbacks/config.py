@@ -24,6 +24,7 @@ from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
 from power_grid_model_ds._core.visualizer.layout.node_overlap import separate_coincident_nodes
+from power_grid_model_ds._core.visualizer.layout.transformer_rendering import prepare_transformer_rendering
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 from power_grid_model_ds._core.visualizer.typing import STYLESHEET
@@ -136,17 +137,13 @@ def _node_positions(elements):
     return {
         str(element["data"]["id"]): dict(element["position"])
         for element in (elements or [])
-        if element.get("data", {}).get("group") == "node"
-        and element.get("position") is not None
+        if element.get("data", {}).get("group") == "node" and element.get("position") is not None
     }
 
 
 def _positions_equal(left, right):
     """Compare coordinates with tolerance for Cytoscape floating-point values."""
-    return all(
-        isclose(left[axis], right[axis], abs_tol=1e-6)
-        for axis in ("x", "y")
-    )
+    return all(isclose(left[axis], right[axis], abs_tol=1e-6) for axis in ("x", "y"))
 
 
 def _apply_preset_positions(
@@ -199,7 +196,6 @@ def _apply_automatic_positions(display_elements, current_positions):
             element["position"] = dict(current_positions[node_id])
 
 
-
 @callback(
     Output("electrical-quantity-dropdown", "options"),
     Output("electrical-quantity-dropdown", "value"),
@@ -243,35 +239,11 @@ def update_scenario_warning(value, scenario_count):
     return ({"display": "none"} if message is None else {"display": "block"}), message or ""
 
 
-@callback(
-    Output("cytoscape-graph", "elements"),
-    Output("electrical-quantity-legend", "children"),
-    Output("node-position-state-store", "data"),
-    Input("show-appliances-store", "data"),
-    Input("electrical-component-dropdown", "value"),
-    Input("electrical-quantity-dropdown", "value"),
-    Input("electrical-scenario-input", "value"),
-    Input("node-scale-input", "value"),
-    State("parsed-elements-store", "data"),
-    State("cytoscape-graph", "elements"),
-    State("node-position-state-store", "data"),
-    State("cytoscape-graph", "layout"),
-)
-def update_appliances(  # noqa: PLR0913, PLR0917
-    show_appliances,
-    component,
-    quantity,
-    scenario_number=None,
-    node_scale=1.0,
-    parsed_elements=None,
-    current_elements=None,
-    position_state=None,
-    current_layout=None,
+# pylint: disable-next=too-many-arguments,too-many-positional-arguments
+def _prepare_appliance_elements(  # noqa: PLR0913, PLR0917
+    show_appliances, node_scale, parsed_elements, current_elements, position_state, current_layout
 ):
-    """Compose integrated node positioning with the generic scalar heatmap."""
-    if parsed_elements is None or node_scale is None or node_scale <= 0:
-        raise PreventUpdate
-
+    """Position nodes and apply appliance visibility without losing dragged positions."""
     display_elements = separate_coincident_nodes(parsed_elements, node_scale=node_scale)
     previous_scale = position_state.get("scale", 1.0) if position_state else 1.0
     manual_positions = dict(position_state.get("manual_positions", {})) if position_state else {}
@@ -286,37 +258,26 @@ def update_appliances(  # noqa: PLR0913, PLR0917
         manual_positions = {}
 
     new_position_state = {"scale": node_scale, "manual_positions": manual_positions}
-    elements = (
-        list(display_elements.values())
-        if show_appliances
-        else filter_out_appliances(display_elements.values())
-    )
+    elements = list(display_elements.values()) if show_appliances else filter_out_appliances(display_elements.values())
+    return elements, new_position_state
 
+
+def _electrical_display(elements, component, quantity, scenario_number):
+    """Apply scalar heatmap colours and return the corresponding legend."""
     if not component or not quantity or quantity == "none":
-        return clear_electrical_colors(elements), "", new_position_state
+        return clear_electrical_colors(elements), ""
+
     if scenario_number is None:
-        return (
-            clear_electrical_colors(elements),
-            "Select a scenario to display electrical values.",
-            new_position_state,
-        )
+        return clear_electrical_colors(elements), "Select a scenario to display electrical values."
 
     output_data = server_state.get_output_data()
     available = get_available_scalar_attributes(output_data)
     if quantity not in available.get(component, []):
-        return (
-            clear_electrical_colors(elements),
-            "The selected attribute is unavailable.",
-            new_position_state,
-        )
+        return clear_electrical_colors(elements), "The selected attribute is unavailable."
 
     scenario_count = get_scenario_count(output_data)
     if _scenario_validation_message(scenario_number, scenario_count) is not None:
-        return (
-            clear_electrical_colors(elements),
-            f"Enter a scenario between 1 and {scenario_count}.",
-            new_position_state,
-        )
+        return clear_electrical_colors(elements), f"Enter a scenario between 1 and {scenario_count}."
 
     values = extract_scenario_values(output_data, ComponentType(component), quantity, int(scenario_number) - 1)
     colored_elements, summary = apply_electrical_colors(elements, component, values)
@@ -326,4 +287,42 @@ def update_appliances(  # noqa: PLR0913, PLR0917
         quantity=quantity,
         component_group=component,
     )
-    return colored_elements, legend_content, new_position_state
+    return colored_elements, legend_content
+
+
+@callback(
+    Output("cytoscape-graph", "elements"),
+    Output("electrical-quantity-legend", "children"),
+    Output("node-position-state-store", "data"),
+    Input("show-appliances-store", "data"),
+    Input("electrical-component-dropdown", "value"),
+    Input("electrical-quantity-dropdown", "value"),
+    Input("electrical-scenario-input", "value"),
+    Input("node-scale-input", "value"),
+    State("parsed-elements-store", "data"),
+    State("cytoscape-graph", "elements"),
+    State("node-position-state-store", "data"),
+    State("cytoscape-graph", "layout"),
+)
+def update_appliances(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # noqa: PLR0913, PLR0917
+    show_appliances,
+    component,
+    quantity,
+    scenario_number=None,
+    node_scale=1.0,
+    parsed_elements=None,
+    current_elements=None,
+    position_state=None,
+    current_layout=None,
+):
+    """Compose integrated node positioning with the generic scalar heatmap."""
+    if parsed_elements is None or node_scale is None or node_scale <= 0:
+        raise PreventUpdate
+
+    elements, new_position_state = _prepare_appliance_elements(
+        show_appliances, node_scale, parsed_elements, current_elements, position_state, current_layout
+    )
+    elements, legend_content = _electrical_display(elements, component, quantity, scenario_number)
+    if current_layout and current_layout.get("name") == LayoutOptions.PRESET.value:
+        elements = prepare_transformer_rendering(elements)
+    return elements, legend_content, new_position_state

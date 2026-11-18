@@ -27,9 +27,127 @@ from power_grid_model_ds._core.visualizer.transformer_constants import (
 )
 
 
+def _connection_classes(classes: set[str]) -> tuple[str, str]:
+    """Preserve open-terminal classifications on visual connections."""
+    from_classes = [TRANSFORMER_CONNECTION_CLASS]
+    to_classes = [TRANSFORMER_CONNECTION_CLASS]
+
+    if StyleClass.OPEN_BRANCH.value in classes:
+        from_classes.append(TRANSFORMER_OPEN_CLASS)
+        to_classes.append(TRANSFORMER_OPEN_CLASS)
+    if StyleClass.OPEN_BRANCH_FROM.value in classes:
+        from_classes.append(TRANSFORMER_OPEN_FROM_CLASS)
+    if StyleClass.OPEN_BRANCH_TO.value in classes:
+        to_classes.append(TRANSFORMER_OPEN_TO_CLASS)
+
+    return " ".join(from_classes), " ".join(to_classes)
+
+
+def _create_transformer_visuals(
+    data: dict[str, Any],
+    source_position: dict[str, float],
+    target_position: dict[str, float],
+    classes: set[str],
+) -> list[dict[str, Any]]:
+    """Create a transformer symbol and its two visual connections."""
+    transformer_id = str(data["id"])
+    prefix = f"{TRANSFORMER_VISUAL_PREFIX}{transformer_id}"
+    symbol_id = f"{prefix}{TRANSFORMER_SYMBOL_SUFFIX}"
+
+    midpoint = {
+        "x": (source_position["x"] + target_position["x"]) / 2,
+        "y": (source_position["y"] + target_position["y"]) / 2,
+    }
+    angle = degrees(
+        atan2(
+            target_position["y"] - source_position["y"],
+            target_position["x"] - source_position["x"],
+        )
+    )
+    from_classes, to_classes = _connection_classes(classes)
+
+    return [
+        {
+            "data": {
+                "id": symbol_id,
+                "group": TRANSFORMER_SYMBOL_GROUP,
+                "component_id": transformer_id,
+                "symbol_angle": angle,
+                "symbol_color": CYTO_COLORS[StyleClass.TRANSFORMER],
+                "symbol_selected_color": CYTO_COLORS["selected_transformer"],
+                "associated_ids": deepcopy(data.get("associated_ids", {})),
+                VISUAL_ONLY_KEY: True,
+            },
+            "position": midpoint,
+            "classes": TRANSFORMER_SYMBOL_CLASS,
+            "grabbable": True,
+            "selectable": True,
+        },
+        {
+            "data": {
+                "id": f"{prefix}{TRANSFORMER_FROM_SUFFIX}",
+                "source": data["source"],
+                "target": symbol_id,
+                "associated_ids": {},
+                VISUAL_ONLY_KEY: True,
+            },
+            "classes": from_classes,
+            "selectable": False,
+        },
+        {
+            "data": {
+                "id": f"{prefix}{TRANSFORMER_TO_SUFFIX}",
+                "source": symbol_id,
+                "target": data["target"],
+                "associated_ids": {},
+                VISUAL_ONLY_KEY: True,
+            },
+            "classes": to_classes,
+            "selectable": False,
+        },
+    ]
+
+
+def _visuals_for_transformer(
+    item: dict[str, Any],
+    nodes: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return visual elements when both endpoints have usable positions."""
+    data = item["data"]
+
+    if data.get("group") != TRANSFORMER_GROUP or "source" not in data or "target" not in data:
+        return []
+
+    source = nodes.get(str(data["source"]))
+    target = nodes.get(str(data["target"]))
+
+    if not source or not target or "position" not in source or "position" not in target:
+        return []
+
+    source_position = source["position"]
+    target_position = target["position"]
+
+    if (
+        hypot(
+            target_position["x"] - source_position["x"],
+            target_position["y"] - source_position["y"],
+        )
+        <= MIN_TRANSFORMER_CONNECTION_LENGTH
+    ):
+        return []
+
+    return _create_transformer_visuals(
+        data,
+        source_position,
+        target_position,
+        set(item.get("classes", "").split()),
+    )
+
+
 def add_transformer_visuals(elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep original electrical edges and add symbols for positioned endpoints."""
     result = deepcopy(elements)
+
     nodes = {
         str(item["data"]["id"]): item
         for item in elements
@@ -38,84 +156,15 @@ def add_transformer_visuals(elements: list[dict[str, Any]]) -> list[dict[str, An
     existing_ids = {str(item["data"]["id"]) for item in elements}
 
     for item in elements:
-        data = item["data"]
-        if data.get("group") != TRANSFORMER_GROUP or "source" not in data or "target" not in data:
-            continue
-        source = nodes.get(str(data["source"]))
-        target = nodes.get(str(data["target"]))
-        if not source or not target or "position" not in source or "position" not in target:
-            continue
-        a, b = source["position"], target["position"]
-        dx, dy = b["x"] - a["x"], b["y"] - a["y"]
-        if hypot(dx, dy) <= MIN_TRANSFORMER_CONNECTION_LENGTH:
+        visuals = _visuals_for_transformer(item, nodes)
+        if not visuals:
             continue
 
-        transformer_id = str(data["id"])
-        prefix = f"{TRANSFORMER_VISUAL_PREFIX}{transformer_id}"
-        symbol_id = f"{prefix}{TRANSFORMER_SYMBOL_SUFFIX}"
-        from_id = f"{prefix}{TRANSFORMER_FROM_SUFFIX}"
-        to_id = f"{prefix}{TRANSFORMER_TO_SUFFIX}"
-        new_ids = {symbol_id, from_id, to_id}
+        new_ids = {str(visual["data"]["id"]) for visual in visuals}
         if existing_ids & new_ids:
-            raise ValueError(f"Visual element ID collision for transformer {transformer_id}")
+            raise ValueError(f"Visual element ID collision for transformer {item['data']['id']}")
+
         existing_ids.update(new_ids)
-
-        midpoint = {"x": (a["x"] + b["x"]) / 2, "y": (a["y"] + b["y"]) / 2}
-        angle = degrees(atan2(dy, dx))
-        classes = set(item.get("classes", "").split())
-        from_classes = [TRANSFORMER_CONNECTION_CLASS]
-        to_classes = [TRANSFORMER_CONNECTION_CLASS]
-        # The original OPEN_BRANCH classification dashes the entire transformer
-        # edge if either terminal is open. Preserve it on both visual segments.
-        if StyleClass.OPEN_BRANCH.value in classes:
-            from_classes.append(TRANSFORMER_OPEN_CLASS)
-            to_classes.append(TRANSFORMER_OPEN_CLASS)
-        if StyleClass.OPEN_BRANCH_FROM.value in classes:
-            from_classes.append(TRANSFORMER_OPEN_FROM_CLASS)
-        if StyleClass.OPEN_BRANCH_TO.value in classes:
-            to_classes.append(TRANSFORMER_OPEN_TO_CLASS)
-
-        result.extend(
-            [
-                {
-                    "data": {
-                        "id": symbol_id,
-                        "group": TRANSFORMER_SYMBOL_GROUP,
-                        "component_id": transformer_id,
-                        "symbol_angle": angle,
-                        "symbol_color": CYTO_COLORS[StyleClass.TRANSFORMER],
-                        "symbol_selected_color": CYTO_COLORS["selected_transformer"],
-                        "associated_ids": deepcopy(data.get("associated_ids", {})),
-                        VISUAL_ONLY_KEY: True,
-                    },
-                    "position": midpoint,
-                    "classes": TRANSFORMER_SYMBOL_CLASS,
-                    "grabbable": True,
-                    "selectable": True,
-                },
-                {
-                    "data": {
-                        "id": from_id,
-                        "source": data["source"],
-                        "target": symbol_id,
-                        "associated_ids": {},
-                        VISUAL_ONLY_KEY: True,
-                    },
-                    "classes": " ".join(from_classes),
-                    "selectable": False,
-                },
-                {
-                    "data": {
-                        "id": to_id,
-                        "source": symbol_id,
-                        "target": data["target"],
-                        "associated_ids": {},
-                        VISUAL_ONLY_KEY: True,
-                    },
-                    "classes": " ".join(to_classes),
-                    "selectable": False,
-                },
-            ]
-        )
+        result.extend(visuals)
 
     return result

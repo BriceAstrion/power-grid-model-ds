@@ -19,11 +19,7 @@ _CYTO_OUTER_STYLE = {"height": "80vh"}
 
 def get_cytoscape_html(layout: LayoutOptions, elements: list[dict[str, Any]], source_available: bool) -> html.Div:
     """Get the Cytoscape HTML element"""
-    rendered_elements = (
-        prepare_transformer_rendering(elements)
-        if layout is LayoutOptions.PRESET
-        else elements
-    )
+    rendered_elements = prepare_transformer_rendering(elements) if layout is LayoutOptions.PRESET else elements
     return html.Div(
         cyto.Cytoscape(
             id="cytoscape-graph",

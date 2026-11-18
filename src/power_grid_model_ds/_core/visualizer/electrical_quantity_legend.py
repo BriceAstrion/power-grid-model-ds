@@ -22,7 +22,7 @@ def _rgb_to_hex(color: tuple[int, int, int]) -> str:
     return f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
 
 
-def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summary callers
+def build_electrical_legend(  # noqa: PLR0913  # pylint: disable=too-many-arguments
     scenario_index: int,
     minimum: float | None = None,
     maximum: float | None = None,
@@ -48,40 +48,22 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
         [
             html.Div(
                 [
-                    html.Span(
-                        "Minimum",
-                        className="electrical-stat-label",
-                    ),
-                    html.Strong(
-                        f"{minimum:.4f}" if minimum is not None else "N/A",
-                        className="electrical-stat-value",
-                    ),
+                    html.Span("Minimum", className="electrical-stat-label"),
+                    html.Strong(f"{minimum:.4f}" if minimum is not None else "N/A", className="electrical-stat-value"),
                 ],
                 className="electrical-stat",
             ),
             html.Div(
                 [
-                    html.Span(
-                        "Maximum",
-                        className="electrical-stat-label",
-                    ),
-                    html.Strong(
-                        f"{maximum:.4f}" if maximum is not None else "N/A",
-                        className="electrical-stat-value",
-                    ),
+                    html.Span("Maximum", className="electrical-stat-label"),
+                    html.Strong(f"{maximum:.4f}" if maximum is not None else "N/A", className="electrical-stat-value"),
                 ],
                 className="electrical-stat",
             ),
             html.Div(
                 [
-                    html.Span(
-                        f"Missing {component_label}",
-                        className="electrical-stat-label",
-                    ),
-                    html.Strong(
-                        str(missing_count),
-                        className="electrical-stat-value",
-                    ),
+                    html.Span(f"Missing {component_label}", className="electrical-stat-label"),
+                    html.Strong(str(missing_count), className="electrical-stat-value"),
                 ],
                 className="electrical-stat",
             ),
@@ -90,20 +72,14 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
     )
 
     content = [
-        html.H3(
-            f"{quantity_label}{unit_suffix} - Scenario {scenario_index + 1}",
-            className="electrical-legend-title",
-        ),
+        html.H3(f"{quantity_label}{unit_suffix} - Scenario {scenario_index + 1}", className="electrical-legend-title"),
         statistics,
     ]
 
     if has_range:
         content.extend(
             [
-                html.Div(
-                    "Relative value colour scale",
-                    className="electrical-scale-title",
-                ),
+                html.Div("Relative value colour scale", className="electrical-scale-title"),
                 html.Div(
                     className="electrical-scale-bar",
                     style={
@@ -124,10 +100,7 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
                     },
                 ),
                 html.Div(
-                    [
-                        html.Span(f"Low: {minimum:.4f} {unit}"),
-                        html.Span(f"High: {maximum:.4f} {unit}"),
-                    ],
+                    [html.Span(f"Low: {minimum:.4f} {unit}"), html.Span(f"High: {maximum:.4f} {unit}")],
                     className="electrical-scale-endpoints",
                 ),
             ]
@@ -136,8 +109,7 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
     elif has_values:
         content.append(
             html.P(
-                "All displayed values are equal. A single midpoint colour is used.",
-                className="electrical-legend-note",
+                "All displayed values are equal. A single midpoint colour is used.", className="electrical-legend-note"
             )
         )
 
@@ -155,9 +127,7 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
                 [
                     html.Span(
                         className="electrical-missing-swatch",
-                        style={
-                            "backgroundColor": MISSING_COLOR,
-                        },
+                        style={"backgroundColor": MISSING_COLOR},
                         **{  # type: ignore[arg-type]
                             "aria-hidden": "true",
                         },
@@ -175,7 +145,4 @@ def build_electrical_legend(  # noqa: PLR0913 - supports legacy fields and summa
         )
     )
 
-    return html.Div(
-        content,
-        className="electrical-legend-content",
-    )
+    return html.Div(content, className="electrical-legend-content")

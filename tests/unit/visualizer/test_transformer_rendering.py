@@ -60,11 +60,7 @@ def test_only_replaced_transformer_edge_is_hidden():
 def test_visual_symbol_preserves_component_selection_mapping():
     result = prepare_transformer_rendering(make_elements())
 
-    symbols = [
-        element
-        for element in result
-        if element["data"].get("group") == "transformer_symbol"
-    ]
+    symbols = [element for element in result if element["data"].get("group") == "transformer_symbol"]
 
     assert len(symbols) == 1
     assert symbols[0]["data"]["component_id"] == "10"

@@ -77,19 +77,11 @@ def test_network_state_visible_without_timestamp_metadata():
     assert panel.id == "timestamp-selection-container"
     assert panel.style.get("display") != "none"
 
-    details = next(
-        child
-        for child in panel.children
-        if getattr(child, "id", None) == "network-state-details"
-    )
+    details = next(child for child in panel.children if getattr(child, "id", None) == "network-state-details")
 
     assert details.open is True
 
-    selector = next(
-        child
-        for child in panel.children
-        if getattr(child, "id", None) == "timestamp-selector"
-    )
+    selector = next(child for child in panel.children if getattr(child, "id", None) == "timestamp-selector")
 
     assert selector.disabled is True
     assert selector.value is None

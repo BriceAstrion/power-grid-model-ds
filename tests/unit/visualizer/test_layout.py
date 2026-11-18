@@ -33,12 +33,8 @@ def test_diagnostic_overview_container_removed_from_app_layout():
         if not isinstance(node, Component):
             return 0
 
-        count = int(
-            getattr(node, "id", None) == "diagnostic-overview-content"
-        )
+        count = int(getattr(node, "id", None) == "diagnostic-overview-content")
 
-        return count + count_diagnostic_containers(
-            getattr(node, "children", None)
-        )
+        return count + count_diagnostic_containers(getattr(node, "children", None))
 
     assert count_diagnostic_containers(layout) == 0

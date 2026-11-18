@@ -42,6 +42,23 @@ def _parse_timestamps(timestamps: Sequence[str]) -> tuple[str, ...]:
     return values
 
 
+def _validate_timestamp_count(values: tuple[str, ...], scenario_count: int) -> tuple[str, ...]:
+    """Verify that timestamps match the number of scenarios."""
+    if len(values) != scenario_count:
+        raise ValueError(f"Expected {scenario_count} timestamps, received {len(values)}")
+    return values
+
+
+def is_valid_scenario_index(scenario_index: object, count: int | None) -> bool:
+    """Accept valid integer scenario indices, excluding booleans."""
+    return bool(
+        count is not None
+        and isinstance(scenario_index, (int, np.integer))
+        and not isinstance(scenario_index, (bool, np.bool_))
+        and 0 <= scenario_index < count
+    )
+
+
 def get_scenario_count(*datasets: BatchData | None) -> int | None:
     """Return the common scenario count across available batch datasets."""
     counts: list[int] = []
@@ -74,9 +91,7 @@ def validate_timestamps(
     """Validate timezone-aware timestamps against batch scenario counts."""
     values = _parse_timestamps(timestamps)
     scenario_count = _get_scenario_count(datasets)
-    if len(values) != scenario_count:
-        raise ValueError(f"Expected {scenario_count} timestamps, received {len(values)}")
-    return values
+    return _validate_timestamp_count(values, scenario_count)
 
 
 def _scenario_records(
@@ -86,12 +101,7 @@ def _scenario_records(
 ) -> np.ndarray | Mapping[str, np.ndarray] | None:
     """Extract one scenario without modifying the source batch dataset."""
     count = get_scenario_count(dataset)
-    if (
-        count is None
-        or not isinstance(scenario_index, (int, np.integer))
-        or isinstance(scenario_index, (bool, np.bool_))
-        or not 0 <= scenario_index < count
-    ):
+    if not is_valid_scenario_index(scenario_index, count):
         raise IndexError("Scenario index is outside the available batch range")
     if component_type not in dataset:
         return None

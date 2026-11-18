@@ -28,7 +28,7 @@ def _time_options_for_date(
 
 def _valid_scenario_index(index: object, count: int) -> bool:
     """Accept only integer indices within the scenario range."""
-    return type(index) is int and 0 <= index < count
+    return isinstance(index, int) and not isinstance(index, bool) and 0 <= index < count
 
 
 def _navigate_from_scenario(

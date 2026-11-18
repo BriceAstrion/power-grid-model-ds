@@ -34,6 +34,7 @@ from power_grid_model_ds._core.visualizer.scenario_selection import (
     get_component_state,
     get_effective_component_state,
     get_scenario_count,
+    is_valid_scenario_index,
 )
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
 from power_grid_model_ds.arrays import IdArray
@@ -386,12 +387,7 @@ def _scenario_rows(array_data: IdArray, group: str, scenario_index: int | None):
     rows = _base_rows(array_data)
     update_data, output_data = get_update_data(), get_output_data()
     count = get_scenario_count(update_data, output_data)
-    if (
-        count is None
-        or not isinstance(scenario_index, (int, np.integer))
-        or isinstance(scenario_index, (bool, np.bool_))
-        or not 0 <= scenario_index < count
-    ):
+    if not is_valid_scenario_index(scenario_index, count):
         return rows
     component_type = ComponentType(group)
     for row in rows:

@@ -15,6 +15,15 @@ MIN_OVERLAPPING_NODES = 2
 NODE_GAP = 25.0
 
 
+def _node_offsets(count: int, separation: float) -> list[tuple[float, float]]:
+    """Calculate offsets for nodes sharing the same position."""
+    if count == MIN_OVERLAPPING_NODES:
+        return [(-separation / 2, 0.0), (separation / 2, 0.0)]
+
+    radius = max(separation, separation * count / (2 * pi))
+    return [(radius * cos(2 * pi * index / count), radius * sin(2 * pi * index / count)) for index in range(count)]
+
+
 def separate_coincident_nodes(
     elements: VizToComponentElements,
     node_scale: float = 1.0,
@@ -44,30 +53,9 @@ def separate_coincident_nodes(
             continue
 
         node_ids.sort()
-        count = len(node_ids)
-
-        if count == MIN_OVERLAPPING_NODES:
-            offsets = [
-                (-separation / 2, 0.0),
-                (separation / 2, 0.0),
-            ]
-        else:
-            radius = max(
-                separation,
-                separation * count / (2 * pi),
-            )
-            offsets = [
-                (
-                    radius * cos(2 * pi * index / count),
-                    radius * sin(2 * pi * index / count),
-                )
-                for index in range(count)
-            ]
+        offsets = _node_offsets(len(node_ids), separation)
 
         for node_id, (dx, dy) in zip(node_ids, offsets, strict=True):
-            result[node_id]["position"] = {
-                "x": x + dx,
-                "y": y + dy,
-            }
+            result[node_id]["position"] = {"x": x + dx, "y": y + dy}
 
     return result

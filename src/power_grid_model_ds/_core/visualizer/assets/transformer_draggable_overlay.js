@@ -1,8 +1,8 @@
-/* SPDX-License-Identifier: MPL-2.0 */
-/* Draggable transformer windings. The native Cytoscape symbol node handles
- * drag and selection; the canvas only paints geometry and never intercepts input.
- * Dash Cytoscape 1.0.2 exposes the instance through the private _cyreg bridge.
- */
+/* SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org> */
+/*
+ * SPDX-License-Identifier: MPL-2.0
+*/
+
 (function () {
   "use strict";
   const GRAPH_ID = "cytoscape-graph";

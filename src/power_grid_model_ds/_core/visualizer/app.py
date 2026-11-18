@@ -222,7 +222,7 @@ def _get_electrical_quantity_controls(
                         html.Div(className="electrical-scenario-callout-arrow"),
                         html.Div(
                             [
-                                html.Span("!", className="electrical-scenario-warning-icon", **{"aria-hidden": "true"}),
+                                html.Span(children="!", className="electrical-scenario-warning-icon"),
                                 html.Div(
                                     [
                                         html.Strong("Invalid scenario", className="electrical-scenario-warning-title"),
@@ -295,12 +295,9 @@ def get_app_layout(grid: Grid) -> html.Div:
 
     output_data = server_state.get_output_data()
 
-    scenario_count = get_scenario_count(output_data)
-    available_attributes = get_available_scalar_attributes(output_data)
-
     electrical_controls = _get_electrical_quantity_controls(
-        scenario_count,
-        available_attributes,
+        get_scenario_count(output_data),
+        get_available_scalar_attributes(output_data),
     )
 
     return html.Div(

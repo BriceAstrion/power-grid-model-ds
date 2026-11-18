@@ -1,4 +1,3 @@
-
 # SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
@@ -37,7 +36,6 @@ RIGHT_STYLE = {
     "padding": "0.75rem",
     "borderLeft": PANEL_BORDER,
 }
-
 
 
 def next_panel_state(
@@ -109,17 +107,11 @@ def panel_styles(
     # always occupies the second track.
     left_column = "minmax(220px, 1fr)" if left_open else "0px"
     center_column = "minmax(0, 2.4fr)"
-    right_column = (
-        "minmax(320px, 1.4fr)" if right_open else "0px"
-    )
+    right_column = "minmax(320px, 1.4fr)" if right_open else "0px"
 
     grid_style = {
         "display": "grid",
-        "gridTemplateColumns": (
-            f"{left_column} "
-            f"{center_column} "
-            f"{right_column}"
-        ),
+        "gridTemplateColumns": (f"{left_column} {center_column} {right_column}"),
         "width": "100%",
         "minHeight": "80vh",
         "overflowX": "auto",
@@ -147,29 +139,17 @@ def panel_icons(
     both_closed = not left_open and not right_open
 
     left_icon = DashIconify(
-        icon=(
-            "lucide:panel-left-close"
-            if left_open
-            else "lucide:panel-left-open"
-        ),
+        icon=("lucide:panel-left-close" if left_open else "lucide:panel-left-open"),
         width=18,
     )
 
     right_icon = DashIconify(
-        icon=(
-            "lucide:panel-right-close"
-            if right_open
-            else "lucide:panel-right-open"
-        ),
+        icon=("lucide:panel-right-close" if right_open else "lucide:panel-right-open"),
         width=18,
     )
 
     fullscreen_icon = DashIconify(
-        icon=(
-            "lucide:minimize"
-            if both_closed
-            else "lucide:maximize"
-        ),
+        icon=("lucide:minimize" if both_closed else "lucide:maximize"),
         width=18,
     )
 
@@ -210,13 +190,9 @@ def update_workspace(
         ctx.triggered_id,
     )
 
-    grid_style, left_style, right_style = panel_styles(
-        updated
-    )
+    grid_style, left_style, right_style = panel_styles(updated)
 
-    left_icon, right_icon, fullscreen_icon = panel_icons(
-        updated
-    )
+    left_icon, right_icon, fullscreen_icon = panel_icons(updated)
 
     return (
         updated,

@@ -22,7 +22,6 @@ DENSE_BATCH_NDIM = 2
 class VoltageComparison:
     """Aligned voltage sensor values, retaining the integrated branch API."""
 
-
     sensor_id: int
     node_id: int
     scenarios: NDArray[np.int64]
@@ -46,7 +45,7 @@ class MeasurementComparison:
     sigma: NDArray[np.float64] | None = None
 
 
-def align_voltage_series(  # noqa: PLR0913
+def align_voltage_series(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
     *,
     sensor_id: int,
     node_id: int,
@@ -67,13 +66,7 @@ def align_voltage_series(  # noqa: PLR0913
     sigma = np.asarray(sigma, dtype=np.float64)
     estimated = np.asarray(estimated, dtype=np.float64)
 
-    arrays = (
-        measurement_scenarios,
-        measured,
-        sigma,
-        estimate_scenarios,
-        estimated,
-    )
+    arrays = (measurement_scenarios, measured, sigma, estimate_scenarios, estimated)
     if any(array.ndim != 1 for array in arrays):
         raise ValueError("Symmetric voltage comparison requires 1D arrays.")
 
@@ -112,8 +105,7 @@ def align_voltage_series(  # noqa: PLR0913
 
 
 def _validate_voltage_datasets(
-    update_data: BatchDataset | None,
-    output_data: BatchDataset | None,
+    update_data: BatchDataset | None, output_data: BatchDataset | None
 ) -> tuple[BatchDataset, BatchDataset]:
     sensor_type = ComponentType.sym_voltage_sensor
     node_type = ComponentType.node
@@ -140,9 +132,7 @@ def _validate_voltage_datasets(
 
 
 def _resolve_measurement_defaults(
-    sensor_matches: SymVoltageSensorArray,
-    measured: NDArray,
-    sigma: NDArray,
+    sensor_matches: SymVoltageSensorArray, measured: NDArray, sigma: NDArray
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     measured = np.asarray(measured, dtype=np.float64).copy()
     sigma = np.asarray(sigma, dtype=np.float64).copy()
@@ -152,11 +142,7 @@ def _resolve_measurement_defaults(
 
 
 def prepare_voltage_comparison(
-    *,
-    grid: Grid,
-    update_data: BatchDataset | None,
-    output_data: BatchDataset | None,
-    sensor_id: int,
+    *, grid: Grid, update_data: BatchDataset | None, output_data: BatchDataset | None, sensor_id: int
 ) -> VoltageComparison:
     """Prepare a symmetric voltage comparison from batch datasets.
 
@@ -266,35 +252,34 @@ def _apply_sensor_updates(  # noqa: PLR0913  # pylint: disable=too-many-argument
 
 
 def _get_estimated_series(
-    output_data: BatchDataset,
-    component: ComponentType,
-    attribute: str,
-    object_id: int,
+    output_data: BatchDataset, component: ComponentType, attribute: str, object_id: int
 ) -> NDArray[np.float64]:
     """Extract an estimated scalar quantity, retaining missing scenarios as NaN."""
     if component not in output_data:
         raise ValueError(f"{component.value} output is required for comparison")
+
     data = _require_dense_ids(output_data, component)
     field_names = data.dtype.names
     fields = data.dtype.fields
     if field_names is None or fields is None or attribute not in field_names:
         raise ValueError(f"{component.value} output requires scalar '{attribute}'")
-    if fields[attribute][0].subdtype is not None:
+
+    field_dtype = next((dtype for name, dtype in fields.items() if name == attribute), None)
+    if field_dtype is None or field_dtype[0].subdtype is not None:
         raise ValueError(f"{component.value} output requires scalar '{attribute}'")
+
     indices, values = get_attr_data_from_dataset(output_data, component, attribute, object_id)
     if len(np.unique(indices)) != len(indices):
         raise ValueError(f"Duplicate {component.value} ID {object_id} in output")
+
     estimated = np.full(data.shape[0], np.nan, dtype=np.float64)
     estimated[indices] = values
+
     return estimated
 
 
 def get_symmetric_power_comparison(
-    grid: Grid,
-    update_data: BatchDataset | None,
-    output_data: BatchDataset,
-    sensor_id: int,
-    measurement_attribute: str,
+    grid: Grid, update_data: BatchDataset | None, output_data: BatchDataset, sensor_id: int, measurement_attribute: str
 ) -> MeasurementComparison:
     """Compare a source-terminal power measurement with its calculated output.
 
@@ -337,7 +322,7 @@ def get_symmetric_power_comparison(
         scenario_indices=np.arange(count, dtype=np.intp),
         measured=measured,
         estimated=estimated,
-        sigma=sigma if np.any(np.isfinite(sigma)) else None,
+        sigma=sigma if np.isfinite(sigma).any() else None,
     )
 
 

@@ -1,4 +1,3 @@
-
 """Prototype for a draggable transformer with connection anchors.
 
 Run:
@@ -22,12 +21,7 @@ TRANSFORMER_SVG = """
 </svg>
 """
 
-TRANSFORMER_IMAGE = (
-    "data:image/svg+xml;base64,"
-    + base64.b64encode(
-        TRANSFORMER_SVG.encode("utf-8")
-    ).decode("ascii")
-)
+TRANSFORMER_IMAGE = "data:image/svg+xml;base64," + base64.b64encode(TRANSFORMER_SVG.encode("utf-8")).decode("ascii")
 
 # The transformer parent is a visual representation of the
 # original electrical component. The child nodes are visual

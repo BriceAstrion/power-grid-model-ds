@@ -622,6 +622,7 @@ def test_preserves_available_estimates_without_status_metadata():
     np.testing.assert_array_equal(comparison.scenarios, [0, 1])
     np.testing.assert_allclose(comparison.estimated, [229.5, 230.5])
 
+
 def test_generic_comparison_without_sigma_plots_two_series():
     comparison = MeasurementComparison(
         scenario_indices=np.array([0, 1]),

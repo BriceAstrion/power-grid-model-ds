@@ -338,10 +338,7 @@ def restart_sigma_guidance_timer(selected_cell, retained_selections=None):
     """Restart the five-second guidance window for a new measurement selection."""
     is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     if retained_selections is not None:
-        is_voltage_measurement = any(
-            _is_measurement_comparison_selection(item)
-            for item in retained_selections
-        )
+        is_voltage_measurement = any(_is_measurement_comparison_selection(item) for item in retained_selections)
     return 0, not is_voltage_measurement
 
 
@@ -355,10 +352,7 @@ def update_sigma_guidance_expansion(selected_cell, n_intervals, retained_selecti
     """Expand on selection, collapse after five seconds; allow manual reopening."""
     is_voltage_measurement = _is_measurement_comparison_selection(selected_cell)
     if retained_selections is not None:
-        is_voltage_measurement = any(
-            _is_measurement_comparison_selection(item)
-            for item in retained_selections
-        )
+        is_voltage_measurement = any(_is_measurement_comparison_selection(item) for item in retained_selections)
     return is_voltage_measurement and n_intervals == 0
 
 

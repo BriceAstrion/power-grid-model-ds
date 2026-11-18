@@ -1,4 +1,3 @@
-
 # SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 #
 # SPDX-License-Identifier: MPL-2.0
@@ -13,14 +12,9 @@ from power_grid_model_ds._core.visualizer.server_state import get_timestamps
 
 NETWORK_STATE_TITLE = "Network state"
 
-NETWORK_STATE_DESCRIPTION = (
-    "Inspect network components at an available timestamp."
-)
+NETWORK_STATE_DESCRIPTION = "Inspect network components at an available timestamp."
 
-NO_TIMESTAMPS_MESSAGE = (
-    "Timestamp-based network inspection is unavailable "
-    "because no timestamps were provided."
-)
+NO_TIMESTAMPS_MESSAGE = "Timestamp-based network inspection is unavailable because no timestamps were provided."
 
 NETWORK_STATE_CONTAINER_CLASS = "card shadow-sm border-0"
 
@@ -60,8 +54,7 @@ def _disabled_dates(dates: list[str]) -> list[str]:
     return [
         current.isoformat()
         for ordinal in range(first.toordinal(), last.toordinal() + 1)
-        if (current := date.fromordinal(ordinal)).isoformat()
-        not in available
+        if (current := date.fromordinal(ordinal)).isoformat() not in available
     ]
 
 
@@ -126,9 +119,7 @@ def _no_timestamps_layout() -> html.Div:
                 [
                     html.P(
                         NO_TIMESTAMPS_MESSAGE,
-                        className=(
-                            "network-state-description text-muted"
-                        ),
+                        className=("network-state-description text-muted"),
                     ),
                     html.Div(
                         id="timestamp-state-output",
@@ -240,9 +231,7 @@ def get_timestamp_selection_html() -> html.Div:
                 [
                     html.P(
                         NETWORK_STATE_DESCRIPTION,
-                        className=(
-                            "network-state-description text-muted"
-                        ),
+                        className=("network-state-description text-muted"),
                     ),
                     _timestamp_controls(timestamps),
                 ],

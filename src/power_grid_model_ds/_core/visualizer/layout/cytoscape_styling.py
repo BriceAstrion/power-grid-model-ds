@@ -77,9 +77,10 @@ _APPLIANCE_GHOST_NODE_STYLE = {
 
 _SOURCE_SYMBOL_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
-    '<circle cx="50" cy="50" r="44" fill="none" stroke="#7b2bbd" stroke-width="5"/>'
+    '<circle cx="50" cy="50" r="43" fill="#292d35" '
+    'stroke="#F4C95D" stroke-width="7"/>'
     '<path d="M20 50 C30 20 40 20 50 50 S70 80 80 50" '
-    'fill="none" stroke="#7b2bbd" stroke-width="5" stroke-linecap="round"/>'
+    'fill="none" stroke="#F4C95D" stroke-width="7" stroke-linecap="round"/>'
     "</svg>"
 )
 _SOURCE_SYMBOL_IMAGE = "data:image/svg+xml," + quote(_SOURCE_SYMBOL_SVG)
@@ -119,6 +120,15 @@ _SOURCE_EDGE_STYLE = {
         "line-color": CYTO_COLORS["substation_node"],
         "source-arrow-color": CYTO_COLORS["substation_node"],
         "source-arrow-shape": "none",
+    },
+}
+_SOURCE_CONNECTION_STYLE = {
+    "selector": 'edge[group = "source"]',
+    "style": {
+        "line-color": "#F4C95D",
+        "width": 3,
+        "source-arrow-color": "#F4C95D",
+        "target-arrow-color": "#F4C95D",
     },
 }
 _LOADING_EDGE_STYLE = {
@@ -346,6 +356,7 @@ DEFAULT_STYLESHEET = [
     _SOURCE_SYMBOL_STYLE,
     _SOURCE_SYMBOL_SELECTED_STYLE,
     _GENERATING_EDGE_STYLE,
+    _SOURCE_CONNECTION_STYLE,
     _LOADING_EDGE_STYLE,
     _SOURCE_EDGE_STYLE,
     _ELECTRICAL_NODE_STYLE,
