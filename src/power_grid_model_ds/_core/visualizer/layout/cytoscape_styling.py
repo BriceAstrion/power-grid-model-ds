@@ -135,9 +135,13 @@ _GENERATING_EDGE_STYLE = {
 _SOURCE_EDGE_STYLE = {
     "selector": f".{StyleClass.SOURCE.value}",
     "style": {
-        "line-color": CYTO_COLORS["substation_node"],
-        "source-arrow-color": CYTO_COLORS["substation_node"],
+        "line-color": _SOURCE_COLOR,
+        "source-arrow-color": _SOURCE_COLOR,
         "source-arrow-shape": "none",
+        "target-arrow-shape": "none",
+        "source-endpoint": "outside-to-node",
+        "target-endpoint": "outside-to-node",
+        "width": 6,
     },
 }
 _SOURCE_CONNECTION_STYLE = {
