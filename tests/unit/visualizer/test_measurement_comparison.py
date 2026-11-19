@@ -768,6 +768,7 @@ def test_power_selection_without_sigma_hides_controls(monkeypatch, power_grid, p
 
 # Additional regression cases from the incoming power-comparison branch.
 
+
 def test_missing_sensor_update_row_preserves_base_and_alignment(grid, output_data):
     updates = initialize_array("update", "sym_voltage_sensor", (3, 1))
     updates["id"] = 101

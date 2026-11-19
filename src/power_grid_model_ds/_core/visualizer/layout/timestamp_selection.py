@@ -146,22 +146,22 @@ def _no_timestamps_layout() -> html.Div:
     # Keep these IDs available for existing timestamp callbacks.
     container = _network_state_container(details, selector)
 
-    container.children.extend(
-        [
-            dcc.DatePickerSingle(
-                id="timestamp-date",
-                disabled=True,
-                style=HIDDEN_CONTROL_STYLE.copy(),
-            ),
-            dcc.Dropdown(
-                id="timestamp-time",
-                options=[],
-                value=None,
-                disabled=True,
-                style=HIDDEN_CONTROL_STYLE.copy(),
-            ),
-        ]
-    )
+    container.children = [
+        details,
+        selector,
+        dcc.DatePickerSingle(
+            id="timestamp-date",
+            disabled=True,
+            style=HIDDEN_CONTROL_STYLE.copy(),
+        ),
+        dcc.Dropdown(
+            id="timestamp-time",
+            options=[],
+            value=None,
+            disabled=True,
+            style=HIDDEN_CONTROL_STYLE.copy(),
+        ),
+    ]
 
     return container
 
@@ -189,7 +189,11 @@ def _timestamp_controls(
                         min_date_allowed=dates[0],
                         max_date_allowed=dates[-1],
                         disabled_days=_disabled_dates(dates),
-                        **DATE_PICKER_CONFIG,
+                        display_format="DD MMM YYYY",
+                        clearable=False,
+                        first_day_of_week=1,
+                        number_of_months_shown=1,
+                        day_size=27,
                     ),
                 ],
                 className="timestamp-control-field",

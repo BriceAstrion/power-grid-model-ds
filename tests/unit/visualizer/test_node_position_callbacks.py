@@ -88,9 +88,7 @@ def test_appliance_visibility_preserves_node_separation():
 
     def node_positions(elements):
         return {
-            element["data"]["id"]: element["position"]
-            for element in elements
-            if element["data"].get("group") == "node"
+            element["data"]["id"]: element["position"] for element in elements if element["data"].get("group") == "node"
         }
 
     hidden_positions = node_positions(hidden)

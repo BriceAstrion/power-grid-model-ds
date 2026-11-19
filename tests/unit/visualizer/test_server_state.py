@@ -178,14 +178,12 @@ def grid_with_ids(component, ids):
     return grid
 
 
-
 def test_set_app_state_accepts_missing_datasets():
     grid = Grid.empty()
     server_state.set_app_state(grid)
     assert server_state.get_grid() is grid
     assert server_state.get_update_data() is None
     assert server_state.get_output_data() is None
-
 
 
 def test_set_app_state_accepts_missing_components():
@@ -196,13 +194,11 @@ def test_set_app_state_accepts_missing_components():
     assert server_state.get_output_data() is output_data
 
 
-
 def test_set_app_state_accepts_single_dataset():
     output_data = {ComponentType.node: initialize_array(DatasetType.sym_output, ComponentType.node, 2)}
     output_data[ComponentType.node]["id"] = [10, 11]
     server_state.set_app_state(grid_with_ids(ComponentType.node, [10, 11]), output_data=output_data)
     assert server_state.get_output_data() is output_data
-
 
 
 def test_set_app_state_rejects_mismatched_scenario_counts():
@@ -212,12 +208,10 @@ def test_set_app_state_rejects_mismatched_scenario_counts():
         server_state.set_app_state(Grid.empty(), updates, outputs)
 
 
-
 def test_set_app_state_rejects_invalid_dimensions():
     output_data = {ComponentType.node: np.zeros((2, 1, 1), dtype=[("id", np.int32), ("u", np.float64)])}
     with pytest.raises(ValueError, match="1D or 2D"):
         server_state.set_app_state(Grid.empty(), output_data=output_data)
-
 
 
 def test_set_app_state_rejects_columnar_data():
@@ -226,12 +220,10 @@ def test_set_app_state_rejects_columnar_data():
         server_state.set_app_state(Grid.empty(), output_data=output_data)
 
 
-
 def test_set_app_state_rejects_missing_id():
     output_data = {ComponentType.node: np.array([[(230.0,)], [(231.0,)]], dtype=[("u", np.float64)])}
     with pytest.raises(NotImplementedError, match="requires an 'id' field"):
         server_state.set_app_state(Grid.empty(), output_data=output_data)
-
 
 
 def test_set_app_state_rejects_inconsistent_component_batch_sizes():
@@ -241,7 +233,6 @@ def test_set_app_state_rejects_inconsistent_component_batch_sizes():
     }
     with pytest.raises(ValueError, match="inconsistent or invalid dataset dimensions"):
         server_state.set_app_state(Grid.empty(), output_data=output_data)
-
 
 
 def test_set_app_state_preserves_previous_state_after_validation_failure():
@@ -257,13 +248,11 @@ def test_set_app_state_preserves_previous_state_after_validation_failure():
     assert server_state.get_output_data() is original_output
 
 
-
 def test_update_ids_may_be_reordered():
     grid = grid_with_ids(ComponentType.sym_load, [10, 11])
     updates = initialize_array(DatasetType.update, ComponentType.sym_load, (2, 2))
     updates["id"] = [[10, 11], [11, 10]]
     server_state.set_app_state(grid, {ComponentType.sym_load: updates})
-
 
 
 def test_update_ids_must_exist_in_grid():
@@ -274,7 +263,6 @@ def test_update_ids_must_exist_in_grid():
         server_state.set_app_state(grid, {ComponentType.sym_load: updates})
 
 
-
 def test_output_ids_must_equal_grid_ids():
     grid = grid_with_ids(ComponentType.sym_load, [10, 11])
     outputs = initialize_array(DatasetType.sym_output, ComponentType.sym_load, (2, 2))
@@ -283,14 +271,12 @@ def test_output_ids_must_equal_grid_ids():
         server_state.set_app_state(grid, output_data={ComponentType.sym_load: outputs})
 
 
-
 def test_update_ids_must_be_unique():
     grid = grid_with_ids(ComponentType.sym_load, [10, 11])
     updates = initialize_array(DatasetType.update, ComponentType.sym_load, (2, 2))
     updates["id"] = [[10, 10], [10, 11]]
     with pytest.raises(ValueError, match="duplicate IDs"):
         server_state.set_app_state(grid, {ComponentType.sym_load: updates})
-
 
 
 def test_ids_not_compared_when_component_missing_from_one_side():
@@ -305,7 +291,6 @@ def test_ids_not_compared_when_component_missing_from_one_side():
     server_state.set_app_state(grid, {ComponentType.sym_load: updates}, {ComponentType.node: outputs})
 
 
-
 def test_shared_non_node_component_requires_id():
     """The common dense representation rule applies to every component."""
     outputs = {ComponentType.line: np.zeros((2, 1), dtype=[("p_from", np.float64)])}
@@ -313,13 +298,11 @@ def test_shared_non_node_component_requires_id():
         server_state.set_app_state(Grid.empty(), output_data=outputs)
 
 
-
 def test_validate_datasets_checks_cross_dataset_counts():
     updates = {ComponentType.sym_load: initialize_array(DatasetType.update, ComponentType.sym_load, (2, 1))}
     outputs = {ComponentType.node: initialize_array(DatasetType.sym_output, ComponentType.node, (3, 1))}
     with pytest.raises(ValueError, match="same scenario count"):
         server_state._validate_datasets(Grid.empty(), updates, outputs)
-
 
 
 def test_shared_component_ids_allow_sparse_update_subset():
@@ -338,13 +321,11 @@ def test_shared_component_ids_allow_sparse_update_subset():
     )
 
 
-
 def test_output_ids_can_be_reordered():
     grid = grid_with_ids(ComponentType.sym_load, [10, 11])
     outputs = initialize_array(DatasetType.sym_output, ComponentType.sym_load, (2, 2))
     outputs["id"] = [[11, 10], [10, 11]]
     server_state.set_app_state(grid, output_data={ComponentType.sym_load: outputs})
-
 
 
 def test_set_app_state_rejects_input_dataset_as_update():
@@ -355,14 +336,12 @@ def test_set_app_state_rejects_input_dataset_as_update():
         server_state.set_app_state(grid, update_data={ComponentType.node: nodes})
 
 
-
 def test_set_app_state_rejects_update_dataset_as_output():
     grid = grid_with_ids(ComponentType.sym_load, [10])
     updates = initialize_array(DatasetType.update, ComponentType.sym_load, (2, 1))
     updates["id"] = 10
     with pytest.raises(ValueError, match="unsupported dataset type"):
         server_state.set_app_state(grid, output_data={ComponentType.sym_load: updates})
-
 
 
 def test_set_app_state_rejects_incorrect_output_dtype():

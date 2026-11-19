@@ -6,7 +6,12 @@
 
 from typing import Any
 
-from power_grid_model_ds._core.visualizer.appliance_visuals import ApplianceVisualConfig, add_appliance_visuals
+from power_grid_model_ds._core.visualizer.appliance_visuals import (
+    ApplianceConnectionConfig,
+    ApplianceSymbolConfig,
+    ApplianceVisualConfig,
+    add_appliance_visuals,
+)
 from power_grid_model_ds._core.visualizer.generator_constants import (
     GENERATOR_CONNECTION_CLASS,
     GENERATOR_CONNECTION_LENGTH,
@@ -22,15 +27,19 @@ from power_grid_model_ds._core.visualizer.styling_classification import StyleCla
 
 _GENERATOR_CONFIG = ApplianceVisualConfig(
     groups=GENERATOR_GROUPS,
-    symbol_group=GENERATOR_SYMBOL_GROUP,
-    symbol_class=GENERATOR_SYMBOL_CLASS,
-    connection_class=GENERATOR_CONNECTION_CLASS,
-    open_class=GENERATOR_OPEN_CLASS,
-    open_appliance_class=StyleClass.OPEN_GENERATING_APPLIANCE.value,
-    visual_prefix=GENERATOR_VISUAL_PREFIX,
-    symbol_suffix=GENERATOR_SYMBOL_SUFFIX,
-    connection_suffix=GENERATOR_CONNECTION_SUFFIX,
-    connection_length=GENERATOR_CONNECTION_LENGTH,
+    symbol=ApplianceSymbolConfig(
+        group=GENERATOR_SYMBOL_GROUP,
+        css_class=GENERATOR_SYMBOL_CLASS,
+        visual_prefix=GENERATOR_VISUAL_PREFIX,
+        suffix=GENERATOR_SYMBOL_SUFFIX,
+    ),
+    connection=ApplianceConnectionConfig(
+        css_class=GENERATOR_CONNECTION_CLASS,
+        open_class=GENERATOR_OPEN_CLASS,
+        open_appliance_class=StyleClass.OPEN_GENERATING_APPLIANCE.value,
+        suffix=GENERATOR_CONNECTION_SUFFIX,
+        length=GENERATOR_CONNECTION_LENGTH,
+    ),
     component_name="generator",
     placement="above",
 )

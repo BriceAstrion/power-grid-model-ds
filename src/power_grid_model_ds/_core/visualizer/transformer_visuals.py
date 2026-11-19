@@ -25,6 +25,7 @@ from power_grid_model_ds._core.visualizer.transformer_constants import (
     TRANSFORMER_VISUAL_PREFIX,
     VISUAL_ONLY_KEY,
 )
+from power_grid_model_ds._core.visualizer.visual_elements import add_visual_elements
 
 
 def _connection_classes(classes: set[str]) -> tuple[str, str]:
@@ -146,25 +147,4 @@ def _visuals_for_transformer(
 
 def add_transformer_visuals(elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Keep original electrical edges and add symbols for positioned endpoints."""
-    result = deepcopy(elements)
-
-    nodes = {
-        str(item["data"]["id"]): item
-        for item in elements
-        if "source" not in item["data"] and "target" not in item["data"]
-    }
-    existing_ids = {str(item["data"]["id"]) for item in elements}
-
-    for item in elements:
-        visuals = _visuals_for_transformer(item, nodes)
-        if not visuals:
-            continue
-
-        new_ids = {str(visual["data"]["id"]) for visual in visuals}
-        if existing_ids & new_ids:
-            raise ValueError(f"Visual element ID collision for transformer {item['data']['id']}")
-
-        existing_ids.update(new_ids)
-        result.extend(visuals)
-
-    return result
+    return add_visual_elements(elements, _visuals_for_transformer, "transformer")

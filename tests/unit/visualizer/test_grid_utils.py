@@ -124,7 +124,6 @@ def test_get_attr_data_from_dataset():
     assert np.array_equal(y_actual, np.array([22, 42]))
     assert np.array_equal(x_actual, np.array([0, 2]))
 
-
     # Floating-point fallback: an unspecified update uses the base-grid value.
     loads[AttributeType.id] = [[11, 12, 13]] * 4
     loads[AttributeType.p_specified] = [

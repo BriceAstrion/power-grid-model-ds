@@ -4,6 +4,8 @@
 
 """Validate and coordinate scenario and timestamp navigation."""
 
+from typing import TypeGuard
+
 from dash import Input, Output, callback, ctx, no_update
 
 from power_grid_model_ds._core.visualizer.scenario_selection import get_scenario_count
@@ -26,7 +28,7 @@ def _time_options_for_date(
     ]
 
 
-def _valid_scenario_index(index: object, count: int) -> bool:
+def _valid_scenario_index(index: object, count: int) -> TypeGuard[int]:
     """Accept only integer indices within the scenario range."""
     return isinstance(index, int) and not isinstance(index, bool) and 0 <= index < count
 

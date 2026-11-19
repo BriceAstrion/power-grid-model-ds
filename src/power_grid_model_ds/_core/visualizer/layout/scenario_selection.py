@@ -48,7 +48,7 @@ def _time_options(
 
 def get_scenario_selection_html() -> html.Div:
     """Render optional scenario selection without activating a scenario."""
-    timestamps = get_timestamps()
+    timestamps = get_timestamps() or ()
     count = get_scenario_count(get_update_data(), get_output_data())
 
     if count is None or count == 0:

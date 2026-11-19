@@ -99,7 +99,7 @@ def _grid_segments(elements: list[dict[str, Any]], by_id: dict[str, dict[str, An
 
 
 def _source_candidates(origin: Point) -> list[Point]:
-    candidates = []
+    candidates: list[Point] = []
     for distance in (120, 180, 240, 320, 420):
         candidates.extend(
             (
@@ -135,6 +135,34 @@ def _find_source_position(
     return None
 
 
+def _reposition_source(
+    source: dict[str, Any],
+    by_id: dict[str, dict[str, Any]],
+    occupied: list[Bounds],
+    fixed_occupied: list[Bounds],
+    segments: list[tuple[Point, Point]],
+) -> None:
+    """Reposition one source ghost without overlapping existing graph elements."""
+    data = source["data"]
+    node = by_id.get(str(data["source"]))
+    ghost = by_id.get(str(data["target"]))
+
+    if node is None or ghost is None:
+        return
+
+    origin = _position(node)
+    if origin is None:
+        return
+
+    chosen = _find_source_position(origin, _bounds(node), occupied, fixed_occupied, segments)
+    if chosen is not None:
+        ghost["position"] = {"x": chosen[0], "y": chosen[1]}
+
+    current_bounds = _bounds(ghost)
+    if current_bounds is not None:
+        occupied.append(current_bounds)
+
+
 def prepare_source_rendering(elements: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Reposition existing source ghost nodes in a preset, positioned graph.
 
@@ -143,6 +171,7 @@ def prepare_source_rendering(elements: list[dict[str, Any]]) -> list[dict[str, A
     """
     result = deepcopy(elements)
     by_id = {str(item["data"]["id"]): item for item in result}
+
     sources = sorted(
         (item for item in result if item["data"].get("group") == _SOURCE_GROUP and "source" in item["data"]),
         key=lambda item: str(item["data"]["id"]),
@@ -160,20 +189,6 @@ def prepare_source_rendering(elements: list[dict[str, Any]]) -> list[dict[str, A
     segments = _grid_segments(result, by_id)
 
     for source in sources:
-        data = source["data"]
-        node = by_id.get(str(data["source"]))
-        ghost = by_id.get(str(data["target"]))
-        if node is None or ghost is None:
-            continue
-        origin = _position(node)
-        if origin is None:
-            continue
-
-        chosen = _find_source_position(origin, _bounds(node), occupied, fixed_occupied, segments)
-        if chosen is not None:
-            ghost["position"] = {"x": chosen[0], "y": chosen[1]}
-        current_bounds = _bounds(ghost)
-        if current_bounds is not None:
-            occupied.append(current_bounds)
+        _reposition_source(source, by_id, occupied, fixed_occupied, segments)
 
     return result

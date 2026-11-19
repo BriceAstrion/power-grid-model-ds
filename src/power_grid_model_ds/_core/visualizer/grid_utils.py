@@ -80,6 +80,38 @@ def dynamic_grid_obj_from_grid(dynamic_grid_class: type[Grid], grid: Grid):
     return dynamic_grid_obj
 
 
+def _resolve_missing_update_values(
+    match_data: np.ndarray,
+    grid: Grid,
+    comp_type: ComponentType,
+    attr: str,
+    pgm_id: int,
+) -> np.ndarray:
+    """Resolve unspecified update values using the corresponding base-grid value."""
+    empty_value = empty(match_data.dtype.type)
+
+    if isinstance(empty_value, (float, np.floating)) and np.isnan(empty_value):
+        missing_mask = np.isnan(match_data)
+    else:
+        missing_mask = match_data == empty_value
+
+    if not np.any(missing_mask):
+        return match_data
+
+    base_component = getattr(grid, comp_type.value)
+    base_ids = np.asarray(base_component.id)
+    base_indices = np.flatnonzero(base_ids == pgm_id)
+
+    if base_indices.size == 0:
+        return match_data
+
+    if base_indices.size != 1:
+        raise ValueError(f"Expected one base-grid {comp_type.value} with ID {pgm_id}")
+
+    base_value = getattr(base_component, attr)[int(base_indices[0])]
+    return np.where(missing_mask, base_value, match_data)
+
+
 def get_attr_data_from_dataset(
     dataset: BatchDataset, comp_type: ComponentType, attr: str, pgm_id: int, grid: Grid | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -96,27 +128,6 @@ def get_attr_data_from_dataset(
     if grid is None or scenario_indices.size == 0:
         return scenario_indices, match_data
 
-    empty_value = empty(component_data.dtype.fields[attr][0])
+    match_data = _resolve_missing_update_values(match_data, grid, comp_type, attr, pgm_id)
 
-    if isinstance(empty_value, (float, np.floating)) and np.isnan(empty_value):
-        missing_mask = np.isnan(match_data)
-    else:
-        missing_mask = match_data == empty_value
-
-    if not np.any(missing_mask):
-        return scenario_indices, match_data
-
-    base_component = getattr(grid, comp_type.value)
-    base_ids = np.asarray(base_component.id)
-    base_indices = np.flatnonzero(base_ids == pgm_id)
-
-    if base_indices.size == 0:
-        # The component is absent from the base grid, so no fallback is available.
-        return scenario_indices, match_data
-
-    if base_indices.size != 1:
-        raise ValueError(f"Expected one base-grid {comp_type.value} with ID {pgm_id}")
-
-    base_value = getattr(base_component, attr)[int(base_indices[0])]
-    filled_match_data = np.where(missing_mask, base_value, match_data)
-    return scenario_indices, filled_match_data
+    return scenario_indices, match_data

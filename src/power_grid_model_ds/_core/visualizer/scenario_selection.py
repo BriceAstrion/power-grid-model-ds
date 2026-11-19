@@ -193,7 +193,11 @@ def get_effective_component_state(
         if isinstance(records, Mapping):
             field_dtype = np.asarray(records[name]).dtype
         else:
-            field_dtype = records.dtype.fields[name][0]
+            fields = records.dtype.fields
+            if fields is None or name not in fields:
+                raise ValueError(f"Update records do not contain attribute {name!r}")
+
+            field_dtype = fields[name][0]
             if field_dtype.subdtype is not None:
                 field_dtype = field_dtype.subdtype[0]
         new = np.asarray(new_value, dtype=field_dtype)

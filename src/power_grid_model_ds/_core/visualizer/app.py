@@ -74,7 +74,7 @@ GRAPH_PANEL_STYLE = {
     "borderTop": PANEL_BORDER,
 }
 SCENARIO_WARNING_HIDDEN_STYLE = {"display": "none"}
-NODE_POSITION_INITIAL_STATE = {"scale": 1.0, "manual_positions": {}}
+NODE_POSITION_INITIAL_STATE = {"scale": 1.0}
 
 TOOLBAR_STYLE = {
     "height": "32px",
@@ -318,7 +318,7 @@ def get_app_layout(grid: Grid) -> html.Div:
                 id="node-position-state-store",
                 data={
                     "scale": NODE_POSITION_INITIAL_STATE["scale"],
-                    "manual_positions": NODE_POSITION_INITIAL_STATE["manual_positions"].copy(),
+                    "manual_positions": {},
                 },
             ),
             dcc.Store(

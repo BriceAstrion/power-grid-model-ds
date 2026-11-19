@@ -6,7 +6,12 @@
 
 from typing import Any
 
-from power_grid_model_ds._core.visualizer.appliance_visuals import ApplianceVisualConfig, add_appliance_visuals
+from power_grid_model_ds._core.visualizer.appliance_visuals import (
+    ApplianceConnectionConfig,
+    ApplianceSymbolConfig,
+    ApplianceVisualConfig,
+    add_appliance_visuals,
+)
 from power_grid_model_ds._core.visualizer.load_constants import (
     LOAD_CONNECTION_CLASS,
     LOAD_CONNECTION_LENGTH,
@@ -22,15 +27,19 @@ from power_grid_model_ds._core.visualizer.styling_classification import StyleCla
 
 _LOAD_CONFIG = ApplianceVisualConfig(
     groups=LOAD_GROUPS,
-    symbol_group=LOAD_SYMBOL_GROUP,
-    symbol_class=LOAD_SYMBOL_CLASS,
-    connection_class=LOAD_CONNECTION_CLASS,
-    open_class=LOAD_OPEN_CLASS,
-    open_appliance_class=StyleClass.OPEN_LOADING_APPLIANCE.value,
-    visual_prefix=LOAD_VISUAL_PREFIX,
-    symbol_suffix=LOAD_SYMBOL_SUFFIX,
-    connection_suffix=LOAD_CONNECTION_SUFFIX,
-    connection_length=LOAD_CONNECTION_LENGTH,
+    symbol=ApplianceSymbolConfig(
+        group=LOAD_SYMBOL_GROUP,
+        css_class=LOAD_SYMBOL_CLASS,
+        visual_prefix=LOAD_VISUAL_PREFIX,
+        suffix=LOAD_SYMBOL_SUFFIX,
+    ),
+    connection=ApplianceConnectionConfig(
+        css_class=LOAD_CONNECTION_CLASS,
+        open_class=LOAD_OPEN_CLASS,
+        open_appliance_class=StyleClass.OPEN_LOADING_APPLIANCE.value,
+        suffix=LOAD_CONNECTION_SUFFIX,
+        length=LOAD_CONNECTION_LENGTH,
+    ),
     component_name="load",
 )
 
