@@ -1027,7 +1027,7 @@ def test_power_selection_comparison_with_sigma(attribute, quantity, unit, series
         patch(f"{_CALLBACK_PATH}.get_update_data"),
         patch(f"{_CALLBACK_PATH}.get_symmetric_power_comparison", return_value=comparison) as get_comparison,
     ):
-        figure, style, controls_style = cell_selection_graph(selected, 3.0)
+        figure, style, _controls_style = cell_selection_graph(selected, 3.0)
 
     assert style == {"display": "block"}
     assert len(figure.data) == 4
@@ -1059,7 +1059,9 @@ def test_power_selection_without_sigma_shows_two_traces(attribute):
         patch(f"{_CALLBACK_PATH}.get_update_data"),
         patch(f"{_CALLBACK_PATH}.get_symmetric_power_comparison", return_value=comparison),
     ):
-        figure, style, controls_style = cell_selection_graph({"group": "sym_power_sensor", "id": 201, "column": attribute}, 3.0)
+        figure, style, _controls_style = cell_selection_graph(
+            {"group": "sym_power_sensor", "id": 201, "column": attribute}, 3.0
+        )
     assert style == {"display": "block"}
     assert len(figure.data) == 2
     np.testing.assert_allclose(figure.data[0].y, [10.0, 12.0])
@@ -1076,9 +1078,12 @@ def test_power_selection_falls_back_when_source_output_missing():
         patch(f"{_CALLBACK_PATH}.get_output_data", return_value=None),
         patch(f"{_CALLBACK_PATH}.get_update_data", return_value={ComponentType.sym_power_sensor: updates}),
     ):
-        figure, style, controls_style = cell_selection_graph({"group": "sym_power_sensor", "id": 201, "column": "p_measured"}, 3.0)
+        figure, style, controls_style = cell_selection_graph(
+            {"group": "sym_power_sensor", "id": 201, "column": "p_measured"}, 3.0
+        )
     assert style == {"display": "block"}
     assert len(figure.data) == 1
+    assert controls_style == {"display": "none"}
     np.testing.assert_allclose(figure.data[0].y, [10.0, 12.0])
 
 
@@ -1095,7 +1100,10 @@ def test_power_selection_unsupported_terminal_falls_back():
         patch(f"{_CALLBACK_PATH}.get_grid"),
         patch(f"{_CALLBACK_PATH}.get_symmetric_power_comparison", side_effect=NotImplementedError),
     ):
-        figure, style, controls_style = cell_selection_graph({"group": "sym_power_sensor", "id": 201, "column": "p_measured"}, 3.0)
+        figure, style, controls_style = cell_selection_graph(
+            {"group": "sym_power_sensor", "id": 201, "column": "p_measured"}, 3.0
+        )
     assert style == {"display": "block"}
+    assert controls_style == {"display": "none"}
     assert len(figure.data) == 1
     np.testing.assert_allclose(figure.data[0].y, [10.0, 12.0])

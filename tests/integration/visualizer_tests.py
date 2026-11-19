@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.dtypes.typing import NDArray3
-from power_grid_model_ds.arrays import AsymGenArray, LineArray, SourceArray, SymGenArray
+from power_grid_model_ds.arrays import AsymGenArray, LineArray, SourceArray, SymGenArray, SymVoltageSensorArray
 from power_grid_model_ds.generators import RadialGridGenerator
 from power_grid_model_ds.visualizer import visualize
 from tests.unit.visualizer.test_parsers import CoordinatedNodeArray

@@ -90,7 +90,8 @@ SELECTION_GRAPH_HTML = html.Div(
                                                 html.Strong("Understanding sigma bands"),
                                                 html.P(
                                                     "The shaded region represents the measured value +/- "
-                                                    "(sigma multiplier * measurement sigma). It is shown only when sigma data is available."
+                                                    "(sigma multiplier * measurement sigma). "
+                                                    "It is shown only when sigma data is available."
                                                 ),
                                                 html.P(
                                                     "A calculated value inside the band does not "

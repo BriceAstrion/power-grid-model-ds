@@ -4,6 +4,8 @@
 
 """Sigma-multiplier behavior in the integrated visualizer callback architecture."""
 
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 from dash import dcc
@@ -42,9 +44,13 @@ def power_comparison():
 def voltage_data(monkeypatch, voltage_comparison):
     node_output = np.zeros((3, 1), dtype=[("id", "i4"), ("u", "f8")])
     node_output["id"] = 10
-    monkeypatch.setattr(element_selection, "get_output_data", lambda: {ComponentType.node: node_output})
-    monkeypatch.setattr(element_selection, "get_update_data", lambda: None)
-    monkeypatch.setattr(element_selection, "get_grid", lambda: object())
+    monkeypatch.setattr(
+        element_selection,
+        "get_output_data",
+        Mock(return_value={ComponentType.node: node_output}),
+    )
+    monkeypatch.setattr(element_selection, "get_update_data", Mock(return_value=None))
+    monkeypatch.setattr(element_selection, "get_grid", Mock(return_value=object()))
     monkeypatch.setattr(
         element_selection, "get_symmetric_voltage_comparison", lambda *_args, **_kwargs: voltage_comparison
     )
@@ -55,12 +61,20 @@ def voltage_data(monkeypatch, voltage_comparison):
 def power_data(monkeypatch, power_comparison):
     source_output = np.zeros((2, 1), dtype=[("id", "i4"), ("p", "f8"), ("q", "f8")])
     source_output["id"] = 10
-    monkeypatch.setattr(element_selection, "get_output_data", lambda: {ComponentType.source: source_output})
-    monkeypatch.setattr(element_selection, "get_update_data", lambda: None)
-    monkeypatch.setattr(element_selection, "get_grid", lambda: object())
+
     monkeypatch.setattr(
-        element_selection, "get_symmetric_power_comparison", lambda *_args, **_kwargs: power_comparison
+        element_selection,
+        "get_output_data",
+        Mock(return_value={ComponentType.source: source_output}),
     )
+    monkeypatch.setattr(element_selection, "get_update_data", Mock(return_value=None))
+    monkeypatch.setattr(element_selection, "get_grid", Mock(return_value=object()))
+    monkeypatch.setattr(
+        element_selection,
+        "get_symmetric_power_comparison",
+        Mock(return_value=power_comparison),
+    )
+
     return {"group": "sym_power_sensor", "id": 201, "column": "p_measured"}
 
 
@@ -179,8 +193,10 @@ def test_power_with_sigma_shows_controls(power_data):
     assert len(figure.data) == 4
 
 
-def test_non_comparison_selection_hides_controls(voltage_data, monkeypatch):
-    monkeypatch.setattr(element_selection, "_create_attribute_graph", lambda *_args: (None, {"display": "block"}, {"display": "none"}))
+def test_non_comparison_selection_hides_controls(monkeypatch):
+    monkeypatch.setattr(
+        element_selection, "_create_attribute_graph", lambda *_args: (None, {"display": "block"}, {"display": "none"})
+    )
     _, _, controls_style = element_selection.cell_selection_graph({"group": "node", "id": 10, "column": "u"}, 2)
     assert controls_style == {"display": "none"}
 
@@ -202,7 +218,5 @@ def test_retained_power_graph_responds_to_multiplier(power_data):
 
 
 def test_retained_comparison_keeps_controls_visible(voltage_data):
-    _, _, controls_style = element_selection.cell_selection_graph(
-        None, 2, retained_selections=[voltage_data]
-    )
+    _, _, controls_style = element_selection.cell_selection_graph(None, 2, retained_selections=[voltage_data])
     assert controls_style == {"display": "block"}
