@@ -9,6 +9,7 @@ from dash.exceptions import PreventUpdate
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH_WIDTH, NODE_SIZE
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
+from power_grid_model_ds._core.visualizer.layout.load_rendering import prepare_load_rendering
 from power_grid_model_ds._core.visualizer.layout.transformer_rendering import prepare_transformer_rendering
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
@@ -92,5 +93,7 @@ def update_appliances(show_appliances, parsed_elements, layout):
 
     if layout and layout.get("name") == LayoutOptions.PRESET.value:
         elements = prepare_transformer_rendering(elements)
+        if show_appliances:
+            elements = prepare_load_rendering(elements)
 
     return elements, bool(show_appliances)

@@ -26,6 +26,7 @@ NODE_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COL
 _SUBSTATION_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.SUBSTATION_NODE]}
 _LINE_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.BRANCH]}
 _LINK_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.LINK]}
+_LOAD_ICON_STYLE = {"width": "58px", "height": "32px", "margin": _MARGIN, "verticalAlign": "middle"}
 _TRANSFORMER_ICON_STYLE = {"width": "66px", "height": "44px", "margin": _MARGIN, "verticalAlign": "middle"}
 _TRANSFORMER_LEGEND_EXTENT = 67
 _TRANSFORMER_LEGEND_VIEWBOX = "-70 -48 140 96"
@@ -47,6 +48,25 @@ def _transformer_legend_symbol() -> html.Img:
     return html.Img(id="transformer-icon", src="data:image/svg+xml," + quote(svg), style=_TRANSFORMER_ICON_STYLE)
 
 
+def _load_legend_symbol() -> html.Img:
+    """Render the open-arrow load symbol used in the Cytoscape visualizer."""
+    color = CYTO_COLORS[StyleClass.BRANCH]
+
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" '
+        f'fill="none" stroke="{color}" stroke-width="10" '
+        'stroke-linecap="butt" stroke-linejoin="round">'
+        '<path d="M5 25 H90 M70 5 L90 25 L70 45"/>'
+        "</svg>"
+    )
+
+    return html.Img(
+        id="load-icon",
+        src="data:image/svg+xml," + quote(svg),
+        style=_LOAD_ICON_STYLE,
+    )
+
+
 _GENERIC_BRANCH_ICON_STYLE = {
     "font-size": _FONT_SIZE,
     "margin": _MARGIN,
@@ -61,6 +81,8 @@ LEGENDA_ELEMENTS = [
     dbc.Tooltip("Substation", target="substation-icon", placement="bottom"),
     html.I(className=_BOOTSTRAP_ARROW_ICON_CLASS, id="line-icon", style=_LINE_ICON_STYLE),
     dbc.Tooltip("Line", target="line-icon", placement="bottom"),
+    _load_legend_symbol(),
+    dbc.Tooltip("Load (Belasting)", target="load-icon", placement="bottom"),
     _transformer_legend_symbol(),
     dbc.Tooltip("Transformer", target="transformer-icon", placement="bottom"),
     html.I(className=_BOOTSTRAP_ARROW_ICON_CLASS, id="link-icon", style=_LINK_ICON_STYLE),

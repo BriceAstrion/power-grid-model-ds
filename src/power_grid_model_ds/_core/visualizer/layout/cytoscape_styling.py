@@ -5,6 +5,13 @@
 """Contains selectors for the Cytoscape stylesheet."""
 
 from power_grid_model_ds._core.visualizer.layout.colors import CYTO_COLORS
+from power_grid_model_ds._core.visualizer.load_constants import (
+    LOAD_CONNECTION_CLASS,
+    LOAD_ORIGINAL_HIDDEN_CLASS,
+    LOAD_SYMBOL_CLASS,
+    LOAD_SYMBOL_HEIGHT,
+    LOAD_SYMBOL_WIDTH,
+)
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 from power_grid_model_ds._core.visualizer.transformer_constants import (
     TRANSFORMER_CONNECTION_CLASS,
@@ -280,6 +287,34 @@ _TRANSFORMER_VISUAL_OPEN_TO_STYLE = {
     },
 }
 
+_LOAD_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{LOAD_ORIGINAL_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_LOAD_SYMBOL_STYLE = {
+    "selector": f".{LOAD_SYMBOL_CLASS}",
+    "style": {
+        "shape": "rectangle",
+        "width": LOAD_SYMBOL_WIDTH,
+        "height": LOAD_SYMBOL_HEIGHT,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_LOAD_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{LOAD_CONNECTION_CLASS}",
+    "style": {
+        "width": BRANCH_WIDTH * 0.5,
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "opacity": 0,
+    },
+}
+
 DEFAULT_STYLESHEET = [
     _NODE_STYLE,
     _NODE_LARGE_ID_STYLE,
@@ -312,4 +347,7 @@ DEFAULT_STYLESHEET = [
     _TRANSFORMER_VISUAL_OPEN_STYLE,
     _TRANSFORMER_VISUAL_OPEN_FROM_STYLE,
     _TRANSFORMER_VISUAL_OPEN_TO_STYLE,
+    _LOAD_ORIGINAL_HIDDEN_STYLE,
+    _LOAD_SYMBOL_STYLE,
+    _LOAD_VISUAL_CONNECTION_STYLE,
 ]

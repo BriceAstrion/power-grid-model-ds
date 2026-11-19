@@ -6,6 +6,7 @@
 (function () {
   "use strict";
   const GRAPH_ID = "cytoscape-graph";
+  const LOAD_PREFIX = "__visual_load__";
   const PREFIX = "__visual_transformer__";
   const RADIUS = 33;
   const OFFSET = 18;
@@ -76,6 +77,84 @@
     let queued = false;
     let frame = null;
     let disposed = false;
+
+    function drawLoadSymbols(ctx) {
+      cy.nodes('node[group = "load_symbol"]').forEach(function (symbol) {
+        const loadId = String(symbol.data("component_id"));
+        const connection = cy.getElementById(
+          LOAD_PREFIX + loadId + "__connection"
+        );
+
+        if (connection.empty()) return;
+
+        const source = connection.source();
+        if (source.empty()) return;
+
+        const center = symbol.position();
+        const start = nodeEndpoint(source, center);
+
+        const original = cy.getElementById(loadId);
+        const classes = original.empty() ? "" : original.classes();
+        const isOpen = classes.includes("open_loading_appliance");
+
+        const direction = unit(start, center) || { x: 1, y: 0 };
+
+        const arrowLength = 78;
+        const arrowHeadLength = 23;
+        const arrowHeadWidth = 18;
+
+        const arrowStart = add(center, direction, -arrowLength / 2);
+        const arrowTip = add(center, direction, arrowLength / 2);
+        const arrowBase = add(arrowTip, direction, -arrowHeadLength);
+
+        const perpendicular = {
+          x: -direction.y,
+          y: direction.x,
+        };
+
+        const color = symbol.selected() ? "#ff9900" : "#ffcc33";
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 9;
+        ctx.lineCap = "butt";
+        ctx.lineJoin = "butt";
+
+        // Draw the connection from the electrical node to the load.
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(arrowStart.x, arrowStart.y);
+
+        if (isOpen) {
+          ctx.setLineDash([10, 7]);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw the arrow shaft through the open arrowhead.
+        ctx.beginPath();
+        ctx.moveTo(arrowStart.x, arrowStart.y);
+        ctx.lineTo(arrowTip.x, arrowTip.y);
+        ctx.stroke();
+
+        // Draw an open V-shaped load arrowhead.
+        ctx.beginPath();
+        ctx.moveTo(
+          arrowBase.x + perpendicular.x * arrowHeadWidth,
+          arrowBase.y + perpendicular.y * arrowHeadWidth
+        );
+        ctx.lineTo(arrowTip.x, arrowTip.y);
+        ctx.lineTo(
+          arrowBase.x - perpendicular.x * arrowHeadWidth,
+          arrowBase.y - perpendicular.y * arrowHeadWidth
+        );
+        ctx.stroke();
+
+        ctx.restore();
+      });
+    }
 
     function redraw() {
       queued = false;
@@ -206,6 +285,7 @@
         ctx.arc(rightCenter.x, rightCenter.y, RADIUS, 0, Math.PI * 2);
         ctx.stroke();
       });
+      drawLoadSymbols(ctx);
       ctx.restore();
     }
 
