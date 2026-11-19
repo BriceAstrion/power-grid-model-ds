@@ -17,6 +17,8 @@ _SHOW_APPLIANCES_GROUPS = [
     "asym_load_ghost_node",
     "asym_gen",
     "asym_gen_ghost_node",
+    "source",
+    "source_ghost_node",
     "shunt",
     "shunt_ghost_node",
 ]

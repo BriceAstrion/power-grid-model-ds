@@ -6,7 +6,20 @@
 
 from urllib.parse import quote
 
+from power_grid_model_ds._core.visualizer.generator_constants import (
+    GENERATOR_CONNECTION_CLASS,
+    GENERATOR_ORIGINAL_HIDDEN_CLASS,
+    GENERATOR_SYMBOL_CLASS,
+    GENERATOR_SYMBOL_SIZE,
+)
 from power_grid_model_ds._core.visualizer.layout.colors import CYTO_COLORS
+from power_grid_model_ds._core.visualizer.load_constants import (
+    LOAD_CONNECTION_CLASS,
+    LOAD_ORIGINAL_HIDDEN_CLASS,
+    LOAD_SYMBOL_CLASS,
+    LOAD_SYMBOL_HEIGHT,
+    LOAD_SYMBOL_WIDTH,
+)
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 from power_grid_model_ds._core.visualizer.transformer_constants import (
     TRANSFORMER_CONNECTION_CLASS,
@@ -75,32 +88,36 @@ _APPLIANCE_GHOST_NODE_STYLE = {
     },
 }
 
+_SOURCE_COLOR = "#A5F3FC"
+
 _SOURCE_SYMBOL_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
-    '<circle cx="50" cy="50" r="43" fill="#292d35" '
-    'stroke="#F4C95D" stroke-width="7"/>'
-    '<path d="M20 50 C30 20 40 20 50 50 S70 80 80 50" '
-    'fill="none" stroke="#F4C95D" stroke-width="7" stroke-linecap="round"/>'
+    f'<circle cx="50" cy="50" r="43" fill="#555555" stroke="{_SOURCE_COLOR}" stroke-width="7"/>'
+    f'<path d="M20 50 C30 20 40 20 50 50 S70 80 80 50" '
+    f'fill="none" stroke="{_SOURCE_COLOR}" stroke-width="7" stroke-linecap="round"/>'
     "</svg>"
 )
+
 _SOURCE_SYMBOL_IMAGE = "data:image/svg+xml," + quote(_SOURCE_SYMBOL_SVG)
 
 _SOURCE_SYMBOL_STYLE = {
     "selector": 'node[group = "source_ghost_node"]',
     "style": {
         "shape": "ellipse",
+        "width": NODE_SIZE,
+        "height": NODE_SIZE,
         "background-opacity": 0,
-        "border-width": 0,
         "background-image": _SOURCE_SYMBOL_IMAGE,
         "background-fit": "contain",
         "background-clip": "none",
-        "width": NODE_SIZE,
-        "height": NODE_SIZE,
+        "border-width": 0,
+        "label": "",
     },
 }
+
 _SOURCE_SYMBOL_SELECTED_STYLE = {
     "selector": 'node[group = "source_ghost_node"]:selected',
-    "style": {"border-width": 2, "border-color": CYTO_COLORS["selected"]},
+    "style": {"border-width": 3, "border-color": _SOURCE_COLOR},
 }
 
 _GENERATING_EDGE_STYLE = {
@@ -114,6 +131,7 @@ _GENERATING_EDGE_STYLE = {
         "width": BRANCH_WIDTH * 0.5,
     },
 }
+
 _SOURCE_EDGE_STYLE = {
     "selector": f".{StyleClass.SOURCE.value}",
     "style": {
@@ -131,6 +149,7 @@ _SOURCE_CONNECTION_STYLE = {
         "target-arrow-color": "#F4C95D",
     },
 }
+
 _LOADING_EDGE_STYLE = {
     "selector": f".{StyleClass.LOADING_APPLIANCE.value}",
     "style": {
@@ -320,6 +339,62 @@ _TRANSFORMER_VISUAL_OPEN_TO_STYLE = {
     },
 }
 
+_GENERATOR_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{GENERATOR_ORIGINAL_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_GENERATOR_SYMBOL_STYLE = {
+    "selector": f".{GENERATOR_SYMBOL_CLASS}",
+    "style": {
+        "shape": "ellipse",
+        "width": GENERATOR_SYMBOL_SIZE,
+        "height": GENERATOR_SYMBOL_SIZE,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_GENERATOR_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{GENERATOR_CONNECTION_CLASS}",
+    "style": {
+        "width": BRANCH_WIDTH * 0.5,
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "opacity": 0,
+    },
+}
+
+_LOAD_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{LOAD_ORIGINAL_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_LOAD_SYMBOL_STYLE = {
+    "selector": f".{LOAD_SYMBOL_CLASS}",
+    "style": {
+        "shape": "rectangle",
+        "width": LOAD_SYMBOL_WIDTH,
+        "height": LOAD_SYMBOL_HEIGHT,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_LOAD_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{LOAD_CONNECTION_CLASS}",
+    "style": {
+        "width": BRANCH_WIDTH * 0.5,
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "opacity": 0,
+    },
+}
+
 _ELECTRICAL_NODE_STYLE = {
     "selector": "node[electrical_color]",
     "style": {
@@ -373,4 +448,10 @@ DEFAULT_STYLESHEET = [
     _TRANSFORMER_VISUAL_OPEN_STYLE,
     _TRANSFORMER_VISUAL_OPEN_FROM_STYLE,
     _TRANSFORMER_VISUAL_OPEN_TO_STYLE,
+    _LOAD_ORIGINAL_HIDDEN_STYLE,
+    _LOAD_SYMBOL_STYLE,
+    _LOAD_VISUAL_CONNECTION_STYLE,
+    _GENERATOR_ORIGINAL_HIDDEN_STYLE,
+    _GENERATOR_SYMBOL_STYLE,
+    _GENERATOR_VISUAL_CONNECTION_STYLE,
 ]

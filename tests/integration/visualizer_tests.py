@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.dtypes.typing import NDArray3
-from power_grid_model_ds.arrays import LineArray, SourceArray, SymVoltageSensorArray
+from power_grid_model_ds.arrays import AsymGenArray, LineArray, SourceArray, SymGenArray
 from power_grid_model_ds.generators import RadialGridGenerator
 from power_grid_model_ds.visualizer import visualize
 from tests.unit.visualizer.test_parsers import CoordinatedNodeArray
@@ -89,6 +89,46 @@ def visualize_grid_with_all_open_types():
         "4 5 generic_branch,45,open",
         "5 6 asym_line,56,open",
     )
+    visualize(grid=grid, debug=True)
+
+
+def visualize_grid_with_generators():
+    """Manually verify symmetric and asymmetric generator symbols."""
+    grid = get_coordinated_three_phase_grid()
+
+    sym_gens = SymGenArray.zeros(1)
+    sym_gens["id"] = [11004]
+    sym_gens["node"] = [2]
+    grid.append(sym_gens)
+
+    asym_gens = AsymGenArray.zeros(1)
+    asym_gens["id"] = [11006]
+    asym_gens["node"] = [6]
+    grid.append(asym_gens)
+
+    visualize(grid=grid, debug=True)
+
+
+def visualize_grid_with_generators_and_sources():
+    """Manually verify generator and AC source placement in the same grid."""
+    grid = get_coordinated_three_phase_grid()
+
+    sym_gens = SymGenArray.zeros(1)
+    sym_gens["id"] = [11004]
+    sym_gens["node"] = [2]
+    grid.append(sym_gens)
+
+    asym_gens = AsymGenArray.zeros(1)
+    asym_gens["id"] = [11006]
+    asym_gens["node"] = [6]
+    grid.append(asym_gens)
+
+    sources = SourceArray.zeros(2)
+    sources["id"] = [12006, 12007]
+    sources["node"] = [6, 6]
+    sources["status"] = 1
+    grid.append(sources)
+
     visualize(grid=grid, debug=True)
 
 

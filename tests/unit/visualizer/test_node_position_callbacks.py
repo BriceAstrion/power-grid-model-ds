@@ -77,11 +77,20 @@ def test_appliance_visibility_preserves_node_separation():
     visible_ids = {element["data"]["id"] for element in visible}
 
     assert hidden_ids == {"2", "3"}
-    assert visible_ids == {"2", "3", "10", "10_ghost_node"}
+    assert visible_ids == {
+        "2",
+        "3",
+        "10",
+        "10_ghost_node",
+        "__visual_load__10__symbol",
+        "__visual_load__10__connection",
+    }
 
     def node_positions(elements):
         return {
-            element["data"]["id"]: element["position"] for element in elements if element["data"]["group"] == "node"
+            element["data"]["id"]: element["position"]
+            for element in elements
+            if element["data"].get("group") == "node"
         }
 
     hidden_positions = node_positions(hidden)
@@ -281,7 +290,7 @@ def test_dragged_node_position_preserved_when_toggling_appliances():
     )
 
     positions = {
-        element["data"]["id"]: element["position"] for element in visible if element["data"]["group"] == "node"
+        element["data"]["id"]: element["position"] for element in visible if element["data"].get("group") == "node"
     }
     visible_ids = {element["data"]["id"] for element in visible}
 

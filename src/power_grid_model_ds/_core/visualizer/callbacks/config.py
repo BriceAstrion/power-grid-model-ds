@@ -21,9 +21,12 @@ from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
     get_scenario_count,
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH_WIDTH, NODE_SIZE
+from power_grid_model_ds._core.visualizer.layout.generator_rendering import prepare_generator_rendering
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
+from power_grid_model_ds._core.visualizer.layout.load_rendering import prepare_load_rendering
 from power_grid_model_ds._core.visualizer.layout.node_overlap import separate_coincident_nodes
+from power_grid_model_ds._core.visualizer.layout.source_rendering import prepare_source_rendering
 from power_grid_model_ds._core.visualizer.layout.transformer_rendering import prepare_transformer_rendering
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
@@ -325,4 +328,9 @@ def update_appliances(  # pylint: disable=too-many-arguments,too-many-positional
     elements, legend_content = _electrical_display(elements, component, quantity, scenario_number)
     if current_layout and current_layout.get("name") == LayoutOptions.PRESET.value:
         elements = prepare_transformer_rendering(elements)
+        if show_appliances:
+            elements = prepare_load_rendering(elements)
+            elements = prepare_generator_rendering(elements)
+            elements = prepare_source_rendering(elements)
+
     return elements, legend_content, new_position_state

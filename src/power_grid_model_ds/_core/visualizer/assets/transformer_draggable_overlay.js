@@ -1,11 +1,18 @@
+
 /* SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org> */
 /*
  * SPDX-License-Identifier: MPL-2.0
-*/
+ */
 
 (function () {
   "use strict";
   const GRAPH_ID = "cytoscape-graph";
+  const LOAD_PREFIX = "__visual_load__";
+  const GENERATOR_PREFIX = "__visual_generator__";
+  const GENERATOR_RADIUS = 34;
+  const GENERATOR_STROKE = 8;
+  const GENERATOR_COLOR = "#D0FFE5";
+  const LOAD_COLOR = "#FFF8F0";
   const PREFIX = "__visual_transformer__";
   const RADIUS = 33;
   const OFFSET = 18;
@@ -76,6 +83,182 @@
     let queued = false;
     let frame = null;
     let disposed = false;
+
+    function drawLoadSymbols(ctx) {
+      cy.nodes('node[group = "load_symbol"]').forEach(function (symbol) {
+        const loadId = String(symbol.data("component_id"));
+        const connection = cy.getElementById(
+          LOAD_PREFIX + loadId + "__connection"
+        );
+
+        if (connection.empty()) return;
+
+        const source = connection.source();
+        if (source.empty()) return;
+
+        const center = symbol.position();
+        const start = nodeEndpoint(source, center);
+
+        const original = cy.getElementById(loadId);
+        const classes = original.empty() ? "" : original.classes();
+        const isOpen = classes.includes("open_loading_appliance");
+
+        const direction = unit(start, center) || { x: 1, y: 0 };
+
+        const arrowLength = 78;
+        const arrowHeadLength = 23;
+        const arrowHeadWidth = 18;
+
+        const arrowStart = add(center, direction, -arrowLength / 2);
+        const arrowTip = add(center, direction, arrowLength / 2);
+        const arrowBase = add(arrowTip, direction, -arrowHeadLength);
+
+        const perpendicular = {
+          x: -direction.y,
+          y: direction.x,
+        };
+
+        ctx.save();
+        ctx.strokeStyle = LOAD_COLOR;
+        ctx.fillStyle = LOAD_COLOR;
+        ctx.lineWidth = 9;
+        ctx.lineCap = "butt";
+        ctx.lineJoin = "butt";
+
+        // Draw the connection from the electrical node to the load.
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(arrowStart.x, arrowStart.y);
+
+        if (isOpen) {
+          ctx.setLineDash([10, 7]);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw the arrow shaft through the open arrowhead.
+        ctx.beginPath();
+        ctx.moveTo(arrowStart.x, arrowStart.y);
+        ctx.lineTo(arrowTip.x, arrowTip.y);
+        ctx.stroke();
+
+        // Draw an open V-shaped load arrowhead.
+        ctx.beginPath();
+        ctx.moveTo(
+          arrowBase.x + perpendicular.x * arrowHeadWidth,
+          arrowBase.y + perpendicular.y * arrowHeadWidth
+        );
+        ctx.lineTo(arrowTip.x, arrowTip.y);
+        ctx.lineTo(
+          arrowBase.x - perpendicular.x * arrowHeadWidth,
+          arrowBase.y - perpendicular.y * arrowHeadWidth
+        );
+        ctx.stroke();
+
+        if (symbol.selected()) {
+          // A dark outer stroke separates the selection indicator
+          // from the bright load symbol and nearby network elements.
+          ctx.save();
+          ctx.strokeStyle = "#202020";
+          ctx.lineWidth = 20;
+          ctx.globalCompositeOperation = "destination-over";
+
+          ctx.beginPath();
+          ctx.moveTo(arrowStart.x, arrowStart.y);
+          ctx.lineTo(arrowTip.x, arrowTip.y);
+          ctx.moveTo(
+            arrowBase.x + perpendicular.x * arrowHeadWidth,
+            arrowBase.y + perpendicular.y * arrowHeadWidth
+          );
+          ctx.lineTo(arrowTip.x, arrowTip.y);
+          ctx.lineTo(
+            arrowBase.x - perpendicular.x * arrowHeadWidth,
+            arrowBase.y - perpendicular.y * arrowHeadWidth
+          );
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      });
+    }
+
+    function drawGeneratorSymbols(ctx) {
+      cy.nodes('node[group = "generator_symbol"]').forEach(function (symbol) {
+        const generatorId = String(symbol.data("component_id"));
+        const connection = cy.getElementById(
+          GENERATOR_PREFIX + generatorId + "__connection"
+        );
+
+        if (connection.empty()) return;
+
+        const source = connection.source();
+        if (source.empty()) return;
+
+        const center = symbol.position();
+        const start = nodeEndpoint(source, center);
+        const end = circleEndpoint(
+          center,
+          start,
+          GENERATOR_RADIUS + GENERATOR_STROKE / 2
+        );
+
+        const original = cy.getElementById(generatorId);
+        const classes = original.empty() ? "" : original.classes();
+        const isOpen = classes.includes("open_generating_appliance");
+
+        ctx.save();
+        ctx.strokeStyle = GENERATOR_COLOR;
+        ctx.fillStyle = GENERATOR_COLOR;
+        ctx.lineWidth = GENERATOR_STROKE;
+        ctx.lineCap = "butt";
+
+        // Connect the electrical node to the generator boundary.
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+
+        if (isOpen) {
+          ctx.setLineDash([10, 7]);
+        }
+
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw the generator's circular outline.
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, GENERATOR_RADIUS, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Draw the G label at the centre.
+        ctx.font = "bold 38px Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("G", center.x, center.y);
+
+        if (symbol.selected()) {
+          // Dashed outer ring makes selection distinguishable
+          // without depending on a change of colour.
+          ctx.save();
+          ctx.strokeStyle = GENERATOR_COLOR;
+          ctx.lineWidth = 4;
+          ctx.setLineDash([9, 7]);
+          ctx.beginPath();
+          ctx.arc(
+            center.x,
+            center.y,
+            GENERATOR_RADIUS + GENERATOR_STROKE + 10,
+            0,
+            Math.PI * 2
+          );
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.restore();
+      });
+    }
 
     function redraw() {
       queued = false;
@@ -206,6 +389,8 @@
         ctx.arc(rightCenter.x, rightCenter.y, RADIUS, 0, Math.PI * 2);
         ctx.stroke();
       });
+      drawLoadSymbols(ctx);
+      drawGeneratorSymbols(ctx);
       ctx.restore();
     }
 
