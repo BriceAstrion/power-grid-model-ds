@@ -22,8 +22,8 @@ LEFT_STYLE = {
     "gridColumn": "1",
     "display": "block",
     "minWidth": "0",
-    "padding": "1rem",
-    "backgroundColor": "#f8f9fa",
+    "padding": "0",
+    "backgroundColor": "#ffffff",
     "borderRight": PANEL_BORDER,
 }
 

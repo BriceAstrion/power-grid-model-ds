@@ -201,10 +201,12 @@ def get_scenario_selection_html() -> html.Div:
             )
         ],
         id="timestamp-selection-container",
-        className="card shadow-sm border-0",
+        className="card border-0",
         style={
-            "padding": "14px",
-            "margin": "12px 0",
-            "borderRadius": "12px",
+            "width": "100%",
+            "padding": "25px 14px 14px",
+            "margin": "0",
+            "borderRadius": "0",
+            "boxShadow": "none",
         },
     )

@@ -110,6 +110,37 @@
     font-size: 14px;
 }
 
+/* Keep the native clear-date button visible in the narrow Date column. */
+#timestamp-selection-container .SingleDatePickerInput {
+    position: relative;
+}
+
+#timestamp-selection-container .SingleDatePickerInput_clearDate {
+    top: 50%;
+    right: 9px;
+    transform: translateY(-50%);
+    margin: 0;
+    padding: 4px;
+    z-index: 2;
+    background: #ffffff;
+    border-radius: 3px;
+}
+
+#timestamp-selection-container .SingleDatePickerInput_clearDate_svg {
+    width: 14px;
+    height: 14px;
+    fill: #c62828;
+    stroke: #c62828;
+    stroke-width: 0.7px;
+}
+
+/* Leave space for the clear button without changing the date value. */
+#timestamp-selection-container .SingleDatePickerInput .DateInput_input {
+    padding-left: 7px;
+    padding-right: 34px;
+    font-size: 12px;
+}
+
 /*
  * The calendar uses a smaller day_size in Python.
  * Keep the popup anchored to the date input.

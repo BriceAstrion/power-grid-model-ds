@@ -153,7 +153,7 @@ def validate_scenario_input(value: object):
 
     if count is not None and _valid_scenario_index(value, count):
         return (
-            f"Inspecting scenario {value}.",
+            None,
             "text-muted small mt-2",
             base_style,
         )

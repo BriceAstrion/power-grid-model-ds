@@ -194,7 +194,7 @@ def test_valid_scenario_has_neutral_validation():
         patch(f"{CALLBACK_MODULE}.get_output_data", return_value=None),
     ):
         message, css_class, style = validate_scenario_input(1)
-    assert message == "Inspecting scenario 1."
+    assert message is None
     assert "text-muted" in css_class
     assert style == {"width": "100%"}
 
