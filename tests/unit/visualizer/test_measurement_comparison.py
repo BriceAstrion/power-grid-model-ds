@@ -202,13 +202,13 @@ def test_comparison_does_not_modify_input_data(grid, output_data):
 
     # Compare structured arrays field by field so NaN values
     # are treated as equal when they occur in the same positions.
-    for field in updates.dtype.names:
+    for field in updates.dtype.names or ():
         assert_array_equal(
             updates[field],
             original_updates[field],
         )
 
-    for field in original_nodes.dtype.names:
+    for field in original_nodes.dtype.names or ():
         assert_array_equal(
             output_data[ComponentType.node][field],
             original_nodes[field],
@@ -764,3 +764,57 @@ def test_power_selection_without_sigma_hides_controls(monkeypatch, power_grid, p
     assert len(figure.data) == 2
     assert graph_style == {"display": "block"}
     assert controls_style == {"display": "none"}
+
+
+# Additional regression cases from the incoming power-comparison branch.
+
+def test_missing_sensor_update_row_preserves_base_and_alignment(grid, output_data):
+    updates = initialize_array("update", "sym_voltage_sensor", (3, 1))
+    updates["id"] = 101
+    updates["id"][1, 0] = 999
+    updates["u_measured"][2, 0] = 237.0
+    comparison = get_symmetric_voltage_comparison(grid, {ComponentType.sym_voltage_sensor: updates}, output_data, 101)
+    assert comparison is not None
+    assert_array_equal(comparison.scenario_indices, [0, 1, 2])
+    assert_array_equal(comparison.measured, [230.0, 230.0, 237.0])
+
+
+def test_missing_power_result_preserves_scenario(power_grid, power_output):
+    source = power_output[ComponentType.source].copy()
+    source["id"][1, 0] = 999
+
+    result = get_symmetric_power_comparison(
+        power_grid,
+        None,
+        {ComponentType.source: source},
+        201,
+        "p_measured",
+    )
+
+    assert_array_equal(result.estimated, [9.0, np.nan, 8.0])
+
+
+def test_duplicate_power_output_is_rejected(power_grid):
+    source = initialize_array("sym_output", "source", (2, 2))
+    source["id"][:, 0] = 20
+    source["id"][:, 1] = 99
+    source["id"][1, 1] = 20
+
+    with pytest.raises(ValueError, match="Duplicate source ID"):
+        get_symmetric_power_comparison(
+            power_grid,
+            None,
+            {ComponentType.source: source},
+            201,
+            "p_measured",
+        )
+
+
+def test_unknown_power_sensor_is_rejected(power_grid, power_output):
+    with pytest.raises(ValueError, match="Expected exactly one power sensor"):
+        get_symmetric_power_comparison(power_grid, None, power_output, 999, "p_measured")
+
+
+def test_invalid_power_measurement_is_rejected(power_grid, power_output):
+    with pytest.raises(ValueError, match="Unsupported power measurement"):
+        get_symmetric_power_comparison(power_grid, None, power_output, 201, "power_sigma")

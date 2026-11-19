@@ -317,6 +317,9 @@ def get_symmetric_power_comparison(
         measurement_attribute=measurement_attribute,
         sigma_attribute=sigma_attribute,
     )
+    if np.any(np.isfinite(sigma) & (sigma < 0)):
+        raise ValueError("Sigma values must be non-negative")
+
     # Missing sigma means no uncertainty bands, but comparison lines remain.
     return MeasurementComparison(
         scenario_indices=np.arange(count, dtype=np.intp),

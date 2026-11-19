@@ -12,7 +12,10 @@ from dash.exceptions import PreventUpdate
 from power_grid_model import ComponentType
 
 from power_grid_model_ds._core.model.grids.base import Grid
-from power_grid_model_ds._core.visualizer.comparison_plot import create_measurement_comparison_figure
+from power_grid_model_ds._core.visualizer.comparison_plot import (
+    ComparisonPlotOptions,
+    create_measurement_comparison_figure,
+)
 from power_grid_model_ds._core.visualizer.graph_action_styles import (
     GRAPH_ACTION_BUTTON_STYLE,
     GRAPH_ACTION_HEADER_STYLE,
@@ -205,9 +208,13 @@ def _create_voltage_comparison_figure(
     """Preserve the existing voltage presentation via the shared plotter."""
     return create_measurement_comparison_figure(
         cast(Any, comparison),
-        title=f"sym_voltage_sensor - voltage comparison - id={sensor_id}",
-        quantity="voltage",
-        unit="V",
+        ComparisonPlotOptions(
+            title=f"sym_voltage_sensor - voltage comparison - id={sensor_id}",
+            quantity="voltage",
+            unit="V",
+            sensor_id=sensor_id,
+            comparison_type=ComponentType.sym_voltage_sensor.value,
+        ),
         sigma_multiplier=sigma_multiplier,
     )
 
@@ -586,9 +593,14 @@ def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return
     unit = "W" if measurement_attribute == "p_measured" else "var"
     figure = create_measurement_comparison_figure(
         comparison,
-        title=f"sym_power_sensor - {quantity} comparison - id={sensor_id}",
-        quantity=quantity,
-        unit=unit,
+        ComparisonPlotOptions(
+            title=f"sym_power_sensor - {quantity} comparison - id={sensor_id}",
+            quantity=quantity,
+            unit=unit,
+            sensor_id=sensor_id,
+            comparison_type=ComponentType.sym_power_sensor.value,
+            measurement_attribute=measurement_attribute,
+        ),
         sigma_multiplier=float(sigma_multiplier)
         if isinstance(sigma_multiplier, (int, float)) and np.isfinite(sigma_multiplier)
         else 2.0,

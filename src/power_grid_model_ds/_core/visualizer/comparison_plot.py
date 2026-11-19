@@ -2,29 +2,61 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""Reusable measured-versus-estimated comparison figures."""
+"""Reusable measured-versus-calculated comparison figures."""
 
+from dataclasses import dataclass
+
+import numpy as np
 import plotly.graph_objects as go
 
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     MeasurementComparison,
+    VoltageComparison,
     get_measurement_sigma_bounds,
 )
 
 
+@dataclass(frozen=True)
+class ComparisonPlotOptions:
+    """Presentation settings and optional identification for a comparison."""
+
+    title: str
+    quantity: str
+    unit: str
+    sensor_id: int | None = None
+    comparison_type: str | None = None
+    measurement_attribute: str | None = None
+
+
 def create_measurement_comparison_figure(  # noqa: PLR0913  # pylint: disable=too-many-arguments
-    comparison: MeasurementComparison,
+    comparison: VoltageComparison | MeasurementComparison,
+    options: ComparisonPlotOptions | None = None,
+    sigma_multiplier: float = 3.0,
     *,
-    title: str,
-    quantity: str,
-    unit: str,
-    sigma_multiplier: float = 2.0,
+    title: str | None = None,
+    quantity: str | None = None,
+    unit: str | None = None,
     estimated_label: str = "Calculated",
 ) -> go.Figure:
-    """Plot aligned series, with measurement-centred bands when sigma exists."""
+    """Plot measured and calculated series, optionally with measurement-centred sigma bands.
+
+    Supports both the existing keyword-based API and ComparisonPlotOptions.
+    """
+    if not np.isfinite(sigma_multiplier) or sigma_multiplier < 0:
+        raise ValueError("Sigma multiplier must be finite and non-negative")
+
+    if options is None:
+        if title is None or quantity is None or unit is None:
+            raise TypeError("Provide ComparisonPlotOptions or title, quantity and unit")
+        options = ComparisonPlotOptions(title=title, quantity=quantity, unit=unit)
+    elif title is not None or quantity is not None or unit is not None:
+        raise TypeError("Do not combine ComparisonPlotOptions with title, quantity or unit")
+
+    sigma = comparison.sigma
+    has_sigma = sigma is not None and bool(np.any(np.isfinite(sigma)))
     fig = go.Figure()
 
-    if comparison.sigma is not None:
+    if has_sigma:
         lower, upper = get_measurement_sigma_bounds(comparison, sigma_multiplier)
         fig.add_trace(
             go.Scatter(
@@ -55,7 +87,7 @@ def create_measurement_comparison_figure(  # noqa: PLR0913  # pylint: disable=to
             x=comparison.scenario_indices,
             y=comparison.measured,
             mode="lines",
-            name=f"Measured {quantity}",
+            name=f"Measured {options.quantity}",
             line={"width": 2, "color": "royalblue"},
         )
     )
@@ -64,16 +96,33 @@ def create_measurement_comparison_figure(  # noqa: PLR0913  # pylint: disable=to
             x=comparison.scenario_indices,
             y=comparison.estimated,
             mode="lines",
-            name=f"{estimated_label} {quantity}",
+            name=f"{estimated_label} {options.quantity}",
             line={"width": 2, "color": "darkorange", "dash": "dash"},
         )
     )
-    fig.update_layout(
-        title=title,
-        xaxis_title="Scenario Index",
-        yaxis_title=f"{quantity.capitalize()} ({unit})" if unit else quantity.capitalize(),
-        template="plotly_white",
-        hovermode="x unified",
-        showlegend=True,
-    )
+
+    layout = {
+        "title": options.title,
+        "xaxis_title": "Scenario Index",
+        "yaxis_title": (
+            f"{options.quantity.capitalize()} ({options.unit})" if options.unit else options.quantity.capitalize()
+        ),
+        "template": "plotly_white",
+        "hovermode": "x unified",
+        "showlegend": True,
+    }
+
+    if options.sensor_id is not None and options.comparison_type is not None:
+        meta = {
+            "comparison_type": options.comparison_type,
+            "sensor_id": options.sensor_id,
+        }
+        if options.measurement_attribute is not None:
+            meta["measurement_attribute"] = options.measurement_attribute
+        if has_sigma:
+            meta["sigma"] = np.asarray(sigma).tolist()
+            meta["measured"] = np.asarray(comparison.measured).tolist()
+        layout["meta"] = meta
+
+    fig.update_layout(**layout)
     return fig

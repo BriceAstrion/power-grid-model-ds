@@ -107,10 +107,16 @@ def get_attr_data_from_dataset(
         return scenario_indices, match_data
 
     base_component = getattr(grid, comp_type.value)
-    base_matches = getattr(base_component, attr)[base_component.id == pgm_id]
+    base_ids = np.asarray(base_component.id)
+    base_indices = np.flatnonzero(base_ids == pgm_id)
 
-    if len(base_matches) != 1:
+    if base_indices.size == 0:
+        # The component is absent from the base grid, so no fallback is available.
+        return scenario_indices, match_data
+
+    if base_indices.size != 1:
         raise ValueError(f"Expected one base-grid {comp_type.value} with ID {pgm_id}")
 
-    filled_match_data = np.where(missing_mask, base_matches[0], match_data)
+    base_value = getattr(base_component, attr)[int(base_indices[0])]
+    filled_match_data = np.where(missing_mask, base_value, match_data)
     return scenario_indices, filled_match_data
