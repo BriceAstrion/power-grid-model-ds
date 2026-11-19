@@ -5,19 +5,21 @@
 """Manual integrated-visualizer scenarios for F01 and interacting features.
 
 Run from the repository root:
-    python -m tests.integration.f01_scalar_heatmap_manual
-    python -m tests.integration.f01_scalar_heatmap_manual --list
-    python -m tests.integration.f01_scalar_heatmap_manual --case scalar
-    python -m tests.integration.f01_scalar_heatmap_manual --case asymmetric
-    python -m tests.integration.f01_scalar_heatmap_manual --case topology
-    python -m tests.integration.f01_scalar_heatmap_manual --case missing
-    python -m tests.integration.f01_scalar_heatmap_manual --case sparse
-    python -m tests.integration.f01_scalar_heatmap_manual --case no-output
-    python -m tests.integration.f01_scalar_heatmap_manual --case voltage-comparison
-    python -m tests.integration.f01_scalar_heatmap_manual --case power-p-comparison
-    python -m tests.integration.f01_scalar_heatmap_manual --case power-q-comparison
-    python -m tests.integration.f01_scalar_heatmap_manual --case missing-sigma
-    python -m tests.integration.f01_scalar_heatmap_manual --case combined-comparison
+    python -m tests.integration.integrated_visualizer_manual
+    python -m tests.integration.integrated_visualizer_manual --list
+    python -m tests.integration.integrated_visualizer_manual --case scalar
+    python -m tests.integration.integrated_visualizer_manual --case asymmetric
+    python -m tests.integration.integrated_visualizer_manual --case topology
+    python -m tests.integration.integrated_visualizer_manual --case missing
+    python -m tests.integration.integrated_visualizer_manual --case sparse
+    python -m tests.integration.integrated_visualizer_manual --case no-output
+    python -m tests.integration.integrated_visualizer_manual --case voltage-comparison
+    python -m tests.integration.integrated_visualizer_manual --case power-p-comparison
+    python -m tests.integration.integrated_visualizer_manual --case power-q-comparison
+    python -m tests.integration.integrated_visualizer_manual --case missing-sigma
+    python -m tests.integration.integrated_visualizer_manual --case combined-comparison
+    python -m tests.integration.integrated_visualizer_manual --case component-symbols
+    python -m tests.integration.integrated_visualizer_manual --validate-symbols
 
 Each --case starts one blocking Dash visualizer session. Stop the server
 (Ctrl+C) before launching another case. The fixtures use illustrative
@@ -38,6 +40,19 @@ from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
     get_available_scalar_attributes,
     get_scenario_count,
 )
+from power_grid_model_ds._core.visualizer.generator_constants import (
+    GENERATOR_ORIGINAL_HIDDEN_CLASS,
+    GENERATOR_SYMBOL_GROUP,
+    GENERATOR_VISUAL_PREFIX,
+)
+from power_grid_model_ds._core.visualizer.layout.generator_rendering import prepare_generator_rendering
+from power_grid_model_ds._core.visualizer.layout.load_rendering import prepare_load_rendering
+from power_grid_model_ds._core.visualizer.load_constants import (
+    LOAD_ORIGINAL_HIDDEN_CLASS,
+    LOAD_SYMBOL_GROUP,
+    LOAD_VISUAL_PREFIX,
+)
+from power_grid_model_ds._core.visualizer.scenario_selection import get_scenario_count as get_network_scenario_count
 from power_grid_model_ds.visualizer import visualize
 from tests.integration.visualizer_tests import get_coordinated_three_phase_grid
 
@@ -265,6 +280,96 @@ def _case_combined_comparison():
     return _case_comparison(voltage=True, power=True)
 
 
+# Deterministic symbol fixtures. Use existing coordinated-grid nodes, so each
+# appliance has a real electrical connection rather than an isolated drawing.
+SYMBOL_COMPONENTS = (
+    ("sym_gen", 920001),
+    ("asym_gen", 920002),
+    ("sym_load", 920003),
+    ("asym_load", 920004),
+)
+
+
+def _append_symbol_components(grid):
+    node_ids = [int(value) for value in grid.node.id]
+    if len(node_ids) < len(SYMBOL_COMPONENTS):
+        raise RuntimeError("Symbol fixture requires at least four electrical nodes")
+
+    for index, (name, component_id) in enumerate(SYMBOL_COMPONENTS):
+        original = getattr(grid, name)
+        if len(original) and component_id in original.id:
+            raise RuntimeError(f"Duplicate test component ID: {component_id}")
+        component = original.__class__.zeros(1)
+        fields = component.dtype.names or ()
+        for required in ("id", "node", "status"):
+            if required not in fields:
+                raise RuntimeError(f"{name} schema lacks {required}")
+        component["id"] = component_id
+        component["node"] = node_ids[index]
+        component["status"] = 1
+        grid.append(component, check_max_id=False)
+
+    _validate_symbol_fixture(grid)
+
+
+def _validate_symbol_fixture(grid):
+    valid_nodes = {int(value) for value in grid.node.id}
+    for name, component_id in SYMBOL_COMPONENTS:
+        matches = getattr(grid, name)
+        matches = matches[matches.id == component_id]
+        if len(matches) != 1:
+            raise AssertionError(f"Expected exactly one {name} with ID {component_id}")
+        if int(matches["node"][0]) not in valid_nodes:
+            raise AssertionError(f"{name} {component_id} has no valid electrical node")
+        if int(matches["status"][0]) != 1:
+            raise AssertionError(f"{name} {component_id} must be connected")
+    print("PASS: four connected generator/load fixture components", flush=True)
+
+
+def _validate_symbol_renderers():
+    """Test presentation-element generation without claiming browser rendering."""
+    for name, component_id in SYMBOL_COMPONENTS:
+        is_generator = name.endswith("gen")
+        renderer = prepare_generator_rendering if is_generator else prepare_load_rendering
+        prefix = GENERATOR_VISUAL_PREFIX if is_generator else LOAD_VISUAL_PREFIX
+        group = GENERATOR_SYMBOL_GROUP if is_generator else LOAD_SYMBOL_GROUP
+        hidden = GENERATOR_ORIGINAL_HIDDEN_CLASS if is_generator else LOAD_ORIGINAL_HIDDEN_CLASS
+        node_id = f"test_node_{component_id}"
+        elements = [
+            {"data": {"id": node_id, "group": "node"}, "position": {"x": 100, "y": 200}},
+            {"data": {"id": str(component_id), "group": name, "source": node_id}, "classes": ""},
+        ]
+        result = renderer(elements)
+        by_id = {str(item["data"]["id"]): item for item in result}
+        if len(by_id) != len(result):
+            raise AssertionError(f"Duplicate Cytoscape element IDs for {name}")
+        symbol_id = f"{prefix}{component_id}__symbol"
+        connection_id = f"{prefix}{component_id}__connection"
+        symbol = by_id[symbol_id]
+        connection = by_id[connection_id]
+        original = by_id[str(component_id)]
+        assert symbol["data"]["group"] == group, name
+        assert symbol["data"]["visual_only"] is True, name
+        assert symbol["data"]["component_id"] == str(component_id), name
+        assert symbol["data"]["component_type"] == name, name
+        assert connection["data"]["source"] == node_id, name
+        assert connection["data"]["target"] == symbol_id, name
+        assert connection["data"]["visual_only"] is True, name
+        assert hidden in original["classes"].split(), name
+        assert symbol["position"]["x"] == (100 if is_generator else 190), name
+        assert symbol["position"]["y"] == (100 if is_generator else 200), name
+        print(f"PASS: {name} symbol, connection, position and original", flush=True)
+
+
+def _case_component_symbols():
+    grid = _grid()
+    _append_symbol_components(grid)
+    _validate_symbol_renderers()
+    # Supply four illustrative scenarios so the network-state selector is mounted.
+    # This is not a substitute for testing the separate no-output layout case.
+    return grid, None, _scalar_output(grid)
+
+
 def _case_integrated():
     """Combine topology, scalar outputs, and both comparison sensor types.
 
@@ -272,6 +377,8 @@ def _case_integrated():
     calculated state-estimation results.
     """
     grid = _grid()
+    _append_symbol_components(grid)
+    _validate_symbol_renderers()
     updates = _append_comparison_sensors(grid, voltage=True, power=True)
 
     # F05: two lines change status across the four observations.
@@ -317,7 +424,24 @@ COMMON_CHECKS = (
     "Inspect browser console and server terminal for unexpected errors.",
 )
 
+SYMBOL_CHECKS = (
+    "Verify sym_gen 920001 and asym_gen 920002 show generator symbols ABOVE their nodes.",
+    "Verify sym_load 920003 and asym_load 920004 show load symbols RIGHT of their nodes.",
+    "Verify the existing source symbol is visible; inspect source 910002 in the integrated case.",
+    "Drag connected nodes and inspect whether symbols and connectors remain correctly aligned.",
+    "Toggle appliance visibility and inspect original/visual element behavior.",
+    "Select each appliance and check electrical selection and retained graphs remain functional.",
+    "Inspect browser console and Dash terminal for rendering errors.",
+)
+
+
 CASES = {
+    "component-symbols": ManualCase(
+        "component-symbols",
+        "Connected symmetric/asymmetric generators and loads with source already in grid.",
+        SYMBOL_CHECKS,
+        _case_component_symbols,
+    ),
     "integrated": ManualCase(
         "integrated",
         "Default demonstration: timestamped topology, scalar quantities, voltage and source-terminal p/q comparisons.",
@@ -326,6 +450,7 @@ CASES = {
             "In Network state, switch between four observation times and inspect the two changing line statuses.",
             "Verify the first line from_status is 1, 0, 1, 1; the second is 1, 1, 1, 0.",
             *COMPARISON_CHECKS,
+            *SYMBOL_CHECKS,
         ),
         _case_integrated,
     ),
@@ -430,7 +555,7 @@ def _print_case(case, output):
     if output is None:
         print("Calculation output: none", flush=True)
     else:
-        print("Scenario count:", get_scenario_count(output), flush=True)
+        print("Electrical-output scenario count:", get_scenario_count(output), flush=True)
         print("Available scalar attributes:", get_available_scalar_attributes(output), flush=True)
     print("\nBrowser checklist (record PASS / FAIL / N/A and evidence):", flush=True)
     for number, check in enumerate(case.checks, 1):
@@ -446,14 +571,32 @@ def main():
     parser.add_argument("--case", choices=tuple(CASES), default="integrated")
     parser.add_argument("--list", action="store_true", help="List available manual scenarios and exit")
     parser.add_argument("--no-debug", action="store_true", help="Disable Dash debug mode")
+    parser.add_argument(
+        "--validate-symbols",
+        action="store_true",
+        help="Validate symbol fixtures and rendering without Dash",
+    )
     args = parser.parse_args()
     if args.list:
         for case in CASES.values():
             print(f"{case.name:12} {case.description}")
         return
+    if args.validate_symbols:
+        _case_component_symbols()
+        print("Symbol fixture and element validation passed; browser rendering not checked.")
+        return
     case = CASES[args.case]
     grid, update_data, output_data = case.build()
     _print_case(case, output_data)
+    network_scenario_count = get_network_scenario_count(update_data, output_data)
+    print(f"Network-state scenario count: {network_scenario_count}", flush=True)
+    if network_scenario_count is None or network_scenario_count == 0:
+        print(
+            "WARNING: The current scenario-selection layout omits scenario-selector "
+            "when no network scenarios are available; registered Dash callbacks "
+            "may report a missing Input. This is a production layout issue.",
+            flush=True,
+        )
     timestamps = (
         TOPOLOGY_TIMESTAMPS
         if args.case in ("topology", "integrated")
