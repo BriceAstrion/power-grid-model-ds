@@ -9,6 +9,8 @@ from dash.exceptions import PreventUpdate
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH_WIDTH, NODE_SIZE
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
+from power_grid_model_ds._core.visualizer.layout.load_rendering import prepare_load_rendering
+from power_grid_model_ds._core.visualizer.layout.transformer_rendering import prepare_transformer_rendering
 from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
 from power_grid_model_ds._core.visualizer.typing import STYLESHEET
@@ -79,10 +81,19 @@ def update_arrows(show_arrows, current_stylesheet):
     Output("show-appliances-store", "data"),
     Input("show-appliances", "value"),
     State("parsed-elements-store", "data"),
-    prevent_initial_call=True,  # allow appliances to be hidden by default based on the initial value of the checkbox
+    State("cytoscape-graph", "layout"),
+    prevent_initial_call=True,
 )
-def update_appliances(show_appliances, parsed_elements):
-    """Callback to add or remove appliances in the graph."""
-    if show_appliances:
-        return list(parsed_elements.values()), True
-    return filter_out_appliances(parsed_elements.values()), False
+def update_appliances(show_appliances, parsed_elements, layout):
+    """Update appliance visibility while preserving transformer symbols."""
+    if parsed_elements is None:
+        raise PreventUpdate
+
+    elements = list(parsed_elements.values()) if show_appliances else filter_out_appliances(parsed_elements.values())
+
+    if layout and layout.get("name") == LayoutOptions.PRESET.value:
+        elements = prepare_transformer_rendering(elements)
+        if show_appliances:
+            elements = prepare_load_rendering(elements)
+
+    return elements, bool(show_appliances)

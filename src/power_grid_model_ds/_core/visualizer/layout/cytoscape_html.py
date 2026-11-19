@@ -11,25 +11,39 @@ from power_grid_model_ds._core.visualizer.layout.colors import BACKGROUND_COLOR
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
 from power_grid_model_ds._core.visualizer.layout.header_config import LayoutOptions
 from power_grid_model_ds._core.visualizer.layout.layout_config import layout_with_config
+from power_grid_model_ds._core.visualizer.layout.load_rendering import prepare_load_rendering
+from power_grid_model_ds._core.visualizer.layout.transformer_rendering import prepare_transformer_rendering
 
 _CYTO_INNER_STYLE = {"width": "100%", "height": "100%", "background-color": BACKGROUND_COLOR}
 _CYTO_OUTER_STYLE = {"height": "80vh"}
 
 
-def get_cytoscape_html(layout: LayoutOptions, elements: list[dict[str, Any]], source_available: bool) -> html.Div:
-    """Get the Cytoscape HTML element"""
+def get_cytoscape_html(
+    layout: LayoutOptions,
+    elements: list[dict[str, Any]],
+    source_available: bool,
+) -> html.Div:
+    """Create the Cytoscape graph with transformer and load presentation elements."""
+    if layout is LayoutOptions.PRESET:
+        rendered_elements = prepare_transformer_rendering(elements)
+        rendered_elements = prepare_load_rendering(rendered_elements)
+    else:
+        rendered_elements = elements
+
     return html.Div(
         cyto.Cytoscape(
             id="cytoscape-graph",
             layout=layout_with_config(layout, source_available=source_available),
             style=_CYTO_INNER_STYLE,
-            elements=elements,
+            elements=rendered_elements,
             stylesheet=DEFAULT_STYLESHEET,
-            zoom=1.0,  # Default zoom level
+            zoom=1.0,
             minZoom=0.05,
             maxZoom=3.0,
             boxSelectionEnabled=True,
-            wheelSensitivity=0.2,  # Smooth zooming
+            responsive=True,
+            autoRefreshLayout=True,
+            wheelSensitivity=0.2,
         ),
         style=_CYTO_OUTER_STYLE,
     )
