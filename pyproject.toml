@@ -277,3 +277,4 @@ control.expr = "check"
 
 [tool.setuptools.package-data]
 power_grid_model_ds = ["assets/*.js"]
+"power_grid_model_ds._core.visualizer" = ["assets/*.js"]

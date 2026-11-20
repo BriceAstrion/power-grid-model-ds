@@ -113,7 +113,13 @@ def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
 
     app = Dash(
         assets_folder=str(assets_folder),
-        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS],
+        external_stylesheets=[
+            dbc.themes.BOOTSTRAP,
+            dbc.icons.BOOTSTRAP,
+            MDBOOTSTRAP,
+            FONT_AWESOME,
+            GOOGLE_FONTS,
+        ],
     )
     app.layout = get_app_layout(grid)
     app.run(debug=debug, port=port, threaded=False)

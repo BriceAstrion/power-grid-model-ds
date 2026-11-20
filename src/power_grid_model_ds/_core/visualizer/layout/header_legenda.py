@@ -24,8 +24,6 @@ _FONT_SIZE = "2.5em"
 
 NODE_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.NODE]}
 _SUBSTATION_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.SUBSTATION_NODE]}
-_LINE_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.BRANCH]}
-_LINK_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.LINK]}
 _TRANSFORMER_ICON_STYLE = {"width": "66px", "height": "44px", "margin": _MARGIN, "verticalAlign": "middle"}
 _TRANSFORMER_LEGEND_EXTENT = 67
 _TRANSFORMER_LEGEND_VIEWBOX = "-70 -48 140 96"
@@ -54,16 +52,33 @@ _GENERIC_BRANCH_ICON_STYLE = {
 }
 _ASYM_LINE_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.ASYM_LINE]}
 _OPEN_BRANCH_ICON_STYLE = {"font-size": _FONT_SIZE, "margin": _MARGIN, "color": CYTO_COLORS[StyleClass.OPEN_BRANCH]}
+
+
+def _electrical_symbol(element_id: str, color: str, paths: str, stroke_width: int = 5) -> html.Img:
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 32" '
+        f'fill="none" stroke="{color}" stroke-width="{stroke_width}">'
+        f"{paths}</svg>"
+    )
+    return html.Img(
+        id=element_id,
+        src="data:image/svg+xml," + quote(svg),
+        style={"width": "54px", "height": "32px", "margin": _MARGIN},
+    )
+
+
 LEGENDA_ELEMENTS = [
     html.I(className="fas fa-circle", id="node-icon", style=NODE_ICON_STYLE),
     dbc.Tooltip("Node", target="node-icon", placement="bottom"),
     html.I(className="fas fa-diamond", id="substation-icon", style=_SUBSTATION_ICON_STYLE),
     dbc.Tooltip("Substation", target="substation-icon", placement="bottom"),
-    html.I(className=_BOOTSTRAP_ARROW_ICON_CLASS, id="line-icon", style=_LINE_ICON_STYLE),
+    _electrical_symbol("line-icon", CYTO_COLORS[StyleClass.BRANCH], '<path d="M6 12 H94 M6 20 H94"/>'),
     dbc.Tooltip("Line", target="line-icon", placement="bottom"),
     _transformer_legend_symbol(),
     dbc.Tooltip("Transformer", target="transformer-icon", placement="bottom"),
-    html.I(className=_BOOTSTRAP_ARROW_ICON_CLASS, id="link-icon", style=_LINK_ICON_STYLE),
+    _electrical_symbol(
+        "link-icon", CYTO_COLORS[StyleClass.LINK], '<path d="M6 16 H94 M6 9 V23 M94 9 V23"/>', stroke_width=7
+    ),
     dbc.Tooltip("Link", target="link-icon", placement="bottom"),
     html.I(className=_BOOTSTRAP_ARROW_ICON_CLASS, id="generic-branch-icon", style=_GENERIC_BRANCH_ICON_STYLE),
     dbc.Tooltip("Generic Branch", target="generic-branch-icon", placement="bottom"),
