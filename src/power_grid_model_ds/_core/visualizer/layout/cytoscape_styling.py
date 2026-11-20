@@ -129,12 +129,22 @@ _SELECTED_TRANSFORMER_STYLE = {
 
 _LINK_STYLE = {
     "selector": f".{StyleClass.LINK.value}",
-    "style": {"line-color": CYTO_COLORS[StyleClass.LINK], "target-arrow-color": CYTO_COLORS[StyleClass.LINK]},
+    "style": {
+        "line-color": CYTO_COLORS[StyleClass.LINK],
+        "target-arrow-color": CYTO_COLORS[StyleClass.LINK],
+        "source-arrow-color": CYTO_COLORS[StyleClass.LINK],
+        "source-arrow-shape": "tee",
+        "target-arrow-shape": "tee",
+    },
 }
 
 _SELECTED_LINK_STYLE = {
     "selector": f".{StyleClass.LINK.value}:selected, .{StyleClass.LINK.value}:active",
-    "style": {"line-color": CYTO_COLORS["selected_link"], "target-arrow-color": CYTO_COLORS["selected_link"]},
+    "style": {
+        "line-color": CYTO_COLORS["selected_link"],
+        "target-arrow-color": CYTO_COLORS["selected_link"],
+        "source-arrow-color": CYTO_COLORS["selected_link"],
+    },
 }
 
 _GENERIC_BRANCH_STYLE = {
