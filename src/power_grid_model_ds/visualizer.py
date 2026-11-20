@@ -19,6 +19,7 @@ try:
     from power_grid_model_ds._core.visualizer.layout.layout_config import get_default_graph_layout, layout_with_config
     from power_grid_model_ds._core.visualizer.parsers import parse_element_data
     from power_grid_model_ds._core.visualizer.parsing_utils import filter_out_appliances
+    from power_grid_model_ds._core.visualizer.scenario_selection import validate_timestamps
 except ImportError as error:
     raise ImportError(
         "Missing dependencies for visualizer: install with 'pip install power-grid-model-ds[visualizer]'"
@@ -60,11 +61,23 @@ def save_html(
     Path(path).write_text(html_content, encoding="utf-8")
 
 
-def visualize(grid: Grid, update_data=None, output_data=None, debug: bool = False, port: int = 8050) -> None:
+# pylint: disable-next=too-many-arguments
+def visualize(  # noqa: PLR0913 - preserve existing API with optional timestamps
+    grid: Grid,
+    update_data=None,
+    output_data=None,
+    debug: bool = False,
+    port: int = 8050,
+    *,
+    timestamps: tuple[str, ...] | list[str] | None = None,
+) -> None:
     """Visualize the Grid.
 
     grid: Grid
         The grid to visualize.
+
+    timestamps: tuple[str, ...] | list[str] | None
+        Optional observation timestamps for F05 date-and-time selection.
 
     layout: str
         The layout to use.
@@ -79,7 +92,7 @@ def visualize(grid: Grid, update_data=None, output_data=None, debug: bool = Fals
             - "circle": A layout that places the nodes in a circle.
             - "concentric": A layout that places the nodes in concentric circles.
             - "grid": A layout that places the nodes in a grid matrix.
-            - "cose": A layout that uses the CompoundSpring Embedder algorithm (force-directed layout)
+            - "cose": A layout that uses the Compound Spring Embedder algorithm (force-directed layout)
     """
     if update_data is not None and output_data is not None:
         dynamic_class_update = extend_grid_dynamically(type(grid), extra_dataset=update_data)
@@ -92,10 +105,15 @@ def visualize(grid: Grid, update_data=None, output_data=None, debug: bool = Fals
     else:
         grid_obj = grid
 
-    server_state.set_app_state(grid_obj, update_data, output_data)
+    validated_timestamps = validate_timestamps(timestamps, update_data, output_data) if timestamps is not None else None
+
+    server_state.set_app_state(grid_obj, update_data, output_data, timestamps=validated_timestamps)
+
+    assets_folder = Path(__file__).resolve().parent / "_core" / "visualizer" / "assets"
 
     app = Dash(
-        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS]
+        assets_folder=str(assets_folder),
+        external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP, MDBOOTSTRAP, FONT_AWESOME, GOOGLE_FONTS],
     )
     app.layout = get_app_layout(grid)
     app.run(debug=debug, port=port, threaded=False)

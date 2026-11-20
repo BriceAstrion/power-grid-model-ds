@@ -1,0 +1,116 @@
+/*
+ * SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
+/* Network state controls: consistent, accessible typography */
+.network-state-controls {
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #202124;
+}
+
+.network-state-controls .form-label {
+    color: #202124;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+/* Scenario index: one accessible input box */
+.network-state-controls #scenario-selector {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    height: 44px;
+    min-height: 44px;
+    padding: 8px 12px;
+
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+
+    color: #202124;
+    background-color: #ffffff;
+    border: 1px solid #666666;
+    border-radius: 5px;
+    box-shadow: none;
+    outline: none;
+}
+
+.network-state-controls #scenario-selector::placeholder {
+    color: #555555;
+    opacity: 1;
+}
+
+.network-state-controls #scenario-selector:focus {
+    border-color: #005fcc;
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+}
+
+
+/* Date picker */
+.network-state-date,
+.network-state-date .SingleDatePicker,
+.network-state-date .SingleDatePickerInput {
+    width: 100%;
+    min-width: 0;
+}
+
+.network-state-date .DateInput {
+    width: 100%;
+}
+
+.network-state-date .DateInput_input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #202124;
+    background-color: #ffffff;
+}
+
+/* Time dropdown */
+.network-state-time .Select-control {
+    min-height: 44px;
+    border: 1px solid #666666;
+    background-color: #ffffff;
+}
+
+.network-state-time .Select-placeholder,
+.network-state-time .Select-value-label,
+.network-state-time .Select-input > input,
+.network-state-time .VirtualizedSelectOption {
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    color: #202124 !important;
+}
+
+.network-state-time .Select-placeholder,
+.network-state-time .Select-value {
+    line-height: 42px !important;
+}
+
+/* Focus visibility */
+.network-state-controls input:focus-visible,
+.network-state-date .DateInput_input:focus,
+.network-state-time .is-focused .Select-control {
+    outline: 3px solid #005fcc;
+    outline-offset: 2px;
+}
+
+/* Readable explanatory text */
+.network-state-controls #scenario-validation {
+    color: #333333 !important;
+    font-size: 14px !important;
+    line-height: 1.5;
+}

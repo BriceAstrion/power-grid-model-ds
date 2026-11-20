@@ -176,19 +176,19 @@ def _parse_appliances(elements: VizToComponentElements, array: ApplianceArray, g
         appliance_id_str = str(appliance.id.item())
         appliance_ghost_id_str = f"{appliance_id_str}_ghost_node"
         node_id_str = str(appliance.node.item())
+        is_source = group == ComponentType.source
 
-        # Add appliance to node
         elements[appliance_ghost_id_str] = {
             "data": {
                 "id": appliance_ghost_id_str,
                 "group": f"{group.value}_ghost_node",
                 "associated_ids": {group.value: [appliance.id.item()]},
             },
-            "selectable": False,
+            "selectable": is_source,
             "classes": StyleClass.APPLIANCE_GHOST_NODE.value,
         }
 
-        if with_coords:
+        if with_coords and not is_source:
             elements[appliance_ghost_id_str]["style"] = {"z-index": -1}
 
         elements[appliance_id_str] = {
@@ -203,10 +203,11 @@ def _parse_appliances(elements: VizToComponentElements, array: ApplianceArray, g
         }
 
         if with_coords:
+            node_position = elements[node_id_str]["position"]
             elements[appliance_ghost_id_str]["position"] = {
-                "x": elements[node_id_str]["position"]["x"],
-                "y": elements[node_id_str]["position"]["y"],
-            }  # invert y-axis for visualization
+                "x": node_position["x"] + (120 if is_source else 0),
+                "y": node_position["y"],
+            }
 
         append_component_list_parsed_elements(elements, appliance.id.item(), node_id_str, group.value)
 
