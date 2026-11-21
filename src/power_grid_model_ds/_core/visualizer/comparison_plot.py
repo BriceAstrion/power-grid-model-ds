@@ -120,8 +120,15 @@ def create_measurement_comparison_figure(  # noqa: PLR0913  # pylint: disable=to
         if options.measurement_attribute is not None:
             meta["measurement_attribute"] = options.measurement_attribute
         if has_sigma:
-            meta["sigma"] = np.asarray(sigma).tolist()
+            # Retain aligned inputs for F15 without changing the existing sigma-band calculation.
+            meta["scenario_indices"] = np.asarray(comparison.scenario_indices).tolist()
             meta["measured"] = np.asarray(comparison.measured).tolist()
+            meta["estimated"] = np.asarray(comparison.estimated).tolist()
+            meta["sigma"] = np.asarray(sigma).tolist()
+        if sigma is None:
+            meta["uncertainty_diagnostic_status"] = "sigma_missing"
+        elif not has_sigma:
+            meta["uncertainty_diagnostic_status"] = "sigma_nonfinite"
         layout["meta"] = meta
 
     fig.update_layout(**layout)

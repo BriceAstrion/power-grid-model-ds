@@ -73,8 +73,10 @@ def test_shared_plotter_preserves_metadata(comparison, options):
     assert figure.layout.meta == {
         "comparison_type": "sym_voltage_sensor",
         "sensor_id": 101,
-        "sigma": [2.0, 3.0, 2.0],
+        "scenario_indices": [0, 1, 2],
         "measured": [230.0, 235.0, 230.0],
+        "estimated": [229.0, 231.0, 228.0],
+        "sigma": [2.0, 3.0, 2.0],
     }
     assert figure.layout.yaxis.title.text == "Voltage (V)"
 
@@ -146,6 +148,9 @@ def test_power_plot_without_sigma_has_two_traces(power_options):
     ]
     assert figure.layout.meta["comparison_type"] == "sym_power_sensor"
     assert "sigma" not in figure.layout.meta
+    assert "scenario_indices" not in figure.layout.meta
+    assert "measured" not in figure.layout.meta
+    assert "estimated" not in figure.layout.meta
 
 
 def test_power_plot_with_all_missing_sigma_has_two_traces(power_options):
