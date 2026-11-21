@@ -13,6 +13,7 @@ from power_grid_model_ds._core.visualizer import server_state
 from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # pylint: disable=unused-import
     config,
     element_selection,
+    feeder_agreement,
     header,
     scenario_selection,
     search_form,
@@ -31,6 +32,9 @@ from power_grid_model_ds._core.visualizer.layout.cytoscape_html import (
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import (
     DEFAULT_STYLESHEET,
+)
+from power_grid_model_ds._core.visualizer.layout.feeder_agreement import (
+    get_feeder_agreement_html,
 )
 from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
 from power_grid_model_ds._core.visualizer.layout.layout_config import (
@@ -67,6 +71,10 @@ NETWORK_PANEL_STYLE = {
     "minWidth": "0",
     "width": "100%",
     "overflow": "hidden",
+    "minHeight": "0",
+    "height": "100%",
+    "maxHeight": "100%",
+    "boxSizing": "border-box",
 }
 GRAPH_PANEL_STYLE = {
     "width": "100%",
@@ -346,7 +354,10 @@ def get_app_layout(grid: Grid) -> html.Div:
                 [
                     # Left: network state (moved from the details panel).
                     html.Div(
-                        [get_scenario_selection_html()],
+                        [
+                            get_scenario_selection_html(),
+                            get_feeder_agreement_html(),
+                        ],
                         id="workspace-left-panel",
                         style=left_style,
                     ),

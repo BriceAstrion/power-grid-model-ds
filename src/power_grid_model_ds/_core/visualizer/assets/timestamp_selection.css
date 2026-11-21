@@ -180,6 +180,73 @@
     z-index: 1100;
 }
 
+
+/* F13 aggregated agreement overview.
+   Match the existing Network state disclosure header. */
+
+#f13-agreement-panel .network-state-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    cursor: pointer;
+    list-style: none;
+}
+
+#f13-agreement-panel .network-state-summary::-webkit-details-marker {
+    display: none;
+}
+
+#f13-agreement-panel .network-state-summary::marker {
+    content: "";
+}
+
+#f13-agreement-panel .network-state-summary:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+#f13-agreement-panel .network-state-icon {
+    flex: 0 0 auto;
+    color: #6c757d;
+    font-size: 19px;
+}
+
+#f13-agreement-panel .network-state-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+#f13-agreement-panel .network-state-chevron {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: #6c757d;
+    font-size: 14px;
+    transition: transform 150ms ease;
+}
+
+#f13-agreement-panel
+.network-state-details[open]
+.network-state-chevron {
+    transform: rotate(180deg);
+}
+
+#f13-agreement-panel .network-state-controls {
+    padding-top: 12px;
+}
+
+#f13-agreement-details {
+    max-height: 40vh;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+}
+
 /* Compact panel */
 
 @media (max-width: 600px) {
