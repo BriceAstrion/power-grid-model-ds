@@ -22,11 +22,13 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
     SELECTION_OUTPUT_HTML,
 )
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
+    MeasurementComparison,
     VoltageComparison,
     get_symmetric_power_comparison,
     get_symmetric_voltage_comparison,
 )
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
+from power_grid_model_ds._core.visualizer.uncertainty_diagnostic_plot import create_uncertainty_diagnostic_figure
 from power_grid_model_ds.arrays import IdArray
 
 _BATCH_ARRAY_NDIM = 2
@@ -518,3 +520,88 @@ def validate_sigma_multiplier(value):
         {"display": "flex", "alignItems": "center", "justifyContent": "flex-end", "gap": "12px", "color": "#912018"},
         {"display": "none"},
     )
+
+
+def _has_uncertainty_diagnostic_metadata(meta: dict) -> bool:
+    """Check that the comparison figure contains all diagnostic source series."""
+    return all(key in meta for key in ("scenario_indices", "measured", "estimated", "sigma"))
+
+
+def _get_uncertainty_diagnostic_comparison(
+    figure: dict | None,
+    graph_style: dict | None,
+    selected_cell: dict | None,
+) -> MeasurementComparison | None:
+    """Extract a valid comparison for uncertainty diagnostic rendering."""
+    if (
+        not isinstance(figure, dict)
+        or not isinstance(graph_style, dict)
+        or graph_style.get("display") == "none"
+        or not isinstance(selected_cell, dict)
+    ):
+        return None
+
+    layout = figure.get("layout")
+    if not isinstance(layout, dict):
+        return None
+
+    meta = layout.get("meta")
+    if (
+        not isinstance(meta, dict)
+        or not _has_sigma_comparison_metadata(figure)
+        or not _has_uncertainty_diagnostic_metadata(meta)
+        or not _matches_comparison_selection(meta, selected_cell)
+    ):
+        return None
+
+    try:
+        comparison = MeasurementComparison(
+            scenario_indices=np.asarray(meta["scenario_indices"], dtype=np.intp),
+            measured=np.asarray(meta["measured"], dtype=np.float64),
+            estimated=np.asarray(meta["estimated"], dtype=np.float64),
+            sigma=np.asarray(meta["sigma"], dtype=np.float64),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    arrays = (
+        comparison.scenario_indices,
+        comparison.measured,
+        comparison.estimated,
+        comparison.sigma,
+    )
+
+    if (
+        any(array is None or array.ndim != 1 for array in arrays)
+        or len({array.shape for array in arrays if array is not None}) != 1
+    ):
+        return None
+
+    return comparison
+
+
+@callback(
+    Output("uncertainty-diagnostic-graph", "figure"),
+    Output("uncertainty-diagnostic-graph", "style"),
+    Input("selection-graph", "figure"),
+    Input("selection-graph", "style"),
+    Input("selected-selection-cell", "data"),
+    prevent_initial_call=True,
+)
+def update_uncertainty_diagnostic_graph(figure, graph_style, selected_cell):
+    """Render a separate uncertainty diagnostic for the active comparison."""
+    comparison = _get_uncertainty_diagnostic_comparison(
+        figure,
+        graph_style,
+        selected_cell,
+    )
+
+    if comparison is None:
+        return go.Figure(), {"display": "none"}
+
+    try:
+        diagnostic_figure = create_uncertainty_diagnostic_figure(comparison)
+    except ValueError:
+        return go.Figure(), {"display": "none"}
+
+    return diagnostic_figure, {"display": "block"}
