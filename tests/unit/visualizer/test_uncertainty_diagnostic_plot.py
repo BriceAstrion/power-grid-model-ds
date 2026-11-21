@@ -35,6 +35,14 @@ def test_creates_uncertainty_diagnostic_figure():
         [0.5, 0.5, 1.0],
     )
 
+    hovertemplate = data[0].hovertemplate
+
+    assert "Scenario: %{x}" in hovertemplate
+    assert "Measured: %{customdata[1]}" in hovertemplate
+    assert "Calculated: %{customdata[2]}" in hovertemplate
+    assert "Sigma: %{customdata[3]}" in hovertemplate
+    assert "Absolute discrepancy / sigma: %{customdata[0]}" in hovertemplate
+
     assert figure.layout.title.text == "Uncertainty-relative discrepancy"
     assert figure.layout.xaxis.title.text == "Scenario Index"
 
@@ -72,9 +80,9 @@ def test_preserves_missing_and_infinite_diagnostic_information():
     )
 
     assert list(data[0].customdata) == [
-        "Infinite discrepancy",
-        "Unavailable",
-        "Unavailable",
+        ["Positive infinity", "10", "9", "0"],
+        ["Unavailable", "10", "10", "0"],
+        ["Unavailable", "Unavailable", "9", "2"],
     ]
 
 

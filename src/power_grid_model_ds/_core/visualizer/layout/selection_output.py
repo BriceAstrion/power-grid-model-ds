@@ -268,6 +268,14 @@ SELECTION_GRAPH_HTML = html.Div(
             role="status",
             style={"display": "none"},
         ),
+        html.Div(
+            html.Div(
+                id="uncertainty-diagnostic-status",
+                role="status",
+                style={"display": "none"},
+            ),
+            style={"padding": "0 12px"},
+        ),
     ],
     style={"margin": "10px"},
 )
