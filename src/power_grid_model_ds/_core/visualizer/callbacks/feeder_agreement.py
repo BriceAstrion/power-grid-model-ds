@@ -110,9 +110,9 @@ def update_agreement_details(
     selection: str | None,
 ):
     """Refresh contributing measurements for the selected scope."""
-    overview, message = _prepare_overview(scenario_index)
+    overview, _message = _prepare_overview(scenario_index)
 
     if overview is None:
-        return message
+        return None
 
     return render_details(overview, selection)

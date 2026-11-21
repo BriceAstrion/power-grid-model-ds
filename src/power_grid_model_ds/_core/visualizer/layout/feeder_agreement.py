@@ -118,10 +118,13 @@ SUMMARY_CONTAINER_STYLE = {
     "maxWidth": "100%",
     "overflowX": "auto",
     "marginTop": "12px",
+    "boxSizing": "border-box",
 }
 
 SUMMARY_TABLE_STYLE = {
     "width": "100%",
+    "minWidth": "0",
+    "tableLayout": "fixed",
     "borderCollapse": "collapse",
     "fontSize": SUPPORTING_FONT_SIZE,
     "lineHeight": BODY_LINE_HEIGHT,
@@ -129,19 +132,21 @@ SUMMARY_TABLE_STYLE = {
 }
 
 SUMMARY_HEADER_CELL_STYLE = {
-    "padding": SUMMARY_CELL_PADDING,
+    "padding": "10px 4px",
     "backgroundColor": HEADER_BACKGROUND,
     "borderBottom": TABLE_BORDER,
-    "textAlign": "left",
+    "textAlign": "center",
     "fontWeight": "600",
-    "overflowWrap": "anywhere",
+    "fontSize": "0.75rem",
+    "whiteSpace": "normal",
+    "overflowWrap": "normal",
 }
 
 SUMMARY_CELL_STYLE = {
-    "padding": SUMMARY_CELL_PADDING,
+    "padding": "10px 4px",
     "borderBottom": TABLE_BORDER,
     "textAlign": "left",
-    "overflowWrap": "anywhere",
+    "overflowWrap": "normal",
 }
 
 
@@ -206,9 +211,9 @@ DETAILS_VALUE_CELL_STYLE = {
 
 SUMMARY_VALUE_CELL_STYLE = {
     **SUMMARY_CELL_STYLE,
-    "color": "#0d6efd",
+    "color": VALUE_COLOR,
     "fontWeight": "600",
-    "fontSize": "1rem",
+    "fontSize": "0.875rem",
     "textAlign": "center",
     "fontVariantNumeric": "tabular-nums",
 }
@@ -255,6 +260,7 @@ def get_feeder_agreement_html() -> html.Section:
                                 "Select a scenario index to view measurements.",
                                 id=SUMMARY_ID,
                                 role="status",
+                                style=SUPPORTING_TEXT_STYLE.copy(),
                             ),
                             html.Label(
                                 "Inspect contributing measurements",
@@ -511,12 +517,14 @@ def render_details(
         return html.Div(
             "The selected group is not available for this scenario.",
             role="status",
+            style=SUPPORTING_TEXT_STYLE.copy(),
         )
 
     if not group.records:
         return html.Div(
             "No contributing measurements in this group.",
             role="status",
+            style=SUPPORTING_TEXT_STYLE.copy(),
         )
 
     return html.Div(

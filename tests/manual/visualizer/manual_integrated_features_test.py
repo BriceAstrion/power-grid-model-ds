@@ -119,7 +119,9 @@ def print_test_information(input_data):
     print("5. Select a node with a symmetric voltage sensor.")
     print("6. Compare measured and estimated voltage series.")
     print("7. Change the sigma multiplier and inspect the bands.")
-    print("8. Inspect the diagnostic overview, where available.")
+    print("8. Inspect the F13 aggregated agreement overview, where available; do not infer feeder assignments.")
+    print("9. Inspect F15 uncertainty-relative discrepancy for finite sigma and compare to source values.")
+    print("10. Retain comparison graphs, change active component, and check diagnostic for stale values.")
     print("\nRecord discrepancies and capture browser evidence.")
 
 

@@ -187,7 +187,8 @@
 #f13-agreement-panel .network-state-summary {
     display: flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: nowrap;
+    gap: 8px;
     min-height: 32px;
     cursor: pointer;
     list-style: none;
@@ -210,15 +211,17 @@
 #f13-agreement-panel .network-state-icon {
     flex: 0 0 auto;
     color: #6c757d;
-    font-size: 19px;
+    font-size: 17px;
 }
 
 #f13-agreement-panel .network-state-title {
     flex: 1 1 auto;
     min-width: 0;
     margin: 0;
-    font-size: 20px;
-    line-height: 1.2;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
 }
 
 #f13-agreement-panel .network-state-chevron {

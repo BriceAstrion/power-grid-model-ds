@@ -163,6 +163,7 @@ def create_uncertainty_diagnostic_figure(
         showgrid=True,
         gridcolor="#e9eef5",
         zeroline=False,
+        ticksuffix=" sigma",
     )
 
     return fig

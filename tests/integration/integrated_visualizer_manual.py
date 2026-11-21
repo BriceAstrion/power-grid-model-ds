@@ -280,6 +280,52 @@ def _case_combined_comparison():
     return _case_comparison(voltage=True, power=True)
 
 
+def _case_uncertainty_fluctuation():
+    """Eight illustrative scenarios with varying normalized discrepancies."""
+    grid = _grid()
+    _append_comparison_sensors(grid, voltage=True, power=False)
+
+    measured = np.array([400.0, 402.0, 405.0, 403.0, 408.0, 410.0, 407.0, 411.0])
+    sigma = np.array([2.0, 2.0, 2.5, 2.0, 2.5, 2.0, 2.0, 2.5])
+    expected_discrepancy = np.array([0.4, 1.6, 0.8, 2.4, 1.2, 0.3, 1.9, 0.7])
+
+    estimated = measured + sigma * expected_discrepancy
+
+    updates = initialize_array(
+        DatasetType.update,
+        ComponentType.sym_voltage_sensor,
+        (8, 1),
+    )
+    updates["id"] = 910001
+    updates["u_measured"][:, 0] = measured
+    updates["u_sigma"][:, 0] = sigma
+
+    # Include every grid node to satisfy server-state ID validation.
+    node_ids = grid.node.id
+    node_count = len(node_ids)
+
+    output = initialize_array(
+        DatasetType.sym_output,
+        ComponentType.node,
+        (8, node_count),
+    )
+    output["id"] = np.broadcast_to(
+        node_ids,
+        (8, node_count),
+    )
+
+    # The selected sensor measures the first grid node.
+    # Assign its estimated voltage across all eight scenarios.
+    output["u"][:, 0] = estimated
+    output["energized"] = 1
+
+    return (
+        grid,
+        {ComponentType.sym_voltage_sensor: updates},
+        {ComponentType.node: output},
+    )
+
+
 # Deterministic symbol fixtures. Use existing coordinated-grid nodes, so each
 # appliance has a real electrical connection rather than an isolated drawing.
 SYMBOL_COMPONENTS = (
@@ -410,6 +456,12 @@ COMPARISON_CHECKS = (
     "Retain voltage, p and q graphs; select another component; verify retained graphs remain.",
     "Remove one retained graph, clear all, and re-add; verify no duplicates or stale controls.",
     "Check ordinary attribute graph selection and network interactions still work.",
+    "F15: For a selected voltage comparison, check the separate uncertainty-relative discrepancy graph appears.",
+    "F15: Compare discrepancy values against |measured - estimated| / sigma for finite nonzero sigma.",
+    (
+        "F15/F14: Retain a comparison, select another component, and check whether "
+        "the diagnostic follows the intended active selection; record any mismatch as FAIL."
+    ),
     "Inspect browser console and server terminal for unexpected errors.",
 )
 
@@ -436,6 +488,18 @@ SYMBOL_CHECKS = (
 
 
 CASES = {
+    "uncertainty-fluctuation": ManualCase(
+        "uncertainty-fluctuation",
+        "F15: eight scenarios with varying uncertainty-relative discrepancies.",
+        (
+            "Select voltage sensor 910001 and u_measured.",
+            "Verify eight observations with scenario indices 0 through 7.",
+            "Verify discrepancies [0.4, 1.6, 0.8, 2.4, 1.2, 0.3, 1.9, 0.7].",
+            "Verify the 1 sigma reference and hover values.",
+            "Verify reference crossings are not labelled as estimator validity.",
+        ),
+        _case_uncertainty_fluctuation,
+    ),
     "component-symbols": ManualCase(
         "component-symbols",
         "Connected symmetric/asymmetric generators and loads with source already in grid.",
@@ -451,6 +515,15 @@ CASES = {
             "Verify the first line from_status is 1, 0, 1, 1; the second is 1, 1, 1, 0.",
             *COMPARISON_CHECKS,
             *SYMBOL_CHECKS,
+            (
+                "F13: Check whether the aggregated agreement overview is available; "
+                "verify record counts and status labels against source data, "
+                "not an invented agreement score."
+            ),
+            (
+                "F13: If feeder assignment evidence is absent, record feeder-level "
+                "agreement verification as NOT TESTED, not PASS."
+            ),
         ),
         _case_integrated,
     ),
@@ -478,6 +551,7 @@ CASES = {
         (
             "Select voltage u_measured and power p_measured/q_measured; verify both comparison lines appear.",
             "Verify no sigma bands or active sigma controls appear for these selections.",
+            "F15: Verify the diagnostic is hidden and a missing-sigma explanation is shown for the active comparison.",
             COMPARISON_CHECKS[5],
             COMPARISON_CHECKS[7],
         ),

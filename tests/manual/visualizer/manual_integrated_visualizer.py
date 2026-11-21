@@ -145,6 +145,13 @@ def show_checklist():
     print("[ ] F11: Open 'Why?' guidance; verify it does not equate in-band values with valid results.")
     print("[ ] F14: Retain voltage, angle and another available quantity graph simultaneously.")
     print("[ ] F14: Remove one graph; verify others persist; re-add it; then clear all graphs.")
+    print(
+        "[ ] F13: Inspect aggregated measurement agreement and availability statuses; "
+        "verify feeder assignment evidence."
+    )
+    print("[ ] F15: For voltage comparison with finite sigma, inspect uncertainty-relative discrepancy values.")
+    print("[ ] F15: With a retained comparison, change active component and check diagnostic state for stale content.")
+    print("[ ] F15 NOT COVERED: Missing-sigma behavior requires the separate missing-sigma fixture.")
     print("[ ] General: Verify no Dash missing-ID/callback errors appear.")
     print("\nRecord PASS/FAIL/NOT TESTED per item and capture screenshots as evidence.")
 

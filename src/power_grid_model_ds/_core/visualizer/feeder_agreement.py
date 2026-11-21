@@ -39,8 +39,11 @@ class MeasurementIdentity:
 
 
 @dataclass(frozen=True)
-class AgreementRecord:
-    """A measurement and estimate for one scenario."""
+class AgreementRecord:  # pylint: disable=too-many-instance-attributes
+    """A measurement and estimate for one scenario.
+
+    The ten fields are the stable record schema used by agreement grouping.
+    """
 
     scenario_index: int
     sensor_id: int

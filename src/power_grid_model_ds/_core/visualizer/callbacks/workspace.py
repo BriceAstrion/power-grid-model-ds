@@ -17,6 +17,10 @@ DEFAULT_STATE: dict[str, Any] = {
 }
 
 PANEL_BORDER = "1px solid #dee2e6"
+WORKSPACE_HEIGHT = "80vh"
+SIDE_COLUMN_OPEN = "minmax(340px, 1fr)"
+CENTER_COLUMN = "minmax(0, 2.2fr)"
+CLOSED_COLUMN = "0px"
 
 LEFT_STYLE = {
     "gridColumn": "1",
@@ -25,6 +29,12 @@ LEFT_STYLE = {
     "padding": "0",
     "backgroundColor": "#ffffff",
     "borderRight": PANEL_BORDER,
+    "minHeight": "0",
+    "height": "100%",
+    "maxHeight": "100%",
+    "overflowY": "auto",
+    "overflowX": "hidden",
+    "boxSizing": "border-box",
 }
 
 RIGHT_STYLE = {
@@ -105,15 +115,20 @@ def panel_styles(
 
     # Keep three grid tracks so that the center panel
     # always occupies the second track.
-    left_column = "minmax(220px, 1fr)" if left_open else "0px"
-    center_column = "minmax(0, 2.4fr)"
-    right_column = "minmax(320px, 1.4fr)" if right_open else "0px"
+    #
+    # Both visible side panels use the same track definition.
+    left_column = SIDE_COLUMN_OPEN if left_open else CLOSED_COLUMN
+    center_column = CENTER_COLUMN
+    right_column = SIDE_COLUMN_OPEN if right_open else CLOSED_COLUMN
 
     grid_style = {
         "display": "grid",
         "gridTemplateColumns": (f"{left_column} {center_column} {right_column}"),
         "width": "100%",
-        "minHeight": "80vh",
+        "height": WORKSPACE_HEIGHT,
+        "minHeight": "0",
+        "gridTemplateRows": "minmax(0, 1fr)",
+        "alignItems": "stretch",
         "overflowX": "auto",
     }
 
