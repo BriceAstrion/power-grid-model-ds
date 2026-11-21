@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""Manual integrated-visualizer scenarios for F01 and interacting features.
+"""Manual acceptance scenarios for the integrated PGM-DS visualizer.
 
 Run from the repository root:
     python -m tests.integration.integrated_visualizer_manual
@@ -20,13 +20,19 @@ Run from the repository root:
     python -m tests.integration.integrated_visualizer_manual --case combined-comparison
     python -m tests.integration.integrated_visualizer_manual --case component-symbols
     python -m tests.integration.integrated_visualizer_manual --validate-symbols
+    python -m tests.integration.integrated_visualizer_manual --validate-fixtures
+    python -m tests.integration.integrated_visualizer_manual --case uncertainty-fluctuation
+    python -m tests.integration.integrated_visualizer_manual --case zero-sigma
+    python -m tests.integration.integrated_visualizer_manual --case nonfinite-sigma
 
 Each --case starts one blocking Dash visualizer session. Stop the server
 (Ctrl+C) before launching another case. The fixtures use illustrative
 values; they are not power-flow or state-estimation calculations.
 
-This is a *manual* test harness: it checks fixture structure before launch,
-but does not automatically assert browser rendering or interactions.
+This is a *manual* acceptance harness. --validate-fixtures checks fixture
+structure and expected numeric values, not browser rendering. Each UI check
+requires a separately recorded PASS / FAIL / NOT TESTED with evidence.
+The scenario-status interface is not part of the delivered integration.
 """
 
 import argparse
@@ -326,6 +332,20 @@ def _case_uncertainty_fluctuation():
     )
 
 
+def _case_zero_sigma():
+    """Four observations: zero sigma is not a valid discrepancy divisor."""
+    grid, updates, output = _case_voltage_comparison()
+    updates[ComponentType.sym_voltage_sensor]["u_sigma"][:, 0] = [2.0, 0.0, 3.0, 0.0]
+    return grid, updates, output
+
+
+def _case_nonfinite_sigma():
+    """Four observations: nonfinite uncertainty must not yield a numeric diagnostic."""
+    grid, updates, output = _case_voltage_comparison()
+    updates[ComponentType.sym_voltage_sensor]["u_sigma"][:, 0] = [2.0, np.nan, np.inf, 2.0]
+    return grid, updates, output
+
+
 # Deterministic symbol fixtures. Use existing coordinated-grid nodes, so each
 # appliance has a real electrical connection rather than an isolated drawing.
 SYMBOL_COMPONENTS = (
@@ -448,180 +468,284 @@ def _case_integrated():
     return grid, updates, output
 
 
-COMPARISON_CHECKS = (
-    "Select sensor 910001 u_measured; expect measured [400,405,410,415] and calculated [401,404,412,414].",
-    "Select sensor 910003 p_measured; expect measured [100,105,110,115] and calculated [101,103,112,114].",
-    "Select sensor 910003 q_measured; expect measured [40,43,46,49] and calculated [41,42,48,48].",
-    "For available sigma, inspect bands and change multiplier (for example 1, 2, 3); check bands update.",
-    "Retain voltage, p and q graphs; select another component; verify retained graphs remain.",
-    "Remove one retained graph, clear all, and re-add; verify no duplicates or stale controls.",
-    "Check ordinary attribute graph selection and network interactions still work.",
-    "F15: For a selected voltage comparison, check the separate uncertainty-relative discrepancy graph appears.",
-    "F15: Compare discrepancy values against |measured - estimated| / sigma for finite nonzero sigma.",
+# Checks are acceptance instructions, not claims of successful execution.
+# A feature can be marked NOT TESTED when the fixture lacks the required data.
+QUANTITY_CHECKS = (
+    "F01: Select a node/line and supported scalar quantity; verify values, units, heatmap and legend.",
+    "F01: Change quantity and component; unavailable attributes must not display stale values.",
+    "F01: Select a graphable table cell; verify plotted series and selected component/attribute.",
+)
+SCENARIO_CHECKS = (
+    "Scenario selection: switch 1, 2, 4, then 1; verify selected scenario and network values.",
+    "Timestamp selection: where timestamps are provided, verify each displayed time maps to the correct scenario.",
+    "Scenario selection: repeated changes must not retain obsolete heatmap colors or legends.",
+)
+TOPOLOGY_CHECKS = (
+    "Topology: first updated line from_status must be [1,0,1,1] over four scenarios.",
+    "Topology: second updated line from_status must be [1,1,1,0] over four scenarios.",
+    "Topology: inspect network styling and update-data presentation independently; report any mismatch.",
+)
+WORKSPACE_CHECKS = (
+    "Workspace: toggle left and right panels separately and verify each panel's visibility.",
+    "Workspace: enter fullscreen and leave it; verify the previous panel visibility is restored.",
+    "Workspace: resize/drag network nodes, change scale, toggle appliances and check layout stability.",
+    "Workspace: confirm graph and selection controls remain usable after panel toggles.",
+)
+RETAINED_GRAPH_CHECKS = (
+    "F14: Retain graphs for two different components/attributes in the shared workspace.",
     (
-        "F15/F14: Retain a comparison, select another component, and check whether "
-        "the diagnostic follows the intended active selection; record any mismatch as FAIL."
+        "F14: Change component, scenario and electrical attribute; retained graphs must "
+        "remain independently identifiable."
     ),
-    "Inspect browser console and server terminal for unexpected errors.",
+    "F14: Re-select an already retained graph and check for duplicate prevention.",
+    "F14: Remove one graph without removing the others; then clear all and re-add a graph.",
+    "F14: Confirm each graph's own remove control and no stale selection or graph content.",
 )
-
-COMMON_CHECKS = (
-    "Select an electrical component and available scalar attribute; check colors and legend.",
-    "Switch scenarios 1, 2, 4, then 1; check colors/values update and no stale legend.",
-    "Change attribute and component repeatedly; check invalid combinations are handled.",
-    "Drag two nodes, change node scale, toggle appliances; check positions remain sensible.",
-    "Select several graphable cells, retain graphs, prevent duplicates, remove one, clear all, re-add.",
-    "With retained graphs present, switch component, attribute and scenario; check graph independence.",
-    "Clear selections and reselect; check controls, legend and graphs recover correctly.",
-    "Inspect browser console and server terminal for unexpected errors.",
+VOLTAGE_CHECKS = (
+    "Voltage sensor 910001 u_measured: measured [400,405,410,415], estimated [401,404,412,414].",
+    "Voltage sigma per scenario: [2,2,3,2]; inspect measurement-centered bands at multiplier 1.",
+    "Change sigma multiplier to 2 then 3; bands should change, measured/estimated series should not.",
+    "Enter an invalid sigma multiplier; inspect validation and confirm no misleading graph update.",
 )
-
+POWER_P_CHECKS = (
+    "Source-terminal sensor 910003 p_measured: measured [100,105,110,115], estimated [101,103,112,114].",
+    "Active-power sigma per scenario: [5,5,6,5]; verify the correct p_sigma field is used.",
+)
+POWER_Q_CHECKS = (
+    "Source-terminal sensor 910003 q_measured: measured [40,43,46,49], estimated [41,42,48,48].",
+    "Reactive-power sigma per scenario: [2,2,3,2]; verify the correct q_sigma field is used.",
+)
+DIAGNOSTIC_CHECKS = (
+    "F15: Select a comparison and verify the separate uncertainty-relative discrepancy plot appears.",
+    "F15: Verify |measured - estimated| / sigma for finite positive sigma, with correct scenario axis.",
+    "F15: Inspect hover values and the 1-sigma reference; do not interpret crossings as automatic validity.",
+    (
+        "F15/F14: Retain a comparison, change the active selection and check the diagnostic "
+        "tracks the intended selection."
+    ),
+    "F15: Select a non-comparison attribute and check that stale diagnostic content is cleared or hidden.",
+)
 SYMBOL_CHECKS = (
-    "Verify sym_gen 920001 and asym_gen 920002 show generator symbols ABOVE their nodes.",
-    "Verify sym_load 920003 and asym_load 920004 show load symbols RIGHT of their nodes.",
-    "Verify the existing source symbol is visible; inspect source 910002 in the integrated case.",
-    "Drag connected nodes and inspect whether symbols and connectors remain correctly aligned.",
-    "Toggle appliance visibility and inspect original/visual element behavior.",
-    "Select each appliance and check electrical selection and retained graphs remain functional.",
-    "Inspect browser console and Dash terminal for rendering errors.",
+    "Symbols: symmetric generator 920001 and asymmetric generator 920002 appear above their nodes.",
+    "Symbols: symmetric load 920003 and asymmetric load 920004 appear to the right of their nodes.",
+    "Symbols: inspect existing source and two-winding transformer representations where present in the grid.",
+    "Symbols: drag connected nodes and check symbol/connector alignment and electrical connections.",
+    "Symbols: toggle appliance visibility and confirm originals/visual symbols behave consistently.",
+    "Symbols: select components and confirm data/graphs refer to electrical elements, not visual-only nodes.",
+)
+FEEDER_CHECKS = (
+    "F13: Inspect the aggregated agreement overview and its counts/status categories, if shown.",
+    "F13: Compare displayed counts with actual input records; do not infer an agreement score.",
+    "F13: Verify feeder-specific agreement only if the fixture contains identifiable feeder assignments.",
+    "F13: If required feeder evidence is absent, mark feeder-specific assertions NOT TESTED.",
+)
+EDGE_CHECKS = (
+    "Missing/unsupported data: do not display fabricated numerical values or misleading validity claims.",
+    "After invalid selections, return to valid data and confirm that controls and graphs recover.",
+    "Inspect browser console and Dash terminal for unexpected errors; record screenshots and steps.",
+)
+
+
+def _unique_checks(*groups: tuple[str, ...]) -> tuple[str, ...]:
+    """Combine checklist groups while preserving order and removing repeated checks."""
+    return tuple(dict.fromkeys(check for group in groups for check in group))
+
+
+COMMON_CHECKS = _unique_checks(QUANTITY_CHECKS, SCENARIO_CHECKS, WORKSPACE_CHECKS, RETAINED_GRAPH_CHECKS, EDGE_CHECKS)
+COMPARISON_CHECKS = _unique_checks(
+    VOLTAGE_CHECKS,
+    POWER_P_CHECKS,
+    POWER_Q_CHECKS,
+    DIAGNOSTIC_CHECKS,
+    RETAINED_GRAPH_CHECKS,
+    EDGE_CHECKS,
 )
 
 
 CASES = {
-    "uncertainty-fluctuation": ManualCase(
-        "uncertainty-fluctuation",
-        "F15: eight scenarios with varying uncertainty-relative discrepancies.",
-        (
-            "Select voltage sensor 910001 and u_measured.",
-            "Verify eight observations with scenario indices 0 through 7.",
-            "Verify discrepancies [0.4, 1.6, 0.8, 2.4, 1.2, 0.3, 1.9, 0.7].",
-            "Verify the 1 sigma reference and hover values.",
-            "Verify reference crossings are not labelled as estimator validity.",
-        ),
-        _case_uncertainty_fluctuation,
-    ),
-    "component-symbols": ManualCase(
-        "component-symbols",
-        "Connected symmetric/asymmetric generators and loads with source already in grid.",
-        SYMBOL_CHECKS,
-        _case_component_symbols,
-    ),
     "integrated": ManualCase(
         "integrated",
-        "Default demonstration: timestamped topology, scalar quantities, voltage and source-terminal p/q comparisons.",
-        (
-            *COMMON_CHECKS,
-            "In Network state, switch between four observation times and inspect the two changing line statuses.",
-            "Verify the first line from_status is 1, 0, 1, 1; the second is 1, 1, 1, 0.",
-            *COMPARISON_CHECKS,
-            *SYMBOL_CHECKS,
-            (
-                "F13: Check whether the aggregated agreement overview is available; "
-                "verify record counts and status labels against source data, "
-                "not an invented agreement score."
-            ),
-            (
-                "F13: If feeder assignment evidence is absent, record feeder-level "
-                "agreement verification as NOT TESTED, not PASS."
-            ),
-        ),
+        "Four-scenario integration: electrical quantities, topology, timestamps, sensors, symbols and workspace.",
+        _unique_checks(COMMON_CHECKS, TOPOLOGY_CHECKS, COMPARISON_CHECKS, SYMBOL_CHECKS, FEEDER_CHECKS),
         _case_integrated,
     ),
-    "voltage-comparison": ManualCase(
-        "voltage-comparison",
-        "Issue #378: voltage sensor 910001, four measured/estimated scenarios with sigma.",
-        (COMPARISON_CHECKS[0], COMPARISON_CHECKS[3], COMPARISON_CHECKS[5], COMPARISON_CHECKS[7]),
-        _case_voltage_comparison,
-    ),
-    "power-p-comparison": ManualCase(
-        "power-p-comparison",
-        "Issue #378: source-terminal power sensor 910003, active power and sigma.",
-        (COMPARISON_CHECKS[1], COMPARISON_CHECKS[3], COMPARISON_CHECKS[5], COMPARISON_CHECKS[7]),
-        _case_power_p_comparison,
-    ),
-    "power-q-comparison": ManualCase(
-        "power-q-comparison",
-        "Issue #378: source-terminal power sensor 910003, reactive power and sigma.",
-        (COMPARISON_CHECKS[2], COMPARISON_CHECKS[3], COMPARISON_CHECKS[5], COMPARISON_CHECKS[7]),
-        _case_power_q_comparison,
-    ),
-    "missing-sigma": ManualCase(
-        "missing-sigma",
-        "Issue #378: measured/estimated voltage and power with unavailable sigma.",
-        (
-            "Select voltage u_measured and power p_measured/q_measured; verify both comparison lines appear.",
-            "Verify no sigma bands or active sigma controls appear for these selections.",
-            "F15: Verify the diagnostic is hidden and a missing-sigma explanation is shown for the active comparison.",
-            COMPARISON_CHECKS[5],
-            COMPARISON_CHECKS[7],
-        ),
-        _case_missing_sigma,
-    ),
-    "combined-comparison": ManualCase(
-        "combined-comparison",
-        "Issue #378: voltage, active power and reactive power in the same session.",
-        COMPARISON_CHECKS,
-        _case_combined_comparison,
-    ),
     "scalar": ManualCase(
-        "scalar",
-        "Four symmetric-output scenarios with node and line scalar fields.",
-        COMMON_CHECKS,
-        _case_scalar,
+        "scalar", "Symmetric node/line quantities across four scenarios.", COMMON_CHECKS, _case_scalar
     ),
     "asymmetric": ManualCase(
         "asymmetric",
-        "Four asymmetric node-voltage scenarios, including one de-energized result.",
-        (
-            "Inspect phase-dependent quantities and any scalar-attribute availability limitations.",
-            "Switch scenarios and inspect the de-energized node in scenario 2.",
-            "Confirm node dragging, scaling, appliance visibility and graph selection still work.",
+        "Asymmetric node voltage and one de-energized result.",
+        _unique_checks(
+            (
+                "Inspect phase-dependent values and unavailable scalar attributes.",
+                "Scenario 2 contains a de-energized node; check its presentation.",
+            ),
+            WORKSPACE_CHECKS,
+            EDGE_CHECKS,
         ),
         _case_asymmetric,
     ),
     "topology": ManualCase(
         "topology",
-        "Symmetric output plus scenario-dependent line status updates.",
-        (
-            *COMMON_CHECKS,
-            "In Network state, inspect the selected line update at 10:00, 11:00, 12:00 and 13:00.",
-            "For the first updated line, expect from_status 1, 0, 1, 1; for the second, 1, 1, 1, 0.",
-            "Check whether the network line styling changes separately from the update-data card.",
-            "Verify changing topology does not discard dragged positions or retained graphs unexpectedly.",
-        ),
+        "Four scenario-dependent line updates with timestamps.",
+        _unique_checks(SCENARIO_CHECKS, TOPOLOGY_CHECKS, WORKSPACE_CHECKS, RETAINED_GRAPH_CHECKS, EDGE_CHECKS),
         _case_topology,
     ),
     "missing": ManualCase(
         "missing",
-        "Symmetric scalar output with NaN values in scenarios 2 and 4.",
-        (
-            *COMMON_CHECKS,
-            "Inspect missing-value coloring and legend handling; no fabricated numeric values.",
-            "Switch from missing to valid scenarios and back; check recovery.",
+        "NaN output values in scenarios 2 and 4.",
+        _unique_checks(
+            (
+                "Inspect missing-value color/legend; no fabricated values.",
+                "Switch between valid and missing scenarios and verify recovery.",
+            ),
+            COMMON_CHECKS,
         ),
         _case_missing,
     ),
     "sparse": ManualCase(
         "sparse",
-        "Only three grid nodes have output; line and other node output is absent.",
-        (
-            "Check that unsupported component/attribute selections are unavailable or safely handled.",
-            "Inspect nodes with no output and switch scenarios repeatedly.",
-            "Check node positioning, appliance toggles and retained graph behavior.",
-        ),
+        "Only three nodes have calculation output.",
+        _unique_checks(("Inspect nodes without output and unavailable line quantities.",), COMMON_CHECKS),
         _case_sparse,
     ),
     "no-output": ManualCase(
         "no-output",
-        "Grid without calculation output.",
-        (
-            "Confirm electrical-quantity controls do not offer unavailable calculated values.",
-            "Check basic network rendering, selection, node dragging and appliance visibility.",
-            "Check no stale heatmap legend, sigma guidance or calculated-value graphs appear.",
+        "Grid with no calculation output.",
+        _unique_checks(
+            (
+                "No calculated-value heatmap, graph, sigma controls or stale diagnostic should be shown.",
+                "Check network selection, dragging and appliance visibility without output.",
+            ),
+            EDGE_CHECKS,
         ),
         _case_no_output,
     ),
+    "voltage-comparison": ManualCase(
+        "voltage-comparison",
+        "Voltage measurement, estimate, sigma bands and F15 diagnostic.",
+        _unique_checks(VOLTAGE_CHECKS, DIAGNOSTIC_CHECKS, RETAINED_GRAPH_CHECKS, EDGE_CHECKS),
+        _case_voltage_comparison,
+    ),
+    "power-p-comparison": ManualCase(
+        "power-p-comparison",
+        "Source-terminal active power measurement and estimate.",
+        _unique_checks(POWER_P_CHECKS, DIAGNOSTIC_CHECKS, RETAINED_GRAPH_CHECKS, EDGE_CHECKS),
+        _case_power_p_comparison,
+    ),
+    "power-q-comparison": ManualCase(
+        "power-q-comparison",
+        "Source-terminal reactive power measurement and estimate.",
+        _unique_checks(POWER_Q_CHECKS, DIAGNOSTIC_CHECKS, RETAINED_GRAPH_CHECKS, EDGE_CHECKS),
+        _case_power_q_comparison,
+    ),
+    "combined-comparison": ManualCase(
+        "combined-comparison",
+        "Voltage and source-terminal active/reactive power in one session.",
+        _unique_checks(COMPARISON_CHECKS, WORKSPACE_CHECKS),
+        _case_combined_comparison,
+    ),
+    "missing-sigma": ManualCase(
+        "missing-sigma",
+        "Voltage and power comparison with unavailable sigma.",
+        _unique_checks(
+            (
+                "Measured and estimated series should still be inspectable.",
+                "No misleading sigma bands or enabled multiplier control for missing sigma.",
+                "F15: diagnostic is hidden or explains missing sigma for the active comparison.",
+            ),
+            RETAINED_GRAPH_CHECKS,
+            EDGE_CHECKS,
+        ),
+        _case_missing_sigma,
+    ),
+    "zero-sigma": ManualCase(
+        "zero-sigma",
+        "Voltage comparison with zero sigma in scenarios 2 and 4.",
+        _unique_checks(
+            (
+                "Inspect scenarios 2 and 4: zero sigma must not produce infinity or a fabricated discrepancy.",
+                "Check the diagnostic explanation/omission and unaffected finite-sigma observations.",
+            ),
+            EDGE_CHECKS,
+        ),
+        _case_zero_sigma,
+    ),
+    "nonfinite-sigma": ManualCase(
+        "nonfinite-sigma",
+        "Voltage comparison with NaN and infinite sigma.",
+        _unique_checks(
+            (
+                "Inspect scenarios 2 (NaN) and 3 (infinite): no misleading numeric discrepancy.",
+                "Check available finite-sigma observations and any diagnostic status message.",
+            ),
+            EDGE_CHECKS,
+        ),
+        _case_nonfinite_sigma,
+    ),
+    "uncertainty-fluctuation": ManualCase(
+        "uncertainty-fluctuation",
+        "Eight voltage observations with known F15 normalized discrepancies.",
+        _unique_checks(
+            (
+                "Select voltage sensor 910001 u_measured; expect scenario indices 0 through 7.",
+                "Expected |estimated-measured|/sigma: [0.4,1.6,0.8,2.4,1.2,0.3,1.9,0.7].",
+                "Inspect 1-sigma reference, hover values and crossings without automatic validity labels.",
+            ),
+            RETAINED_GRAPH_CHECKS,
+            EDGE_CHECKS,
+        ),
+        _case_uncertainty_fluctuation,
+    ),
+    "component-symbols": ManualCase(
+        "component-symbols",
+        "Connected symmetric/asymmetric generators and loads.",
+        _unique_checks(SYMBOL_CHECKS, WORKSPACE_CHECKS, EDGE_CHECKS),
+        _case_component_symbols,
+    ),
 }
+
+
+def _validate_fixture(case_name, grid, updates, output):
+    """Check deterministic fixture invariants; never claim UI acceptance."""
+    count = get_network_scenario_count(updates, output)
+    if output is not None:
+        output_count = get_scenario_count(output)
+        if count != output_count:
+            raise AssertionError(f"{case_name}: output scenario count mismatch")
+    if case_name in {"topology", "integrated"}:
+        lines = updates[ComponentType.line]
+        np.testing.assert_array_equal(lines["from_status"][:, 0], [1, 0, 1, 1])
+        np.testing.assert_array_equal(lines["from_status"][:, 1], [1, 1, 1, 0])
+    if case_name == "uncertainty-fluctuation":
+        if output is None:
+            raise AssertionError(f"{case_name}: missing output data")
+        sensor = updates[ComponentType.sym_voltage_sensor]
+        measured = sensor["u_measured"][:, 0]
+        sigma = sensor["u_sigma"][:, 0]
+        estimated = output[ComponentType.node]["u"][:, 0]
+        np.testing.assert_allclose(
+            np.abs(measured - estimated) / sigma,
+            [0.4, 1.6, 0.8, 2.4, 1.2, 0.3, 1.9, 0.7],
+            rtol=0,
+            atol=1e-10,
+        )
+    if case_name == "zero-sigma":
+        np.testing.assert_array_equal(updates[ComponentType.sym_voltage_sensor]["u_sigma"][:, 0], [2, 0, 3, 0])
+    if case_name == "nonfinite-sigma":
+        sigma = updates[ComponentType.sym_voltage_sensor]["u_sigma"][:, 0]
+        if not (np.isnan(sigma[1]) and np.isinf(sigma[2])):
+            raise AssertionError("Expected NaN and infinite sigma")
+    if case_name in {"component-symbols", "integrated"}:
+        _validate_symbol_fixture(grid)
+    print(f"PASS: fixture structure for {case_name} (browser not checked)", flush=True)
+
+
+def _validate_all_fixtures():
+    for case in CASES.values():
+        grid, updates, output = case.build()
+        _validate_fixture(case.name, grid, updates, output)
+    print(f"Validated {len(CASES)} fixture cases; no browser acceptance assertions performed.")
 
 
 def _print_case(case, output):
@@ -645,6 +769,7 @@ def main():
     parser.add_argument("--case", choices=tuple(CASES), default="integrated")
     parser.add_argument("--list", action="store_true", help="List available manual scenarios and exit")
     parser.add_argument("--no-debug", action="store_true", help="Disable Dash debug mode")
+    parser.add_argument("--validate-fixtures", action="store_true", help="Check all fixtures without launching Dash")
     parser.add_argument(
         "--validate-symbols",
         action="store_true",
@@ -655,12 +780,16 @@ def main():
         for case in CASES.values():
             print(f"{case.name:12} {case.description}")
         return
+    if args.validate_fixtures:
+        _validate_all_fixtures()
+        return
     if args.validate_symbols:
         _case_component_symbols()
         print("Symbol fixture and element validation passed; browser rendering not checked.")
         return
     case = CASES[args.case]
     grid, update_data, output_data = case.build()
+    _validate_fixture(case.name, grid, update_data, output_data)
     _print_case(case, output_data)
     network_scenario_count = get_network_scenario_count(update_data, output_data)
     print(f"Network-state scenario count: {network_scenario_count}", flush=True)
@@ -675,7 +804,16 @@ def main():
         TOPOLOGY_TIMESTAMPS
         if args.case in ("topology", "integrated")
         else COMPARISON_TIMESTAMPS
-        if "comparison" in args.case or args.case == "missing-sigma"
+        if args.case
+        in {
+            "voltage-comparison",
+            "power-p-comparison",
+            "power-q-comparison",
+            "combined-comparison",
+            "missing-sigma",
+            "zero-sigma",
+            "nonfinite-sigma",
+        }
         else None
     )
     visualize(

@@ -262,10 +262,8 @@ SELECTION_GRAPH_HTML = html.Div(
             id="retained-graphs-section",
             style={"marginTop": "15px"},
         ),
-        dcc.Graph(id="uncertainty-diagnostic-graph", style={"display": "none"}),
-        html.Div(
-            id="uncertainty-diagnostic-status",
-            role="status",
+        dcc.Graph(
+            id="uncertainty-diagnostic-graph",
             style={"display": "none"},
         ),
         html.Div(
