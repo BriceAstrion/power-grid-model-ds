@@ -35,6 +35,14 @@ def test_creates_uncertainty_diagnostic_figure():
         [0.5, 0.5, 1.0],
     )
 
+    hovertemplate = data[0].hovertemplate
+
+    assert "Scenario: %{x}" in hovertemplate
+    assert "Measured: %{customdata[1]}" in hovertemplate
+    assert "Calculated: %{customdata[2]}" in hovertemplate
+    assert "Sigma: %{customdata[3]}" in hovertemplate
+    assert "Absolute discrepancy / sigma: %{customdata[0]}" in hovertemplate
+
     assert figure.layout.title.text == "Uncertainty-relative discrepancy"
     assert figure.layout.xaxis.title.text == "Scenario Index"
 
@@ -72,7 +80,35 @@ def test_preserves_missing_and_infinite_diagnostic_information():
     )
 
     assert list(data[0].customdata) == [
-        "Infinite discrepancy",
-        "Unavailable",
-        "Unavailable",
+        ["Positive infinity", "10", "9", "0"],
+        ["Unavailable", "10", "10", "0"],
+        ["Unavailable", "Unavailable", "9", "2"],
     ]
+
+
+def test_undefined_discrepancies_have_visible_annotation():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0, 1, 2]),
+        measured=np.array([10.0, 10.0, np.nan]),
+        estimated=np.array([9.0, 10.0, 9.0]),
+        sigma=np.array([0.0, 0.0, 2.0]),
+    )
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    text = " ".join(str(annotation.text) for annotation in figure.layout.annotations)
+    assert "0: zero sigma; nonzero difference" in text
+    assert "1: zero sigma; zero difference" in text
+    assert "2: measurement or estimate unavailable" in text
+
+
+def test_hides_sigma_reference_when_all_discrepancies_unavailable():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0, 1, 2]),
+        measured=np.array([230.0, 235.0, 230.0]),
+        estimated=np.array([229.0, 231.0, 228.0]),
+        sigma=np.array([0.0, 0.0, 0.0]),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+
+    assert not figure.layout.shapes
+    assert any("Unavailable scenarios (3)" in annotation.text for annotation in figure.layout.annotations)

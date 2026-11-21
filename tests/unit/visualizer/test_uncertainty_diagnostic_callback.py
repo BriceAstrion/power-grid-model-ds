@@ -22,6 +22,7 @@ from power_grid_model_ds._core.visualizer.measurement_comparison import (
 
 @pytest.fixture
 def comparison():
+    """Provide scenario-aligned measurement comparison data."""
     return MeasurementComparison(
         scenario_indices=np.array([0, 1, 2]),
         measured=np.array([230.0, 235.0, 230.0]),
@@ -65,6 +66,7 @@ def create_selected_cell(
 
 
 def test_renders_voltage_uncertainty_diagnostic(comparison):
+    """Voltage selection displays the expected normalized discrepancy."""
     figure = create_comparison_figure(comparison)
     selected_cell = create_selected_cell()
 
@@ -75,31 +77,34 @@ def test_renders_voltage_uncertainty_diagnostic(comparison):
     )
 
     assert style == {"display": "block"}
-    assert len(diagnostic.data) == 1
+    assert bool(diagnostic.data)
 
     np.testing.assert_array_equal(
         diagnostic.data[0].x,
         [0, 1, 2],
     )
-
     np.testing.assert_allclose(
         diagnostic.data[0].y,
         [0.5, 4.0 / 3.0, 1.0],
     )
 
 
-def test_renders_power_uncertainty_diagnostic(comparison):
+@pytest.mark.parametrize(
+    "measurement_attribute",
+    ["p_measured", "q_measured"],
+)
+def test_renders_power_uncertainty_diagnostic(comparison, measurement_attribute):
+    """Verify diagnostics for active and reactive power measurements."""
     comparison_type = ComponentType.sym_power_sensor.value
 
     figure = create_comparison_figure(
         comparison,
         comparison_type=comparison_type,
-        measurement_attribute="p_measured",
+        measurement_attribute=measurement_attribute,
     )
-
     selected_cell = create_selected_cell(
         comparison_type=comparison_type,
-        column="p_measured",
+        column=measurement_attribute,
     )
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -109,10 +114,22 @@ def test_renders_power_uncertainty_diagnostic(comparison):
     )
 
     assert style == {"display": "block"}
-    assert len(diagnostic.data) == 1
+    assert bool(diagnostic.data)
+
+    np.testing.assert_array_equal(
+        diagnostic.data[0].x,
+        [0, 1, 2],
+    )
+    np.testing.assert_allclose(
+        diagnostic.data[0].y,
+        [0.5, 4.0 / 3.0, 1.0],
+    )
+
+    assert measurement_attribute in diagnostic.layout.title.text
 
 
 def test_hides_diagnostic_when_comparison_graph_is_hidden(comparison):
+    """Hide the diagnostic when the primary comparison is hidden."""
     figure = create_comparison_figure(comparison)
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -122,10 +139,11 @@ def test_hides_diagnostic_when_comparison_graph_is_hidden(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sensor_does_not_match(comparison):
+    """Prevent displaying data for a different selected sensor."""
     figure = create_comparison_figure(comparison)
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -135,10 +153,13 @@ def test_hides_diagnostic_when_sensor_does_not_match(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
-def test_hides_diagnostic_when_measurement_attribute_does_not_match(comparison):
+def test_hides_diagnostic_when_measurement_attribute_does_not_match(
+    comparison,
+):
+    """Prevent displaying the diagnostic for a different attribute."""
     figure = create_comparison_figure(comparison)
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -148,10 +169,11 @@ def test_hides_diagnostic_when_measurement_attribute_does_not_match(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sigma_is_unavailable(comparison):
+    """Hide the diagnostic when no sigma series exists."""
     comparison_without_sigma = MeasurementComparison(
         scenario_indices=comparison.scenario_indices,
         measured=comparison.measured,
@@ -168,12 +190,14 @@ def test_hides_diagnostic_when_sigma_is_unavailable(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
-def test_hides_diagnostic_when_metadata_arrays_have_different_shapes(comparison):
+def test_hides_diagnostic_when_metadata_arrays_have_different_shapes(
+    comparison,
+):
+    """Reject comparison metadata with inconsistent array lengths."""
     figure = create_comparison_figure(comparison)
-
     figure["layout"]["meta"]["estimated"] = [229.0, 231.0]
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -183,12 +207,12 @@ def test_hides_diagnostic_when_metadata_arrays_have_different_shapes(comparison)
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sigma_contains_negative_values(comparison):
+    """Reject negative measurement uncertainty values."""
     figure = create_comparison_figure(comparison)
-
     figure["layout"]["meta"]["sigma"] = [2.0, -1.0, 2.0]
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -198,10 +222,11 @@ def test_hides_diagnostic_when_sigma_contains_negative_values(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_selection_is_missing(comparison):
+    """Hide the diagnostic when no measurement cell is selected."""
     figure = create_comparison_figure(comparison)
 
     diagnostic, style = update_uncertainty_diagnostic_graph(
@@ -211,10 +236,11 @@ def test_hides_diagnostic_when_selection_is_missing(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_figure_is_invalid():
+    """Handle missing comparison figures safely."""
     diagnostic, style = update_uncertainty_diagnostic_graph(
         None,
         {"display": "block"},
@@ -222,4 +248,19 @@ def test_hides_diagnostic_when_figure_is_invalid():
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
+
+
+def test_diagnostic_title_identifies_selected_sensor_and_attribute(comparison):
+    """The diagnostic title identifies the selected measurement."""
+    figure = create_comparison_figure(comparison)
+
+    diagnostic, style = update_uncertainty_diagnostic_graph(
+        figure,
+        {"display": "block"},
+        create_selected_cell(),
+    )
+
+    assert style == {"display": "block"}
+    assert "sensor 101" in diagnostic.layout.title.text
+    assert "u_measured" in diagnostic.layout.title.text

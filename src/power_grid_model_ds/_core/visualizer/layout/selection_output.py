@@ -281,6 +281,14 @@ SELECTION_GRAPH_HTML = html.Div(
             id="uncertainty-diagnostic-graph",
             style=_HIDDEN_STYLE,
         ),
+        html.Div(
+            html.Div(
+                id="uncertainty-diagnostic-status",
+                role="status",
+                style=_HIDDEN_STYLE,
+            ),
+            style={"padding": "0 12px"},
+        ),
     ],
     style=_SELECTION_GRAPH_CONTAINER_STYLE,
 )
