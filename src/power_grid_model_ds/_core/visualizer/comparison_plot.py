@@ -12,7 +12,7 @@ import plotly.graph_objects as go
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     MeasurementComparison,
     VoltageComparison,
-    get_voltage_sigma_bounds,
+    wrapped_angle_difference,
 )
 
 
@@ -26,6 +26,7 @@ class ComparisonPlotOptions:
     sensor_id: int | None = None
     comparison_type: str | None = None
     measurement_attribute: str | None = None
+    angular: bool = False
 
 
 def create_measurement_comparison_figure(
@@ -42,8 +43,10 @@ def create_measurement_comparison_figure(
 
     fig = go.Figure()
 
-    if has_sigma:
-        lower, upper = get_voltage_sigma_bounds(comparison, sigma_multiplier)
+    if sigma is not None and has_sigma:
+        finite_sigma = np.where(np.isfinite(sigma), sigma, np.nan)
+        lower = comparison.measured - sigma_multiplier * finite_sigma
+        upper = comparison.measured + sigma_multiplier * finite_sigma
 
         fig.add_trace(
             go.Scatter(
@@ -69,20 +72,26 @@ def create_measurement_comparison_figure(
             )
         )
 
-    fig.add_trace(
-        go.Scatter(
-            x=comparison.scenario_indices,
-            y=comparison.measured,
-            mode="lines",
-            name=f"Measured {options.quantity}",
-            line={"width": 2, "color": "royalblue"},
+    measured_trace = {
+        "x": comparison.scenario_indices,
+        "y": comparison.measured,
+        "mode": "markers" if options.angular else "lines",
+        "name": f"Measured {options.quantity}",
+        "line": {"width": 2, "color": "royalblue"},
+    }
+    if options.angular:
+        measured_trace["customdata"] = wrapped_angle_difference(comparison.measured, comparison.estimated)
+        measured_trace["hovertemplate"] = (
+            "Scenario %{x}<br>Measured %{y:.5f} rad"
+            "<br>Wrapped measured - estimated %{customdata:.5f} rad<extra>%{fullData.name}</extra>"
         )
-    )
+
+    fig.add_trace(go.Scatter(**measured_trace))
     fig.add_trace(
         go.Scatter(
             x=comparison.scenario_indices,
             y=comparison.estimated,
-            mode="lines",
+            mode="markers" if options.angular else "lines",
             name=f"Calculated {options.quantity}",
             line={"width": 2, "color": "darkorange", "dash": "dash"},
         )
@@ -108,7 +117,7 @@ def create_measurement_comparison_figure(
         if options.measurement_attribute is not None:
             meta["measurement_attribute"] = options.measurement_attribute
 
-        if has_sigma:
+        if sigma is not None and has_sigma:
             meta["sigma"] = sigma.tolist()
             meta["measured"] = comparison.measured.tolist()
 

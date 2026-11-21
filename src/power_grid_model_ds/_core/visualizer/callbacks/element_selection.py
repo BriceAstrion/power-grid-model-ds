@@ -24,6 +24,7 @@ from power_grid_model_ds._core.visualizer.layout.selection_output import (
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     VoltageComparison,
     get_symmetric_power_comparison,
+    get_symmetric_voltage_angle_comparison,
     get_symmetric_voltage_comparison,
 )
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
@@ -201,6 +202,30 @@ def _get_voltage_comparison_figure(sensor_id: int) -> go.Figure | None:
     return _create_voltage_comparison_figure(comparison, sensor_id=sensor_id, sigma_multiplier=3.0)
 
 
+def _get_voltage_angle_comparison_figure(sensor_id: int) -> go.Figure | None:
+    """Build an angle comparison without inventing angle uncertainty."""
+    comparison = get_symmetric_voltage_angle_comparison(
+        grid=get_grid(),
+        update_data=get_update_data(),
+        output_data=get_output_data(),
+        sensor_id=sensor_id,
+    )
+    if comparison is None:
+        return None
+    return create_measurement_comparison_figure(
+        comparison,
+        ComparisonPlotOptions(
+            title=f"sym_voltage_sensor - voltage angle comparison - id={sensor_id}",
+            quantity="voltage angle",
+            unit="rad",
+            sensor_id=sensor_id,
+            comparison_type=ComponentType.sym_voltage_sensor.value,
+            measurement_attribute="u_angle_measured",
+            angular=True,
+        ),
+    )
+
+
 def _get_power_comparison_figure(sensor_id: int, measurement_attribute: str) -> go.Figure | None:
     """Build a source-terminal symmetric power comparison."""
     if measurement_attribute not in ("p_measured", "q_measured"):
@@ -252,6 +277,20 @@ def _has_scalar_batch_fields(data: Any, required: set[str], quantity: str) -> bo
     )
 
 
+def _get_selected_measurement_comparison(comp_type: ComponentType, column_id: str, pgm_id: int) -> go.Figure | None:
+    """Build a comparison for supported measurement attributes, if available."""
+    if comp_type == ComponentType.sym_voltage_sensor:
+        if column_id == "u_measured":
+            return _get_voltage_comparison_figure(pgm_id)
+        if column_id == "u_angle_measured":
+            return _get_voltage_angle_comparison_figure(pgm_id)
+
+    if comp_type == ComponentType.sym_power_sensor and column_id in ("p_measured", "q_measured"):
+        return _get_power_comparison_figure(pgm_id, column_id)
+
+    return None
+
+
 @callback(
     Output("selection-graph", "figure"),
     Output("selection-graph", "style"),
@@ -288,15 +327,9 @@ def cell_selection_graph(
     except (KeyError, TypeError, ValueError):
         return go.Figure(), hidden
 
-    if comp_type == ComponentType.sym_voltage_sensor and column_id == "u_measured":
-        comparison_figure = _get_voltage_comparison_figure(pgm_id)
-        if comparison_figure is not None:
-            return comparison_figure, visible
-
-    if comp_type == ComponentType.sym_power_sensor and column_id in ("p_measured", "q_measured"):
-        comparison_figure = _get_power_comparison_figure(pgm_id, column_id)
-        if comparison_figure is not None:
-            return comparison_figure, visible
+    comparison_figure = _get_selected_measurement_comparison(comp_type, column_id, pgm_id)
+    if comparison_figure is not None:
+        return comparison_figure, visible
 
     # Preserve existing behaviour for other component attributes.
     x_array, y_array = _get_y_data_for_cell_selection(

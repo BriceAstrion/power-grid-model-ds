@@ -113,6 +113,58 @@ def get_symmetric_voltage_comparison(
     )
 
 
+def wrapped_angle_difference(measured: np.ndarray, estimated: np.ndarray) -> np.ndarray:
+    """Return measured minus estimated in radians, wrapped to (-pi, pi]."""
+    measured = np.asarray(measured, dtype=np.float64)
+    estimated = np.asarray(estimated, dtype=np.float64)
+    if measured.shape != estimated.shape:
+        raise ValueError("Measured and estimated angles must have matching shapes")
+    with np.errstate(invalid="ignore"):
+        difference = (measured - estimated + np.pi) % (2 * np.pi) - np.pi
+    return np.where(np.isfinite(difference) & (difference <= -np.pi), np.pi, difference)
+
+
+def get_symmetric_voltage_angle_comparison(
+    grid: Grid,
+    update_data: BatchDataset | None,
+    output_data: BatchDataset | None,
+    sensor_id: int,
+) -> "MeasurementComparison | None":
+    """Align voltage-angle measurements with node angle results (radians).
+
+    No angular sigma is available in the symmetric voltage sensor schema.
+    """
+    sensors = grid.sym_voltage_sensor
+    matches = np.flatnonzero(sensors.id == sensor_id)
+    if matches.size != 1:
+        raise ValueError(f"Expected exactly one voltage sensor with ID {sensor_id}")
+    if output_data is None or ComponentType.node not in output_data:
+        return None
+
+    node_output = output_data[ComponentType.node]
+    if not isinstance(node_output, np.ndarray) or node_output.ndim != DENSE_BATCH_NDIM:
+        return None
+    names = node_output.dtype.names
+    if names is None or not {"id", "u_angle"}.issubset(names):
+        return None
+    field_dtype = node_output.dtype.fields["u_angle"][0]
+    if field_dtype.subdtype is not None:
+        return None
+
+    scenario_count = node_output.shape[0]
+    node_id = int(sensors.measured_object[int(matches[0])])
+    estimated = np.full(scenario_count, np.nan, dtype=np.float64)
+    indices, angles = get_attr_data_from_dataset(output_data, ComponentType.node, "u_angle", node_id)
+    estimated[indices] = angles
+    measured = _get_sensor_series(grid, update_data, sensor_id, "u_angle_measured", scenario_count)
+    return MeasurementComparison(
+        scenario_indices=np.arange(scenario_count, dtype=np.intp),
+        measured=measured,
+        estimated=estimated,
+        sigma=None,
+    )
+
+
 def get_voltage_sigma_bounds(
     comparison: VoltageComparison,
     multiplier: float,
@@ -260,15 +312,14 @@ def get_symmetric_power_comparison(
     source_id = int(sensors.measured_object[sensor_index])
 
     estimated = _get_source_power(output_data, source_id, quantity)
-    scenario_count = len(estimated)
-
     measured = np.full(
-        scenario_count,
+        len(estimated),
         float(getattr(sensors, measurement_attribute)[sensor_index]),
         dtype=np.float64,
     )
+
     sigma = np.full(
-        scenario_count,
+        len(estimated),
         float(getattr(sensors, sigma_attribute)[sensor_index]),
         dtype=np.float64,
     )
@@ -285,7 +336,7 @@ def get_symmetric_power_comparison(
         raise ValueError("Sigma values must be non-negative")
 
     return MeasurementComparison(
-        scenario_indices=np.arange(scenario_count, dtype=np.intp),
+        scenario_indices=np.arange(len(estimated), dtype=np.intp),
         measured=measured,
         estimated=estimated,
         sigma=sigma if np.any(np.isfinite(sigma)) else None,
