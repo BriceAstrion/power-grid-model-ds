@@ -92,14 +92,12 @@ def get_attr_data_from_dataset(
         return scenario_indices, match_data
 
     base_component = getattr(grid, comp_type.value)
-    base_ids = np.asarray(base_component.id)
-    base_matches = np.flatnonzero(base_ids == pgm_id)
+    base_matches = np.flatnonzero(np.asarray(base_component.id) == pgm_id)
 
     if len(base_matches) == 0:
         return scenario_indices, match_data
 
-    base_values = np.asarray(getattr(base_component, attr))
-    base_value = base_values[base_matches[0]]
+    base_value = np.asarray(getattr(base_component, attr))[base_matches[0]]
 
     empty_value = empty(component_data.dtype.fields[attr][0])
 

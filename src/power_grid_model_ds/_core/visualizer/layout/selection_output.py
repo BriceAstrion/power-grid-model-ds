@@ -166,7 +166,7 @@ _SIGMA_GUIDANCE = html.Div(
         html.I(
             className="bi bi-info-circle-fill",
             style=_NOTE_ICON_STYLE,
-            **{"aria-hidden": "true"},
+            **{"aria-hidden": "true"},  # type: ignore[arg-type]
         ),
         html.Span(
             "Sigma bands do not establish result validity.",
@@ -178,7 +178,7 @@ _SIGMA_GUIDANCE = html.Div(
                     id="sigma-guidance-caret",
                     className="bi bi-caret-right-fill",
                     style=_SIGMA_DISCLOSURE_ICON_STYLE,
-                    **{"aria-hidden": "true"},
+                    **{"aria-hidden": "true"},  # type: ignore[arg-type]
                 ),
                 html.Span("Why?"),
             ],
@@ -221,7 +221,7 @@ _SIGMA_ERROR = html.Div(
         html.I(
             className="bi bi-exclamation-circle-fill",
             style=_ERROR_ICON_STYLE,
-            **{"aria-hidden": "true"},
+            **{"aria-hidden": "true"},  # type: ignore[arg-type]
         ),
         html.Span(
             id="sigma-multiplier-error-text",
