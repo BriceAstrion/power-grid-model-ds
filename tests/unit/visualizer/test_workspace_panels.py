@@ -42,6 +42,7 @@ def test_fullscreen_closes_both_panels():
     grid, _, _ = panel_styles(state)
     assert grid["gridTemplateColumns"] == f"0px {CENTER_COLUMN} 0px"
 
+
 def test_fullscreen_restores_previous_visibility():
     state = next_panel_state(DEFAULT_STATE, "workspace-toggle-left")
     state = next_panel_state(state, "workspace-toggle-fullscreen")
