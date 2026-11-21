@@ -116,6 +116,13 @@ def create_measurement_comparison_figure(
             meta["estimated"] = comparison.estimated.tolist()
             meta["sigma"] = sigma.tolist()
 
+        # Preserve the reason the uncertainty diagnostic cannot be shown.
+        # The numerical diagnostic is still calculated only when usable sigma exists.
+        if sigma is None:
+            meta["uncertainty_diagnostic_status"] = "sigma_missing"
+        elif not has_sigma:
+            meta["uncertainty_diagnostic_status"] = "sigma_nonfinite"
+
         layout["meta"] = meta
 
     fig.update_layout(**layout)

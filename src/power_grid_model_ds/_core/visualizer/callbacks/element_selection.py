@@ -600,8 +600,57 @@ def update_uncertainty_diagnostic_graph(figure, graph_style, selected_cell):
         return go.Figure(), {"display": "none"}
 
     try:
-        diagnostic_figure = create_uncertainty_diagnostic_figure(comparison)
+        diagnostic_figure = create_uncertainty_diagnostic_figure(
+            comparison,
+            title=(
+                "Uncertainty-relative discrepancy"
+                f" — {selected_cell['group']} / {selected_cell['column']}"
+                f" / sensor {selected_cell['id']}"
+            ),
+        )
     except ValueError:
         return go.Figure(), {"display": "none"}
 
     return diagnostic_figure, {"display": "block"}
+
+
+_UNCERTAINTY_STATUS_MESSAGES = {
+    "sigma_missing": (
+        "Uncertainty-relative discrepancy is unavailable because measurement uncertainty (sigma) is missing."
+    ),
+    "sigma_nonfinite": (
+        "Uncertainty-relative discrepancy is unavailable because no finite sigma values are available."
+    ),
+}
+
+
+@callback(
+    Output("uncertainty-diagnostic-status", "children"),
+    Output("uncertainty-diagnostic-status", "style"),
+    Input("selection-graph", "figure"),
+    Input("selection-graph", "style"),
+    Input("selected-selection-cell", "data"),
+    prevent_initial_call=True,
+)
+def update_uncertainty_diagnostic_status(figure, graph_style, selected_cell):
+    """Explain why a selected comparison has no uncertainty diagnostic."""
+    hidden = ("", {"display": "none"})
+    if (
+        not isinstance(figure, dict)
+        or not isinstance(graph_style, dict)
+        or graph_style.get("display") == "none"
+        or not isinstance(selected_cell, dict)
+    ):
+        return hidden
+
+    layout = figure.get("layout")
+    if not isinstance(layout, dict):
+        return hidden
+    meta = layout.get("meta")
+    if not isinstance(meta, dict) or not _matches_comparison_selection(meta, selected_cell):
+        return hidden
+
+    message = _UNCERTAINTY_STATUS_MESSAGES.get(meta.get("uncertainty_diagnostic_status"))
+    if message is None:
+        return hidden
+    return message, {"display": "block", "color": "#694100", "marginTop": "8px"}

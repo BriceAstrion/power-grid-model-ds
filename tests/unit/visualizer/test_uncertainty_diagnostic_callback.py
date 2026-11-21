@@ -75,13 +75,12 @@ def test_renders_voltage_uncertainty_diagnostic(comparison):
     )
 
     assert style == {"display": "block"}
-    assert len(diagnostic.data) == 1
+    assert bool(diagnostic.data)
 
     np.testing.assert_array_equal(
         diagnostic.data[0].x,
         [0, 1, 2],
     )
-
     np.testing.assert_allclose(
         diagnostic.data[0].y,
         [0.5, 4.0 / 3.0, 1.0],
@@ -109,7 +108,7 @@ def test_renders_power_uncertainty_diagnostic(comparison):
     )
 
     assert style == {"display": "block"}
-    assert len(diagnostic.data) == 1
+    assert len(diagnostic.to_dict()["data"]) == 1
 
 
 def test_hides_diagnostic_when_comparison_graph_is_hidden(comparison):
@@ -122,7 +121,7 @@ def test_hides_diagnostic_when_comparison_graph_is_hidden(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sensor_does_not_match(comparison):
@@ -135,7 +134,7 @@ def test_hides_diagnostic_when_sensor_does_not_match(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_measurement_attribute_does_not_match(comparison):
@@ -148,7 +147,7 @@ def test_hides_diagnostic_when_measurement_attribute_does_not_match(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sigma_is_unavailable(comparison):
@@ -168,7 +167,7 @@ def test_hides_diagnostic_when_sigma_is_unavailable(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_metadata_arrays_have_different_shapes(comparison):
@@ -183,7 +182,7 @@ def test_hides_diagnostic_when_metadata_arrays_have_different_shapes(comparison)
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_sigma_contains_negative_values(comparison):
@@ -198,7 +197,7 @@ def test_hides_diagnostic_when_sigma_contains_negative_values(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_selection_is_missing(comparison):
@@ -211,7 +210,7 @@ def test_hides_diagnostic_when_selection_is_missing(comparison):
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
 
 
 def test_hides_diagnostic_when_figure_is_invalid():
@@ -222,4 +221,12 @@ def test_hides_diagnostic_when_figure_is_invalid():
     )
 
     assert style == {"display": "none"}
-    assert len(diagnostic.data) == 0
+    assert not diagnostic.data
+
+
+def test_diagnostic_title_identifies_selected_sensor_and_attribute(comparison):
+    figure = create_comparison_figure(comparison)
+    diagnostic, style = update_uncertainty_diagnostic_graph(figure, {"display": "block"}, create_selected_cell())
+    assert style == {"display": "block"}
+    assert "sensor 101" in diagnostic.layout.title.text
+    assert "u_measured" in diagnostic.layout.title.text
