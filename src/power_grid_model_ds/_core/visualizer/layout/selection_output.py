@@ -272,14 +272,14 @@ SELECTION_GRAPH_HTML = html.Div(
             id="selected-selection-cell",
             storage_type="memory",
         ),
+        dcc.Store(id="retained-uncertainty-store", data=[], storage_type="memory"),
         _SIGMA_MULTIPLIER_CONTROL,
-        dcc.Graph(
-            id="selection-graph",
-            style=_HIDDEN_STYLE,
-        ),
-        dcc.Graph(
-            id="uncertainty-diagnostic-graph",
-            style=_HIDDEN_STYLE,
+        html.Div(
+            [
+                dcc.Graph(id="selection-graph", style=_HIDDEN_STYLE),
+                dcc.Graph(id="uncertainty-diagnostic-graph", style=_HIDDEN_STYLE),
+            ],
+            id="active-selection-graphs",
         ),
         html.Div(
             html.Div(
@@ -288,6 +288,31 @@ SELECTION_GRAPH_HTML = html.Div(
                 style=_HIDDEN_STYLE,
             ),
             style={"padding": "0 12px"},
+        ),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.H4("Selected measurement graphs"),
+                        html.Button(
+                            "Clear all",
+                            id="retained-uncertainty-clear",
+                            n_clicks=0,
+                            type="button",
+                            className="btn btn-outline-danger btn-sm",
+                        ),
+                    ],
+                    style={"display": "flex", "justifyContent": "space-between", "alignItems": "center"},
+                ),
+                html.P(
+                    "Saved measurement and uncertainty snapshots from this session. "
+                    "They are not automatically recalculated when underlying data changes.",
+                    style={"fontSize": "13px", "color": "#555"},
+                ),
+                html.Div(id="retained-uncertainty-list"),
+            ],
+            id="retained-uncertainty-section",
+            style=_HIDDEN_STYLE,
         ),
     ],
     style=_SELECTION_GRAPH_CONTAINER_STYLE,
