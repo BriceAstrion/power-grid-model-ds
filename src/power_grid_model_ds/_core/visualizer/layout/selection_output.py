@@ -41,6 +41,8 @@ SELECTION_GRAPH_HTML = html.Div(
             id="selected-selection-cell",
             storage_type="memory",
         ),
+        # Diagnostic removal is independent of F14 measurement retention.
+        dcc.Store(id="retained-uncertainty-hidden", data=[], storage_type="memory"),
         # Explicitly retained graph selections for F14.
         dcc.Store(
             id="retained-graph-selections",
@@ -262,17 +264,23 @@ SELECTION_GRAPH_HTML = html.Div(
             id="retained-graphs-section",
             style={"marginTop": "15px"},
         ),
-        dcc.Graph(
-            id="uncertainty-diagnostic-graph",
-            style={"display": "none"},
-        ),
         html.Div(
-            html.Div(
-                id="uncertainty-diagnostic-status",
-                role="status",
-                style={"display": "none"},
-            ),
-            style={"padding": "0 12px"},
+            [
+                dcc.Graph(
+                    id="uncertainty-diagnostic-graph",
+                    style={"display": "none"},
+                ),
+                html.Div(
+                    html.Div(
+                        id="uncertainty-diagnostic-status",
+                        role="status",
+                        style={"display": "none"},
+                    ),
+                    style={"padding": "0 12px"},
+                ),
+            ],
+            id="active-uncertainty-diagnostic-container",
+            style={"display": "none"},
         ),
     ],
     style={"margin": "10px"},

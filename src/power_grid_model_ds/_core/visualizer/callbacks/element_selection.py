@@ -12,7 +12,18 @@ from dash.exceptions import PreventUpdate
 from power_grid_model import ComponentType
 
 from power_grid_model_ds._core.model.grids.base import Grid
-from power_grid_model_ds._core.visualizer.callbacks import uncertainty_callbacks
+from power_grid_model_ds._core.visualizer.callbacks import (
+    retained_uncertainty_integration,
+    standalone_uncertainty_retention,
+    uncertainty_callbacks,
+)
+
+# Compatibility exports for the standalone F15 retention tests.
+# The integrated application uses retained_uncertainty_integration for its UI.
+from power_grid_model_ds._core.visualizer.callbacks.standalone_uncertainty_retention import (
+    _measurement_identity as measurement_identity_compat,
+    _update_retained_measurements as update_retained_measurements_compat,
+)
 from power_grid_model_ds._core.visualizer.comparison_plot import (
     ComparisonPlotOptions,
     create_measurement_comparison_figure,
@@ -44,6 +55,11 @@ from power_grid_model_ds._core.visualizer.scenario_selection import (
 from power_grid_model_ds._core.visualizer.server_state import get_grid, get_output_data, get_update_data
 from power_grid_model_ds.arrays import IdArray
 
+_measurement_identity = measurement_identity_compat
+_update_retained_measurements = update_retained_measurements_compat
+hide_active_graphs_when_retained = standalone_uncertainty_retention.hide_active_graphs_when_retained
+render_retained_uncertainty_diagnostics = standalone_uncertainty_retention.render_retained_uncertainty_diagnostics
+
 # Preserve the existing imports used by callers and unit tests after moving
 # the callback implementations to uncertainty_callbacks.py.
 update_uncertainty_diagnostic_graph = uncertainty_callbacks.update_uncertainty_diagnostic_graph
@@ -56,8 +72,6 @@ _FILTER_ICON = "data:image/svg+xml," + quote(
     '<path d="M3 6H21 M7 12H17 M10 18H14"/></svg>'
 )
 _BORDER_STYLE = "1px solid #dee2e6"
-
-
 _OPERATORS = [
     {"label": "Equals (=)", "value": "="},
     {"label": "Not equal (!=)", "value": "!="},
@@ -66,11 +80,9 @@ _OPERATORS = [
     {"label": "Contains", "value": "contains"},
 ]
 
-
 OUTPUT_PREFIX = "output__"
 SCALAR_ARRAY_DIMENSIONS = 2
 PHASE_COLORS = ("red", "green", "blue")
-
 BATCH_DIMENSIONS = DENSE_BATCH_NDIM
 
 
@@ -230,12 +242,13 @@ def _create_voltage_comparison_figure(
     Input({"type": "attribute-plot", "group": ALL, "attribute": ALL, "pgm_id": ALL}, "n_clicks"),
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
+    Input("clear-retained-graphs", "n_clicks"),
     prevent_initial_call=True,
 )
-def store_selected_cell(_clicks, _node_data, _edge_data):
+def store_selected_cell(_clicks, _node_data, _edge_data, _clear_clicks=None):
     """Capture existing inspector button clicks and clear temporary selection on network changes."""
     triggered_id = callback_context.triggered_id
-    if triggered_id == "cytoscape-graph":
+    if triggered_id in ("cytoscape-graph", "clear-retained-graphs"):
         return None
     if not isinstance(triggered_id, dict) or triggered_id.get("type") != "attribute-plot":
         return no_update
@@ -808,8 +821,9 @@ def _create_attribute_graph(comp_type: ComponentType, component_id: int, column:
     Output("retained-graphs-container", "children"),
     Input("retained-graph-selections", "data"),
     Input("sigma-multiplier", "value"),
+    Input("retained-uncertainty-hidden", "data"),
 )
-def render_retained_graphs(retained_selections, sigma_multiplier):
+def render_retained_graphs(retained_selections, sigma_multiplier, hidden_diagnostics=None):
     """Render retained selections independently of Cytoscape selection."""
     if not retained_selections:
         return []
@@ -822,23 +836,32 @@ def render_retained_graphs(retained_selections, sigma_multiplier):
         component_id = selection.get("id")
         if not isinstance(component_id, int) or isinstance(component_id, bool):
             continue
-        cards.append(_render_retained_graph_card(index, selection, sigma_multiplier))
+        cards.append(_render_retained_graph_card(index, selection, sigma_multiplier, hidden_diagnostics))
     return cards
 
 
-def _render_retained_graph_card(index, selection, sigma_multiplier):
+def _render_retained_graph_card(index, selection, sigma_multiplier, hidden_diagnostics=None):
     """Create a retained graph card with a working Remove button."""
-    group, component_id, column = selection["group"], selection["id"], selection["column"]
+    group, column = selection["group"], selection["column"]
     figure, graph_style, _ = cell_selection_graph(selection, sigma_multiplier)
-    title = f"{group} | ID {component_id} | {column}"
+    diagnostic_content = retained_uncertainty_integration.render_diagnostic(
+        figure, graph_style, selection, hidden_diagnostics
+    )
+    title = f"{group} | ID {selection['id']} | {column}"
+    remove_label = (
+        "Remove measurement + uncertainty"
+        if any(isinstance(item, dcc.Graph) for item in diagnostic_content)
+        else "Remove"
+    )
     if graph_style.get("display") == "none":
-        content = html.P("Graph data unavailable for this selection or the current sigma multiplier is invalid.")
+        content = html.P(
+            "Graph data unavailable for this selection or the current sigma multiplier is invalid.",
+        )
     else:
         content = dcc.Graph(figure=figure, config={"displaylogo": False})
     scenario_range = "Scenario range unavailable"
     if figure.data and figure.data[0].x is not None and len(figure.data[0].x) > 0:
-        values = figure.data[0].x
-        scenario_range = f"Scenario indices: {values[0]} to {values[-1]}"
+        scenario_range = f"Scenario indices: {figure.data[0].x[0]} to {figure.data[0].x[-1]}"
     voltage = (
         group == ComponentType.sym_voltage_sensor.value
         and column == "u_measured"
@@ -857,7 +880,7 @@ def _render_retained_graph_card(index, selection, sigma_multiplier):
                                 className="fa-solid fa-xmark",
                                 style={"marginRight": "8px"},
                             ),
-                            "Remove",
+                            remove_label,
                         ],
                         id={"type": "remove-retained-graph", "index": index},
                         n_clicks=0,
@@ -870,8 +893,22 @@ def _render_retained_graph_card(index, selection, sigma_multiplier):
             ),
             html.P(f"{unit_label} | {scenario_range}"),
             content,
+            html.Div(
+                diagnostic_content,
+                id={
+                    "type": "retained-uncertainty-content",
+                    "key": retained_uncertainty_integration.measurement_key(selection),
+                },
+            )
+            if diagnostic_content
+            else html.Div(style={"display": "none"}),
         ],
-        style={"border": "1px solid #dddddd", "borderRadius": "6px", "padding": "12px", "marginBottom": "15px"},
+        style={
+            "border": "1px solid #dddddd",
+            "borderRadius": "6px",
+            "padding": "12px",
+            "marginBottom": "15px",
+        },
     )
 
 
@@ -945,3 +982,13 @@ def _get_y_data_for_cell_selection(
         return get_attr_data_from_dataset(dataset, comp_type, attr, pgm_id, grid=get_grid() if is_update else None)
 
     return None, None
+
+
+@callback(
+    Output("active-uncertainty-diagnostic-container", "style"),
+    Input("selected-selection-cell", "data"),
+    Input("retained-graph-selections", "data"),
+)
+def hide_duplicate_active_uncertainty(_selected_cell, _retained_selections):
+    """Use F14 as the only visible graph workspace, including F15 diagnostics."""
+    return {"display": "none"}

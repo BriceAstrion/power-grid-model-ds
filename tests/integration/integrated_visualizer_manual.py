@@ -477,7 +477,7 @@ QUANTITY_CHECKS = (
 )
 SCENARIO_CHECKS = (
     "Scenario selection: switch 1, 2, 4, then 1; verify selected scenario and network values.",
-    "Timestamp selection: where timestamps are provided, verify each displayed time maps to the correct scenario.",
+    "Timestamp selection: only in cases with supplied timestamps, verify displayed time maps to the correct scenario.",
     "Scenario selection: repeated changes must not retain obsolete heatmap colors or legends.",
 )
 TOPOLOGY_CHECKS = (
@@ -524,7 +524,55 @@ DIAGNOSTIC_CHECKS = (
         "tracks the intended selection."
     ),
     "F15: Select a non-comparison attribute and check that stale diagnostic content is cleared or hidden.",
+    "F15: Confirm a retained diagnostic is labeled with the correct sensor ID and measured attribute.",
+    "F15: Change the sigma-band multiplier; confirm the normalized discrepancy is not silently rescaled.",
 )
+# The unified F14/F15 workspace has independent diagnostic and measurement removal.
+# These checks require both voltage and power sensors; use the integrated or
+# combined-comparison case, not a single-sensor fixture.
+INTEGRATED_RETENTION_CHECKS = (
+    (
+        "F14/F15: Retain voltage sensor 910001 u_measured and power sensor 910003 p_measured; expect "
+        "two distinct cards, each with its comparison and diagnostic when available."
+    ),
+    (
+        "F14/F15: Retain q_measured for sensor 910003 as well; p_measured and q_measured must be "
+        "distinct retained selections."
+    ),
+    (
+        "F14/F15: Remove only the p_measured diagnostic; its measurement comparison and the other "
+        "retained cards must remain."
+    ),
+    (
+        "F14/F15: Re-select p_measured; verify whether its diagnostic is restored without duplicating "
+        "its measurement card."
+    ),
+    (
+        "F14/F15: Remove the voltage measurement card; its diagnostic must disappear while both power "
+        "measurement cards remain."
+    ),
+    (
+        "F14/F15: Change selected component and scenario; retained cards and their sensor/attribute "
+        "labels must remain correct."
+    ),
+    (
+        "F14/F15: Clear all retained graphs; no retained comparison or diagnostic may remain. Re-select "
+        "a measurement and confirm recovery."
+    ),
+    (
+        "F14/F15: Inspect browser console and Dash terminal for duplicate-output, missing-component, or "
+        "callback errors after removals."
+    ),
+)
+
+# For this fixture, the known normalized discrepancies are calculated directly
+# from the illustrative measurement, estimate and sigma arrays.
+INTEGRATED_DIAGNOSTIC_VALUES = (
+    "F15 voltage 910001 u_measured: normalized discrepancy [0.5,0.5,0.6666667,0.5] across scenarios 0-3.",
+    "F15 power 910003 p_measured: normalized discrepancy [0.2,0.4,0.3333333,0.2] across scenarios 0-3.",
+    "F15 power 910003 q_measured: normalized discrepancy [0.5,0.5,0.6666667,0.5] across scenarios 0-3.",
+)
+
 SYMBOL_CHECKS = (
     "Symbols: symmetric generator 920001 and asymmetric generator 920002 appear above their nodes.",
     "Symbols: symmetric load 920003 and asymmetric load 920004 appear to the right of their nodes.",
@@ -532,12 +580,6 @@ SYMBOL_CHECKS = (
     "Symbols: drag connected nodes and check symbol/connector alignment and electrical connections.",
     "Symbols: toggle appliance visibility and confirm originals/visual symbols behave consistently.",
     "Symbols: select components and confirm data/graphs refer to electrical elements, not visual-only nodes.",
-)
-FEEDER_CHECKS = (
-    "F13: Inspect the aggregated agreement overview and its counts/status categories, if shown.",
-    "F13: Compare displayed counts with actual input records; do not infer an agreement score.",
-    "F13: Verify feeder-specific agreement only if the fixture contains identifiable feeder assignments.",
-    "F13: If required feeder evidence is absent, mark feeder-specific assertions NOT TESTED.",
 )
 EDGE_CHECKS = (
     "Missing/unsupported data: do not display fabricated numerical values or misleading validity claims.",
@@ -566,7 +608,14 @@ CASES = {
     "integrated": ManualCase(
         "integrated",
         "Four-scenario integration: electrical quantities, topology, timestamps, sensors, symbols and workspace.",
-        _unique_checks(COMMON_CHECKS, TOPOLOGY_CHECKS, COMPARISON_CHECKS, SYMBOL_CHECKS, FEEDER_CHECKS),
+        _unique_checks(
+            COMMON_CHECKS,
+            TOPOLOGY_CHECKS,
+            COMPARISON_CHECKS,
+            INTEGRATED_DIAGNOSTIC_VALUES,
+            INTEGRATED_RETENTION_CHECKS,
+            SYMBOL_CHECKS,
+        ),
         _case_integrated,
     ),
     "scalar": ManualCase(
@@ -642,7 +691,7 @@ CASES = {
     "combined-comparison": ManualCase(
         "combined-comparison",
         "Voltage and source-terminal active/reactive power in one session.",
-        _unique_checks(COMPARISON_CHECKS, WORKSPACE_CHECKS),
+        _unique_checks(COMPARISON_CHECKS, INTEGRATED_DIAGNOSTIC_VALUES, INTEGRATED_RETENTION_CHECKS, WORKSPACE_CHECKS),
         _case_combined_comparison,
     ),
     "missing-sigma": ManualCase(
@@ -717,6 +766,37 @@ def _validate_fixture(case_name, grid, updates, output):
         lines = updates[ComponentType.line]
         np.testing.assert_array_equal(lines["from_status"][:, 0], [1, 0, 1, 1])
         np.testing.assert_array_equal(lines["from_status"][:, 1], [1, 1, 1, 0])
+    if case_name in {"integrated", "combined-comparison"}:
+        voltage = updates[ComponentType.sym_voltage_sensor]
+        power = updates[ComponentType.sym_power_sensor]
+        node = output[ComponentType.node]
+        source = output[ComponentType.source]
+        voltage_id = int(grid.node.id[0])
+        voltage_column = np.flatnonzero(node["id"][0] == voltage_id)
+        source_column = np.flatnonzero(source["id"][0] == 910002)
+        if len(voltage_column) != 1 or len(source_column) != 1:
+            raise AssertionError(f"{case_name}: expected exactly one measured node and source")
+        for measured, estimated, sigma, expected in (
+            (
+                voltage["u_measured"][:, 0],
+                node["u"][:, voltage_column[0]],
+                voltage["u_sigma"][:, 0],
+                [0.5, 0.5, 2 / 3, 0.5],
+            ),
+            (
+                power["p_measured"][:, 0],
+                source["p"][:, source_column[0]],
+                power["p_sigma"][:, 0],
+                [0.2, 0.4, 1 / 3, 0.2],
+            ),
+            (
+                power["q_measured"][:, 0],
+                source["q"][:, source_column[0]],
+                power["q_sigma"][:, 0],
+                [0.5, 0.5, 2 / 3, 0.5],
+            ),
+        ):
+            np.testing.assert_allclose(np.abs(measured - estimated) / sigma, expected, rtol=0, atol=1e-10)
     if case_name == "uncertainty-fluctuation":
         if output is None:
             raise AssertionError(f"{case_name}: missing output data")

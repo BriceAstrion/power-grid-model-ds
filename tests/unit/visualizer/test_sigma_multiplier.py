@@ -204,7 +204,7 @@ def test_non_comparison_selection_hides_controls(monkeypatch):
 def test_retained_voltage_graph_responds_to_multiplier(voltage_data):
     cards = element_selection.render_retained_graphs([voltage_data], 4)
     assert len(cards) == 1
-    graph = cards[0].children[-1]
+    graph = cards[0].children[2]
     assert isinstance(graph, dcc.Graph)
     np.testing.assert_allclose(graph.figure.data[0].y, [222, 223, 222])
 
@@ -212,7 +212,7 @@ def test_retained_voltage_graph_responds_to_multiplier(voltage_data):
 def test_retained_power_graph_responds_to_multiplier(power_data):
     cards = element_selection.render_retained_graphs([power_data], 4)
     assert len(cards) == 1
-    graph = cards[0].children[-1]
+    graph = cards[0].children[2]
     assert isinstance(graph, dcc.Graph)
     np.testing.assert_allclose(graph.figure.data[0].y, [2, 2])
 
