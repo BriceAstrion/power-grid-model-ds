@@ -16,6 +16,7 @@ from power_grid_model_ds._core.visualizer.grid_utils import get_attr_data_from_d
 from power_grid_model_ds.arrays import SymVoltageSensorArray
 
 DENSE_BATCH_NDIM = 2
+PHASED_MEASUREMENT_NDIM = 2
 
 
 @dataclass(frozen=True)
@@ -404,3 +405,155 @@ def calculate_sigma_bands(
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Calculate voltage bands using the existing integrated API."""
     return get_voltage_sigma_bounds(comparison, multiplier)
+
+
+# Generic sensor metadata adapted from Nitish Bharambe's cleanup proposal.
+# These mappings describe possible output associations; a mapping alone does
+# not imply that the visualiser can render the corresponding measurement.
+_BRANCH_COMPONENT_TYPES = (
+    ComponentType.line,
+    ComponentType.asym_line,
+    ComponentType.link,
+    ComponentType.generic_branch,
+    ComponentType.transformer,
+)
+
+_FLOW_SENSOR_TERMINAL_COMPONENT_TYPES: dict[MeasuredTerminalType, tuple[ComponentType, ...]] = {
+    MeasuredTerminalType.branch_from: _BRANCH_COMPONENT_TYPES,
+    MeasuredTerminalType.branch_to: _BRANCH_COMPONENT_TYPES,
+    MeasuredTerminalType.branch3_1: (ComponentType.three_winding_transformer,),
+    MeasuredTerminalType.branch3_2: (ComponentType.three_winding_transformer,),
+    MeasuredTerminalType.branch3_3: (ComponentType.three_winding_transformer,),
+    MeasuredTerminalType.source: (ComponentType.source,),
+    MeasuredTerminalType.shunt: (ComponentType.shunt,),
+    MeasuredTerminalType.load: (ComponentType.sym_load, ComponentType.asym_load),
+    MeasuredTerminalType.generator: (ComponentType.sym_gen, ComponentType.asym_gen),
+}
+
+_FLOW_SENSOR_OUTPUT_ATTRIBUTES: dict[str, dict[MeasuredTerminalType, str]] = {
+    measured: {
+        MeasuredTerminalType.branch_from: f"{quantity}_from",
+        MeasuredTerminalType.branch_to: f"{quantity}_to",
+        MeasuredTerminalType.branch3_1: f"{quantity}_1",
+        MeasuredTerminalType.branch3_2: f"{quantity}_2",
+        MeasuredTerminalType.branch3_3: f"{quantity}_3",
+        MeasuredTerminalType.source: quantity,
+        MeasuredTerminalType.shunt: quantity,
+        MeasuredTerminalType.load: quantity,
+        MeasuredTerminalType.generator: quantity,
+    }
+    for measured, quantity in (
+        ("p_measured", "p"),
+        ("q_measured", "q"),
+        ("i_measured", "i"),
+    )
+}
+
+_SIGMA_ATTRIBUTES = {
+    "u_measured": "u_sigma",
+    "p_measured": "p_sigma",
+    "q_measured": "q_sigma",
+    "i_measured": "i_sigma",
+}
+
+
+def get_associated_sensor_data(
+    grid: Grid, sensor_type: ComponentType, sensor_id: int, measured_attr: str
+) -> tuple[ComponentType, str, int]:
+    """Resolve a sensor's measured object to an output component and field.
+
+    This is a lookup only. The output schema and phase dimensionality must be
+    validated separately before constructing a comparison.
+    """
+    if measured_attr not in _SIGMA_ATTRIBUTES:
+        raise ValueError(f"Unsupported measured attribute: {measured_attr}")
+    if sensor_type not in (
+        ComponentType.sym_voltage_sensor,
+        ComponentType.asym_voltage_sensor,
+        ComponentType.sym_power_sensor,
+        ComponentType.asym_power_sensor,
+        ComponentType.sym_current_sensor,
+        ComponentType.asym_current_sensor,
+    ):
+        raise ValueError(f"Unsupported sensor type: {sensor_type}")
+
+    sensor_array = getattr(grid, sensor_type.value)
+    matches = np.flatnonzero(sensor_array.id == sensor_id)
+    if matches.size != 1:
+        raise ValueError(f"Expected exactly one {sensor_type.value} with ID {sensor_id}")
+    sensor_index = int(matches[0])
+    component_id = int(sensor_array.measured_object[sensor_index])
+
+    if sensor_type in (ComponentType.sym_voltage_sensor, ComponentType.asym_voltage_sensor):
+        if measured_attr != "u_measured":
+            raise ValueError("Voltage sensors require 'u_measured'")
+        return ComponentType.node, "u", component_id
+
+    terminal = MeasuredTerminalType(int(sensor_array.measured_terminal_type[sensor_index]))
+    candidates = _FLOW_SENSOR_TERMINAL_COMPONENT_TYPES.get(terminal)
+    attributes = _FLOW_SENSOR_OUTPUT_ATTRIBUTES.get(measured_attr)
+    if candidates is None or attributes is None or terminal not in attributes:
+        raise ValueError(f"Unsupported terminal/attribute combination: {terminal}, {measured_attr}")
+    for candidate in candidates:
+        # Not every grid contains every possible component type.
+        component_array = getattr(grid, candidate.value, None)
+        if component_array is None:
+            continue
+        if np.any(component_array.id == component_id):
+            return candidate, attributes[terminal], component_id
+    raise ValueError(f"Measured component ID {component_id} was not found")
+
+
+def get_sensor_comparison(  # noqa: PLR0913, PLR0917  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    grid: Grid,
+    sensor_type: ComponentType,
+    sensor_id: int,
+    measured_attr: str,
+    update_data: BatchDataset | None,
+    output_data: BatchDataset,
+) -> MeasurementComparison:
+    """Compatibility-first generic entry point for supported scalar sensors.
+
+    Existing voltage and source-terminal power preparation preserves the full
+    output scenario axis, including absent estimates. Other sensor kinds are
+    deliberately rejected until their data and plotting contracts are tested.
+    """
+    if sensor_type == ComponentType.sym_voltage_sensor and measured_attr == "u_measured":
+        voltage = get_symmetric_voltage_comparison(grid, update_data, output_data, sensor_id)
+        return MeasurementComparison(
+            scenario_indices=voltage.scenario_indices,
+            measured=voltage.measured,
+            estimated=voltage.estimated,
+            sigma=voltage.sigma,
+        )
+    if sensor_type == ComponentType.sym_power_sensor and measured_attr in ("p_measured", "q_measured"):
+        return get_symmetric_power_comparison(grid, update_data, output_data, sensor_id, measured_attr)
+    raise NotImplementedError(
+        f"Comparison of {sensor_type.value}.{measured_attr} requires validated phase and output support"
+    )
+
+
+def get_sigma_bounds(
+    comparison: MeasurementComparison | VoltageComparison, multiplier: float
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Return measurement-centred bounds, including valid phase broadcasting.
+
+    The existing plotting API remains one-dimensional; this function also
+    handles (N, phases) measured arrays with (N,) or (N, phases) sigma.
+    """
+    if not np.isfinite(multiplier) or multiplier < 0:
+        raise ValueError("Sigma multiplier must be finite and non-negative")
+    if comparison.sigma is None:
+        raise ValueError("Measurement sigma is required to calculate bounds")
+    measured = np.asarray(comparison.measured, dtype=np.float64)
+    sigma = np.asarray(comparison.sigma, dtype=np.float64)
+    if np.any(np.isfinite(sigma) & (sigma < 0)):
+        raise ValueError("Sigma values must be non-negative")
+    if measured.ndim == PHASED_MEASUREMENT_NDIM and sigma.ndim == 1:
+        if sigma.shape[0] != measured.shape[0]:
+            raise ValueError("Sigma and measurement scenario counts differ")
+        sigma = sigma[:, np.newaxis]
+    elif sigma.shape != measured.shape:
+        raise ValueError("Sigma shape does not match measured data")
+    sigma = np.where(np.isfinite(sigma), sigma, np.nan)
+    return measured - multiplier * sigma, measured + multiplier * sigma
