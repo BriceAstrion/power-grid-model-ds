@@ -35,12 +35,16 @@ def visualize_f01_scalar_heatmap() -> None:
         array = initialize_array(DatasetType.sym_output, component, (scenario_count, len(component_ids)))
         array["id"] = np.broadcast_to(component_ids, (scenario_count, len(component_ids)))
         # Fill only floating-point scalar fields. Other fields retain library defaults.
-        for field in array.dtype.names or ():
-            field_dtype = array.dtype.fields[field][0]
+        fields = array.dtype.fields
+        assert fields is not None
+        for field, field_info in fields.items():
+            field_dtype = field_info[0]
             if field != "id" and field_dtype.subdtype is None and field_dtype.kind == "f":
                 array[field] = np.array(
-                    [[float((scenario + 1) * 10 + index + 1) for index in range(len(component_ids))]
-                     for scenario in range(scenario_count)],
+                    [
+                        [float((scenario + 1) * 10 + index + 1) for index in range(len(component_ids))]
+                        for scenario in range(scenario_count)
+                    ],
                     dtype=float,
                 )
         output_data[component] = array
@@ -50,7 +54,7 @@ def visualize_f01_scalar_heatmap() -> None:
     print("F01 available attributes:", available, flush=True)
     if not available:
         raise RuntimeError("Fixture unexpectedly contains no eligible scalar output attributes")
-    print("F01: select Component, Attribute and scenario 1–4 in the browser", flush=True)
+    print("F01: select Component, Attribute and scenario 1-4 in the browser", flush=True)
     print("F01: verify legend, colours, scenario switching, and component switching", flush=True)
     print("F01: values are illustrative, not calculated electrical results", flush=True)
     visualize(grid=grid, output_data=output_data, debug=True)

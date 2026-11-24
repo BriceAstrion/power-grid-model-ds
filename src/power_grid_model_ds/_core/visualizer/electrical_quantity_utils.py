@@ -16,44 +16,16 @@ BATCH_ARRAY_NDIM = 2
 def get_scenario_count(
     output_data: Mapping[ComponentType, DenseBatchArray] | None,
 ) -> int:
-    """Return the number of scenarios in a dense batch output dataset.
-
-    All component arrays must have the same scenario count.
-    """
+    """Return the number of scenarios in a dense batch output dataset."""
     if not output_data:
         return 0
 
-    scenario_counts = set()
-
-    for component_array in output_data.values():
-        scenario_counts.add(component_array.shape[0])
+    scenario_counts = {array.shape[0] for array in output_data.values()}
 
     if len(scenario_counts) != 1:
         raise ValueError("Output component arrays have inconsistent scenario counts.")
 
     return scenario_counts.pop()
-
-
-def get_available_node_quantities(
-    output_data: Mapping[ComponentType, DenseBatchArray] | None,
-) -> set[str]:
-    """Return supported node quantities present in the batch output."""
-    if not output_data or ComponentType.node not in output_data:
-        return set()
-
-    node_output = output_data[ComponentType.node]
-
-    if node_output.shape[0] == 0:
-        return set()
-
-    field_names = node_output.dtype.names
-
-    if field_names is None or "id" not in field_names:
-        return set()
-
-    supported_quantities = {"u_pu", "u_angle"}
-
-    return supported_quantities.intersection(field_names)
 
 
 def get_available_scalar_attributes(
@@ -68,18 +40,26 @@ def get_available_scalar_attributes(
         return {}
 
     available: dict[str, list[str]] = {}
+
     for component, array in output_data.items():
-        if array.shape[0] == 0 or not array.dtype.names or "id" not in array.dtype.names:
+        if array.shape[0] == 0:
             continue
+
+        fields = array.dtype.fields
+        if fields is None:
+            raise ValueError("Expected a structured output array.")
+
         attributes = [
             field
-            for field in array.dtype.names
+            for field, field_info in fields.items()
             if field not in {"id", "energized", "status"}
-            and array.dtype.fields[field][0].subdtype is None
-            and array.dtype.fields[field][0].kind == "f"
+            and field_info[0].subdtype is None
+            and field_info[0].kind == "f"
         ]
+
         if attributes:
             available[component.value] = attributes
+
     return available
 
 
@@ -92,13 +72,13 @@ def extract_scenario_values(
 ) -> dict[int, float]:
     """Extract finite electrical values by component ID for one scenario.
 
-    Missing components, invalid values, and non-finite values are excluded.
+    Missing components and non-finite values are excluded.
     Three-phase attributes require an explicit phase index.
 
     Raises:
         IndexError: If the scenario or phase index is out of range.
-        ValueError: If the dataset structure is invalid or a phase
-            selection is incompatible with the requested attribute.
+        ValueError: If component IDs are duplicated or phase selection
+            is incompatible with the requested attribute.
     """
     scenario_count = get_scenario_count(output_data)
 
@@ -111,9 +91,12 @@ def extract_scenario_values(
         return {}
 
     component_array = output_data[component_type]
-    field_names = component_array.dtype.names
 
-    if field_names is None or "id" not in field_names or attribute not in field_names:
+    fields = component_array.dtype.fields
+    if fields is None:
+        raise ValueError("Expected a structured output array.")
+
+    if attribute not in fields:
         return {}
 
     scenario_data = component_array[scenario_index]
@@ -136,10 +119,9 @@ def extract_scenario_values(
     else:
         raise ValueError(f"Unsupported shape for attribute '{attribute}'.")
 
-    result: dict[int, float] = {}
     seen_ids: set[int] = set()
 
-    for raw_component_id, value in zip(ids, values, strict=True):
+    for raw_component_id in ids:
         component_id = int(raw_component_id)
 
         if component_id in seen_ids:
@@ -147,9 +129,13 @@ def extract_scenario_values(
 
         seen_ids.add(component_id)
 
-        if not np.isfinite(value):
-            continue
+    finite_mask = np.isfinite(values)
 
-        result[component_id] = float(value)
-
-    return result
+    return {
+        int(component_id): float(value)
+        for component_id, value in zip(
+            ids[finite_mask],
+            values[finite_mask],
+            strict=True,
+        )
+    }

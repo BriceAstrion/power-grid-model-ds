@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
+from typing import Any, cast
+
 from dash import dcc, html
 from power_grid_model import ComponentType
 
@@ -13,10 +15,8 @@ from power_grid_model_ds._core.visualizer.callbacks import (  # noqa: F401  # py
     header,
     search_form,
 )
-from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
-    get_available_scalar_attributes,
-    get_scenario_count,
-)
+from power_grid_model_ds._core.visualizer.electrical_quantity_utils import get_scenario_count
+from power_grid_model_ds._core.visualizer.electrical_uncertainty import get_available_electrical_quantities
 from power_grid_model_ds._core.visualizer.layout.cytoscape_html import get_cytoscape_html
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import DEFAULT_STYLESHEET
 from power_grid_model_ds._core.visualizer.layout.header import HEADER_HTML
@@ -102,7 +102,11 @@ def _get_electrical_quantity_controls(
                         html.Div(className="electrical-scenario-callout-arrow"),
                         html.Div(
                             [
-                                html.Span("!", className="electrical-scenario-warning-icon", **{"aria-hidden": "true"}),
+                                html.Span(
+                                    "!",
+                                    className="electrical-scenario-warning-icon",
+                                    **cast(dict[str, Any], {"aria-hidden": "true"}),
+                                ),
                                 html.Div(
                                     [
                                         html.Strong("Invalid scenario", className="electrical-scenario-warning-title"),
@@ -138,11 +142,11 @@ def _get_electrical_quantity_controls(
                 id="electrical-quantity-legend",
                 className="electrical-quantity-legend",
                 role="status",
-                **{"aria-live": "polite"},
+                **cast(dict[str, Any], {"aria-live": "polite"}),
             ),
         ],
         className="electrical-quantity-panel",
-        **{"aria-label": "Electrical quantity configuration"},
+        **cast(dict[str, Any], {"aria-label": "Electrical quantity configuration"}),
     )
 
 
@@ -163,7 +167,7 @@ def get_app_layout(grid: Grid) -> html.Div:
     output_data = server_state.get_output_data()
 
     scenario_count = get_scenario_count(output_data)
-    available_attributes = get_available_scalar_attributes(output_data)
+    available_attributes = get_available_electrical_quantities(output_data)
 
     electrical_controls = _get_electrical_quantity_controls(
         scenario_count,
