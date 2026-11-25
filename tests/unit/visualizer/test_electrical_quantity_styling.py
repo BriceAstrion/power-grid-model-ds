@@ -98,7 +98,13 @@ def test_topology_and_classes_are_preserved():
 
     assert updated[0]["data"]["source"] == "1"
     assert updated[0]["data"]["target"] == "2"
-    assert updated[0]["classes"] == "branch"
+    assert updated[0]["data"]["id"] == elements[0]["data"]["id"]
+    assert updated[0]["data"]["associated_ids"] == elements[0]["data"]["associated_ids"]
+    assert set(updated[0]["classes"].split()) == {
+        "branch",
+        "electrical-heatmap",
+    }
+    assert elements[0]["classes"] == "branch"
 
 
 def test_multiple_associated_values_are_rejected():
@@ -200,41 +206,72 @@ def test_missing_value_does_not_change_colour_range():
 
 def test_clearing_electrical_colors_restores_original_data():
     original = [_node(1), _node(2)]
-
-    colored, _ = apply_electrical_colors(
-        original,
-        "node",
-        {1: 0.95, 2: 1.05},
-    )
-
-    restored = clear_electrical_colors(colored)
-
-    for original_node, restored_node in zip(original, restored, strict=True):
-        assert restored_node["data"]["id"] == original_node["data"]["id"]
-        assert restored_node["data"]["associated_ids"] == original_node["data"]["associated_ids"]
-        assert restored_node["classes"] == original_node["classes"]
-        assert restored_node["data"]["electrical_color"] == "#facc37"
-        assert "electrical_value" not in restored_node["data"]
+    colored, _ = apply_electrical_colors(original, "node", {1: 0.95, 2: 1.05})
+    assert clear_electrical_colors(colored) == original
 
 
 def test_clearing_colors_preserves_topology():
     original = [_node(1), _line(10)]
+    for group, values in [("node", {1: 1.0}), ("line", {10: 80.0})]:
+        colored, _ = apply_electrical_colors(original, group, values)
+        assert clear_electrical_colors(colored) == original
 
-    colored, _ = apply_electrical_colors(
-        original,
-        "node",
-        {1: 1.0},
-    )
 
-    restored = clear_electrical_colors(colored)
+@pytest.mark.parametrize(
+    "group",
+    [
+        "sym_voltage_sensor",
+        "asym_voltage_sensor",
+        "sym_power_sensor",
+        "asym_power_sensor",
+        "sym_current_sensor",
+        "asym_current_sensor",
+    ],
+)
+def test_sensor_association_mapping(group):
+    elements = [_node(1), _node(2), _node(3)]
+    elements[0]["data"]["associated_ids"][group] = [403]
+    elements[1]["data"]["associated_ids"][group] = [404]
+    original = deepcopy(elements)
+    updated, summary = apply_electrical_colors(elements, group, {403: -12.0})
+    assert updated[0]["data"]["electrical_value"] == -12.0
+    assert updated[1]["data"]["electrical_color"] == MISSING_COLOR
+    assert "electrical_value" not in updated[1]["data"]
+    assert updated[2] == elements[2]
+    assert summary == {"minimum": -12.0, "maximum": -12.0, "missing_count": 1}
+    assert elements == original
+    assert clear_electrical_colors(updated) == original
 
-    assert len(restored) == len(original)
 
-    for original_element, restored_element in zip(original, restored, strict=True):
-        assert restored_element["data"]["id"] == original_element["data"]["id"]
-        assert restored_element["data"]["associated_ids"] == original_element["data"]["associated_ids"]
-        assert restored_element["classes"] == original_element["classes"]
+@pytest.mark.parametrize("ids", [[403, 404, 405], [405, 404, 403]])
+def test_multiple_sensor_values_preserve_largest_signed_residual(ids):
+    element = _node(1)
+    element["data"]["associated_ids"]["sym_voltage_sensor"] = ids
+    updated, summary = apply_electrical_colors([element], "sym_voltage_sensor", {403: -35.0, 404: 35.0, 405: 12.0})
+    assert updated[0]["data"]["electrical_value"] == -35.0
+    assert summary["minimum"] == summary["maximum"] == -35.0
 
-    assert restored[0]["data"]["electrical_color"] == "#facc37"
-    assert "electrical_value" not in restored[0]["data"]
-    assert "electrical_color" not in restored[1]["data"]
+
+def test_branch_sensor_and_switch_to_node_quantity():
+    elements = [_node(1), _line(10)]
+    elements[1]["data"]["associated_ids"]["sym_power_sensor"] = [403]
+    updated, _ = apply_electrical_colors(elements, "sym_power_sensor", {403: 20.0})
+    assert updated[1]["data"]["electrical_value"] == 20.0
+    switched, _ = apply_electrical_colors(updated, "node", {1: 1.0})
+    assert switched[1] == elements[1]
+    assert switched[0]["data"]["electrical_value"] == 1.0
+
+
+def test_all_sensor_values_missing():
+    element = _node(1)
+    element["data"]["associated_ids"]["sym_voltage_sensor"] = [403]
+    updated, summary = apply_electrical_colors([element], "sym_voltage_sensor", {})
+    assert updated[0]["data"]["electrical_color"] == MISSING_COLOR
+    assert summary == {"minimum": None, "maximum": None, "missing_count": 1}
+
+
+def test_ordinary_quantity_does_not_colour_associated_node():
+    element = _node(1)
+    element["data"]["associated_ids"]["sym_load"] = [403]
+    updated, _ = apply_electrical_colors([element], "sym_load", {403: 20.0})
+    assert updated == [element]

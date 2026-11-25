@@ -410,14 +410,14 @@ _LOAD_VISUAL_CONNECTION_STYLE = {
 }
 
 _ELECTRICAL_NODE_STYLE = {
-    "selector": "node[electrical_color]",
+    "selector": "node.electrical-heatmap[electrical_color]",
     "style": {
         "background-color": "data(electrical_color)",
         "text-background-color": "data(electrical_color)",
     },
 }
 _ELECTRICAL_EDGE_STYLE = {
-    "selector": "edge[electrical_color]",
+    "selector": "edge.electrical-heatmap[electrical_color]",
     "style": {
         "line-color": "data(electrical_color)",
         "target-arrow-color": "data(electrical_color)",
@@ -433,14 +433,8 @@ DEFAULT_STYLESHEET = [
     _TRANSFORMER_STYLE,
     _TWO_WINDING_TRANSFORMER_STYLE,
     _LINK_STYLE,
-    _SELECTED_NODE_STYLE,
-    _SELECTED_BRANCH_STYLE,
-    _SELECTED_TRANSFORMER_STYLE,
-    _SELECTED_LINK_STYLE,
     _GENERIC_BRANCH_STYLE,
-    _SELECTED_GENERIC_BRANCH_STYLE,
     _ASYM_LINE_STYLE,
-    _SELECTED_ASYM_LINE_STYLE,
     _APPLIANCE_GHOST_NODE_STYLE,
     _SOURCE_SYMBOL_STYLE,
     _SOURCE_SYMBOL_SELECTED_STYLE,
@@ -450,6 +444,13 @@ DEFAULT_STYLESHEET = [
     _SOURCE_EDGE_STYLE,
     _ELECTRICAL_NODE_STYLE,
     _ELECTRICAL_EDGE_STYLE,
+    # Selection styles take precedence over electrical quantity colours.
+    _SELECTED_NODE_STYLE,
+    _SELECTED_BRANCH_STYLE,
+    _SELECTED_TRANSFORMER_STYLE,
+    _SELECTED_LINK_STYLE,
+    _SELECTED_GENERIC_BRANCH_STYLE,
+    _SELECTED_ASYM_LINE_STYLE,
     # Note: Keep the OPEN BRANCH styles last in list, otherwise they potentially get overridden.
     _OPEN_BRANCH_STYLE,
     _OPEN_FROM_SIDE_BRANCH_STYLE,

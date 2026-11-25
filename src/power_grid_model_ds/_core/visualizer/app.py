@@ -4,6 +4,8 @@
 
 """Dash application layout for the PGM-DS visualiser."""
 
+from typing import Any, cast
+
 from dash import dcc, html
 from dash_iconify import DashIconify
 from power_grid_model import ComponentType
@@ -24,9 +26,9 @@ from power_grid_model_ds._core.visualizer.callbacks.workspace import (
     panel_styles,
 )
 from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
-    get_available_scalar_attributes,
     get_scenario_count,
 )
+from power_grid_model_ds._core.visualizer.electrical_uncertainty import get_available_electrical_quantities
 from power_grid_model_ds._core.visualizer.layout.cytoscape_html import (
     get_cytoscape_html,
 )
@@ -230,7 +232,11 @@ def _get_electrical_quantity_controls(
                         html.Div(className="electrical-scenario-callout-arrow"),
                         html.Div(
                             [
-                                html.Span(children="!", className="electrical-scenario-warning-icon"),
+                                html.Span(
+                                    "!",
+                                    className="electrical-scenario-warning-icon",
+                                    **cast(dict[str, Any], {"aria-hidden": "true"}),
+                                ),
                                 html.Div(
                                     [
                                         html.Strong("Invalid scenario", className="electrical-scenario-warning-title"),
@@ -266,11 +272,11 @@ def _get_electrical_quantity_controls(
                 id="electrical-quantity-legend",
                 className="electrical-quantity-legend",
                 role="status",
-                **{"aria-live": "polite"},  # type: ignore[arg-type]
+                **cast(dict[str, Any], {"aria-live": "polite"}),
             ),
         ],
         className="electrical-quantity-panel",
-        **{"aria-label": "Electrical quantity configuration"},  # type: ignore[arg-type]
+        **cast(dict[str, Any], {"aria-label": "Electrical quantity configuration"}),
     )
 
 
@@ -305,7 +311,7 @@ def get_app_layout(grid: Grid) -> html.Div:
 
     electrical_controls = _get_electrical_quantity_controls(
         get_scenario_count(output_data),
-        get_available_scalar_attributes(output_data),
+        get_available_electrical_quantities(output_data),
     )
 
     return html.Div(

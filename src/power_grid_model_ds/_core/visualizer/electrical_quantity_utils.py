@@ -21,10 +21,7 @@ def get_scenario_count(output_data: Mapping[ComponentType, DenseBatchArray] | No
     if not output_data:
         return 0
 
-    scenario_counts = set()
-
-    for component_array in output_data.values():
-        scenario_counts.add(component_array.shape[0])
+    scenario_counts = {array.shape[0] for array in output_data.values()}
 
     if len(scenario_counts) != 1:
         raise ValueError("Output component arrays have inconsistent scenario counts.")
@@ -64,6 +61,7 @@ def get_available_scalar_attributes(
         return {}
 
     available: dict[str, list[str]] = {}
+
     for component, array in output_data.items():
         field_names = array.dtype.names
         field_definitions = array.dtype.fields
@@ -79,6 +77,7 @@ def get_available_scalar_attributes(
                 attributes.append(field)
         if attributes:
             available[component.value] = attributes
+
     return available
 
 
@@ -132,13 +131,13 @@ def extract_scenario_values(
 ) -> dict[int, float]:
     """Extract finite electrical values by component ID for one scenario.
 
-    Missing components, invalid values, and non-finite values are excluded.
+    Missing components and non-finite values are excluded.
     Three-phase attributes require an explicit phase index.
 
     Raises:
         IndexError: If the scenario or phase index is out of range.
-        ValueError: If the dataset structure is invalid or a phase
-            selection is incompatible with the requested attribute.
+        ValueError: If component IDs are duplicated or phase selection
+            is incompatible with the requested attribute.
     """
     scenario_count = get_scenario_count(output_data)
 
@@ -151,9 +150,12 @@ def extract_scenario_values(
         return {}
 
     component_array = output_data[component_type]
-    field_names = component_array.dtype.names
 
-    if field_names is None or "id" not in field_names or attribute not in field_names:
+    fields = component_array.dtype.fields
+    if fields is None:
+        raise ValueError("Expected a structured output array.")
+
+    if attribute not in fields:
         return {}
 
     scenario_data = component_array[scenario_index]

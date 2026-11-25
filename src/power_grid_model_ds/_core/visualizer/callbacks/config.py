@@ -17,8 +17,12 @@ from power_grid_model_ds._core.visualizer.electrical_quantity_styling import (
 )
 from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
     extract_scenario_values,
-    get_available_scalar_attributes,
     get_scenario_count,
+)
+from power_grid_model_ds._core.visualizer.electrical_uncertainty import (
+    DERIVED_QUANTITIES,
+    extract_uncertainty_relative_values,
+    get_available_electrical_quantities,
 )
 from power_grid_model_ds._core.visualizer.layout.cytoscape_styling import BRANCH_WIDTH, NODE_SIZE
 from power_grid_model_ds._core.visualizer.layout.generator_rendering import prepare_generator_rendering
@@ -207,7 +211,7 @@ def _apply_automatic_positions(display_elements, current_positions):
     State("electrical-available-attributes", "data"),
 )
 def update_electrical_attributes(component, available_attributes):
-    """Offer only scalar output attributes of the selected component."""
+    """Offer available scalar electrical quantities of the selected component."""
     attributes = (available_attributes or {}).get(component, [])
     options = [{"label": name, "value": name} for name in attributes]
     return options, None, not bool(options)
@@ -274,18 +278,29 @@ def _electrical_display(elements, component, quantity, scenario_number):
         return clear_electrical_colors(elements), "Select a scenario to display electrical values."
 
     output_data = server_state.get_output_data()
-    available = get_available_scalar_attributes(output_data)
-    if quantity not in available.get(component, []):
+    if quantity not in get_available_electrical_quantities(output_data).get(component, []):
         return clear_electrical_colors(elements), "The selected attribute is unavailable."
 
     scenario_count = get_scenario_count(output_data)
     if _scenario_validation_message(scenario_number, scenario_count) is not None:
         return clear_electrical_colors(elements), f"Enter a scenario between 1 and {scenario_count}."
 
-    values = extract_scenario_values(output_data, ComponentType(component), quantity, int(scenario_number) - 1)
+    component_type = ComponentType(component)
+    scenario_index = int(scenario_number) - 1
+    residual = DERIVED_QUANTITIES.get((component_type, quantity))
+    if residual is None:
+        values = extract_scenario_values(output_data, component_type, quantity, scenario_index)
+    else:
+        values = extract_uncertainty_relative_values(
+            server_state.get_grid(),
+            server_state.get_update_data(),
+            output_data,
+            (component_type, residual),
+            scenario_index,
+        )
     colored_elements, summary = apply_electrical_colors(elements, component, values)
     legend_content = build_electrical_legend(
-        scenario_index=int(scenario_number) - 1,
+        scenario_index=scenario_index,
         summary=summary,
         quantity=quantity,
         component_group=component,

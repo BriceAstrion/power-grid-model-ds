@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""Uncertainty-based diagnostics for measurement comparisons."""
+"""Numerical uncertainty-relative diagnostics shared by visualiser features."""
 
 import numpy as np
 from numpy.typing import NDArray
@@ -38,17 +38,32 @@ def get_uncertainty_relative_discrepancy(
     if measured.shape != estimated.shape or measured.shape != sigma.shape:
         raise ValueError("Measured, estimated and sigma arrays must have matching shapes")
 
+    with np.errstate(invalid="ignore", over="ignore"):
+        residual = measured - estimated
+    return calculate_uncertainty_relative_discrepancy(residual, sigma)
+
+
+def calculate_uncertainty_relative_discrepancy(
+    residual: NDArray[np.float64], sigma: NDArray[np.float64] | None
+) -> NDArray[np.float64]:
+    """Return absolute residual divided by measurement standard deviation.
+
+    Missing or non-finite inputs produce NaN. Zero sigma produces infinity
+    for a nonzero residual and NaN for a zero residual. Negative finite
+    sigma is invalid and raises ValueError.
+    """
+    residual = np.asarray(residual, dtype=np.float64)
+    result = np.full(residual.shape, np.nan, dtype=np.float64)
+    if sigma is None:
+        return result
+
+    sigma = np.asarray(sigma, dtype=np.float64)
+    if residual.shape != sigma.shape:
+        raise ValueError("Residual and sigma arrays must have matching shapes")
     if np.any(np.isfinite(sigma) & (sigma < 0)):
         raise ValueError("Sigma values must be non-negative")
 
-    discrepancy = np.full(measured.shape, np.nan, dtype=np.float64)
-
-    valid = np.isfinite(measured) & np.isfinite(estimated) & np.isfinite(sigma)
-
-    difference = np.abs(measured[valid] - estimated[valid])
-    valid_sigma = sigma[valid]
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        discrepancy[valid] = difference / valid_sigma
-
-    return discrepancy
+    valid = np.isfinite(residual) & np.isfinite(sigma)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        result[valid] = np.abs(residual[valid]) / np.abs(sigma[valid])
+    return result

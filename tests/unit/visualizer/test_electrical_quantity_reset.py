@@ -7,9 +7,11 @@
 from copy import deepcopy
 
 from power_grid_model_ds._core.visualizer.callbacks.config import update_appliances
-from power_grid_model_ds._core.visualizer.electrical_quantity_styling import clear_electrical_colors
-from power_grid_model_ds._core.visualizer.layout.colors import CYTO_COLORS
-from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
+from power_grid_model_ds._core.visualizer.electrical_quantity_styling import (
+    ELECTRICAL_HEATMAP_CLASS,
+    apply_electrical_colors,
+    clear_electrical_colors,
+)
 
 
 def _node(node_id: int, *, substation: bool = False) -> dict:
@@ -47,9 +49,11 @@ def _parsed_elements() -> dict:
 
 
 def _assert_default_node(element: dict) -> None:
-    """Check that a normal node has its default display colour."""
-    assert element["data"]["electrical_color"] == CYTO_COLORS[StyleClass.NODE.value]
+    """Check that the node uses its original component styling."""
+    assert "electrical_color" not in element["data"]
     assert "electrical_value" not in element["data"]
+    assert ELECTRICAL_HEATMAP_CLASS not in element["classes"].split()
+    assert "node" in element["classes"].split()
 
 
 def test_clearing_quantity_restores_default_colours():
@@ -132,12 +136,13 @@ def test_reset_restores_default_node_color():
 
 def test_reset_restores_substation_color():
     node = _node(16, substation=True)
-    node["data"]["electrical_color"] = "#3182BD"
 
-    updated = clear_electrical_colors([node])
+    colored, _ = apply_electrical_colors([node], "node", {16: 1.05})
 
-    assert updated[0]["data"]["electrical_color"] == CYTO_COLORS["substation_node"]
-    assert "electrical_value" not in updated[0]["data"]
+    updated = clear_electrical_colors(colored)
+
+    assert updated == [node]
+    assert "substation_node" in updated[0]["classes"].split()
 
 
 def test_reset_does_not_modify_branch():
@@ -164,3 +169,45 @@ def test_reset_preserves_topology():
         assert restored["data"]["id"] == original["data"]["id"]
         assert restored["data"]["associated_ids"] == original["data"]["associated_ids"]
         assert restored["classes"] == original["classes"]
+
+
+def test_reset_previously_colored_branch():
+    """Regression test for F01-DEF-01."""
+    branch = _line(18)
+    branch["data"]["source"] = "1"
+    branch["data"]["target"] = "2"
+
+    colored, _ = apply_electrical_colors([branch], "line", {18: 80.0})
+
+    assert ELECTRICAL_HEATMAP_CLASS in colored[0]["classes"].split()
+    assert "electrical_color" in colored[0]["data"]
+
+    restored = clear_electrical_colors(colored)
+
+    assert restored == [branch]
+
+
+def test_switching_component_removes_previous_heatmap():
+    """Only the currently selected component retains electrical styling."""
+    original = [_node(1), _line(18)]
+
+    colored, _ = apply_electrical_colors(original, "line", {18: 80.0})
+
+    switched, _ = apply_electrical_colors(colored, "node", {1: 1.05})
+
+    assert ELECTRICAL_HEATMAP_CLASS in switched[0]["classes"].split()
+    assert switched[1] == original[1]
+
+
+def test_repeated_coloring_does_not_duplicate_class():
+    """Repeated scenario changes must not duplicate styling classes."""
+    original = [_line(18)]
+
+    colored, _ = apply_electrical_colors(original, "line", {18: 80.0})
+
+    recolored, _ = apply_electrical_colors(colored, "line", {18: 90.0})
+
+    assert recolored[0]["classes"].split().count(ELECTRICAL_HEATMAP_CLASS) == 1
+
+    assert recolored[0]["data"]["electrical_value"] == 90.0
+    assert clear_electrical_colors(recolored) == original
