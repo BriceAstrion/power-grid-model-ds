@@ -12,7 +12,6 @@ import plotly.graph_objects as go
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     MeasurementComparison,
     VoltageComparison,
-    get_voltage_sigma_bounds,
 )
 
 
@@ -42,8 +41,10 @@ def create_measurement_comparison_figure(
 
     fig = go.Figure()
 
-    if has_sigma:
-        lower, upper = get_voltage_sigma_bounds(comparison, sigma_multiplier)
+    if sigma is not None and has_sigma:
+        finite_sigma = np.where(np.isfinite(sigma), sigma, np.nan)
+        lower = comparison.measured - sigma_multiplier * finite_sigma
+        upper = comparison.measured + sigma_multiplier * finite_sigma
 
         fig.add_trace(
             go.Scatter(
@@ -108,9 +109,19 @@ def create_measurement_comparison_figure(
         if options.measurement_attribute is not None:
             meta["measurement_attribute"] = options.measurement_attribute
 
-        if has_sigma:
-            meta["sigma"] = sigma.tolist()
+        if sigma is not None and has_sigma:
+            # Preserve aligned source data for the uncertainty diagnostic.
+            meta["scenario_indices"] = comparison.scenario_indices.tolist()
             meta["measured"] = comparison.measured.tolist()
+            meta["estimated"] = comparison.estimated.tolist()
+            meta["sigma"] = sigma.tolist()
+
+        # Preserve the reason the uncertainty diagnostic cannot be shown.
+        # The numerical diagnostic is still calculated only when usable sigma exists.
+        if sigma is None:
+            meta["uncertainty_diagnostic_status"] = "sigma_missing"
+        elif not has_sigma:
+            meta["uncertainty_diagnostic_status"] = "sigma_nonfinite"
 
         layout["meta"] = meta
 

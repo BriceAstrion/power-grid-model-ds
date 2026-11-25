@@ -260,15 +260,14 @@ def get_symmetric_power_comparison(
     source_id = int(sensors.measured_object[sensor_index])
 
     estimated = _get_source_power(output_data, source_id, quantity)
-    scenario_count = len(estimated)
 
     measured = np.full(
-        scenario_count,
+        len(estimated),
         float(getattr(sensors, measurement_attribute)[sensor_index]),
         dtype=np.float64,
     )
     sigma = np.full(
-        scenario_count,
+        len(estimated),
         float(getattr(sensors, sigma_attribute)[sensor_index]),
         dtype=np.float64,
     )
@@ -285,7 +284,7 @@ def get_symmetric_power_comparison(
         raise ValueError("Sigma values must be non-negative")
 
     return MeasurementComparison(
-        scenario_indices=np.arange(scenario_count, dtype=np.intp),
+        scenario_indices=np.arange(len(estimated), dtype=np.intp),
         measured=measured,
         estimated=estimated,
         sigma=sigma if np.any(np.isfinite(sigma)) else None,

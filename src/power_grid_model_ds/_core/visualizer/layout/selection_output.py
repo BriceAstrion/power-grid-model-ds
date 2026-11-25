@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""Selected component tables, graph, and sigma-multiplier guidance."""
+"""Selected component tables, graphs, and sigma-multiplier guidance."""
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
@@ -166,7 +166,7 @@ _SIGMA_GUIDANCE = html.Div(
         html.I(
             className="bi bi-info-circle-fill",
             style=_NOTE_ICON_STYLE,
-            **{"aria-hidden": "true"},
+            **{"aria-hidden": "true"},  # type: ignore[arg-type]
         ),
         html.Span(
             "Sigma bands do not establish result validity.",
@@ -178,7 +178,7 @@ _SIGMA_GUIDANCE = html.Div(
                     id="sigma-guidance-caret",
                     className="bi bi-caret-right-fill",
                     style=_SIGMA_DISCLOSURE_ICON_STYLE,
-                    **{"aria-hidden": "true"},
+                    **{"aria-hidden": "true"},  # type: ignore[arg-type]
                 ),
                 html.Span("Why?"),
             ],
@@ -221,7 +221,7 @@ _SIGMA_ERROR = html.Div(
         html.I(
             className="bi bi-exclamation-circle-fill",
             style=_ERROR_ICON_STYLE,
-            **{"aria-hidden": "true"},
+            **{"aria-hidden": "true"},  # type: ignore[arg-type]
         ),
         html.Span(
             id="sigma-multiplier-error-text",
@@ -272,9 +272,47 @@ SELECTION_GRAPH_HTML = html.Div(
             id="selected-selection-cell",
             storage_type="memory",
         ),
+        dcc.Store(id="retained-uncertainty-store", data=[], storage_type="memory"),
+        dcc.Store(id="valid-sigma-multiplier", data=3.0, storage_type="memory"),
         _SIGMA_MULTIPLIER_CONTROL,
-        dcc.Graph(
-            id="selection-graph",
+        html.Div(
+            [
+                dcc.Graph(id="selection-graph", style=_HIDDEN_STYLE),
+                dcc.Graph(id="uncertainty-diagnostic-graph", style=_HIDDEN_STYLE),
+            ],
+            id="active-selection-graphs",
+        ),
+        html.Div(
+            html.Div(
+                id="uncertainty-diagnostic-status",
+                role="status",
+                style=_HIDDEN_STYLE,
+            ),
+            style={"padding": "0 12px"},
+        ),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.H4("Selected measurement graphs"),
+                        html.Button(
+                            "Clear all",
+                            id="retained-uncertainty-clear",
+                            n_clicks=0,
+                            type="button",
+                            className="btn btn-outline-danger btn-sm",
+                        ),
+                    ],
+                    style={"display": "flex", "justifyContent": "space-between", "alignItems": "center"},
+                ),
+                html.P(
+                    "Saved measurement and uncertainty snapshots from this session. "
+                    "They are not automatically recalculated when underlying data changes.",
+                    style={"fontSize": "13px", "color": "#555"},
+                ),
+                html.Div(id="retained-uncertainty-list"),
+            ],
+            id="retained-uncertainty-section",
             style=_HIDDEN_STYLE,
         ),
     ],
