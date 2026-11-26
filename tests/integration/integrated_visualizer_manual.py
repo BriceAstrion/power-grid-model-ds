@@ -36,16 +36,33 @@ The scenario-status interface is not part of the delivered integration.
 """
 
 import argparse
+import json
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from time import perf_counter
 
 import numpy as np
-from power_grid_model import AttributeType, ComponentType, DatasetType, MeasuredTerminalType, initialize_array
+from power_grid_model import (
+    AttributeType,
+    CalculationMethod,
+    ComponentType,
+    DatasetType,
+    MeasuredTerminalType,
+    initialize_array,
+)
 
+from power_grid_model_ds import Grid
+from power_grid_model_ds._core.model.constants import EMPTY_ID
 from power_grid_model_ds._core.visualizer.electrical_quantity_utils import (
     get_available_scalar_attributes,
     get_scenario_count,
 )
+from power_grid_model_ds._core.visualizer.electrical_uncertainty import extract_uncertainty_relative_values
+from power_grid_model_ds._core.visualizer.feeder_agreement_adapter import prepare_voltage_agreement_overview
+from power_grid_model_ds._core.visualizer.feeder_agreement_selection import MeasurementSort, paginate_measurements
 from power_grid_model_ds._core.visualizer.generator_constants import (
     GENERATOR_ORIGINAL_HIDDEN_CLASS,
     GENERATOR_SYMBOL_GROUP,
@@ -58,7 +75,14 @@ from power_grid_model_ds._core.visualizer.load_constants import (
     LOAD_SYMBOL_GROUP,
     LOAD_VISUAL_PREFIX,
 )
+from power_grid_model_ds._core.visualizer.measurement_comparison import (
+    get_measurement_sigma_bounds,
+    get_symmetric_power_comparison,
+    get_symmetric_voltage_comparison,
+)
 from power_grid_model_ds._core.visualizer.scenario_selection import get_scenario_count as get_network_scenario_count
+from power_grid_model_ds._core.visualizer.uncertainty_diagnostics import get_uncertainty_relative_discrepancy
+from power_grid_model_ds.arrays import SymPowerSensorArray, SymVoltageSensorArray
 from power_grid_model_ds.visualizer import visualize
 from tests.integration.visualizer_tests import get_coordinated_three_phase_grid
 
@@ -846,7 +870,11 @@ def _print_case(case, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--case", choices=tuple(CASES), default="integrated")
+    parser.add_argument(
+        "--case",
+        choices=(*CASES, "calculated", "f13-agreement", "f13-pagination", "f13-scalability", "f13-missing"),
+        default="integrated",
+    )
     parser.add_argument("--list", action="store_true", help="List available manual scenarios and exit")
     parser.add_argument("--no-debug", action="store_true", help="Disable Dash debug mode")
     parser.add_argument("--validate-fixtures", action="store_true", help="Check all fixtures without launching Dash")
@@ -855,10 +883,26 @@ def main():
         action="store_true",
         help="Validate symbol fixtures and rendering without Dash",
     )
+    parser.add_argument("--nodes", type=int, default=100)
+    parser.add_argument("--days", type=int, default=2)
+    parser.add_argument("--step-minutes", type=int, default=15)
+    parser.add_argument("--records", type=int)
+    parser.add_argument("--port", type=int, default=8050)
+    parser.add_argument("--generator-dir", type=Path)
+    parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--report", type=Path)
     args = parser.parse_args()
+    if args.nodes < 2 or args.days < 1 or args.step_minutes < 1 or 60 % args.step_minutes:
+        parser.error("Require nodes >= 2, days >= 1 and a positive divisor of 60 for step-minutes")
+    if not 1 <= args.port <= 65535 or (args.records is not None and args.records < 1):
+        parser.error("Invalid port or record count")
+    if args.case not in CASES and not (args.list or args.validate_fixtures or args.validate_symbols):
+        run_extended_case(args)
+        return
     if args.list:
         for case in CASES.values():
             print(f"{case.name:12} {case.description}")
+        print("Additional cases: calculated, f13-agreement, f13-pagination, f13-scalability, f13-missing")
         return
     if args.validate_fixtures:
         _validate_all_fixtures()
@@ -871,6 +915,8 @@ def main():
     grid, update_data, output_data = case.build()
     _validate_fixture(case.name, grid, update_data, output_data)
     _print_case(case, output_data)
+    if args.verify_only:
+        return
     network_scenario_count = get_network_scenario_count(update_data, output_data)
     print(f"Network-state scenario count: {network_scenario_count}", flush=True)
     if network_scenario_count is None or network_scenario_count == 0:
@@ -901,8 +947,548 @@ def main():
         update_data=update_data,
         output_data=output_data,
         debug=not args.no_debug,
+        port=args.port,
         timestamps=timestamps,
     )
+
+
+# Extended acceptance cases. Generator seeds retained from the shared dataset.
+GRID_SEED = 20260522
+PROFILE_SEED = 20260523
+MEASUREMENT_SEED = 20260524
+
+
+def attach_sensors(grid, sensor_input):
+    """Copy calculation sensor definitions into native PGM-DS arrays."""
+    for component, array_type in (
+        (ComponentType.sym_voltage_sensor, SymVoltageSensorArray),
+        (ComponentType.sym_power_sensor, SymPowerSensorArray),
+    ):
+        records = sensor_input[component]
+        sensors = array_type.empty(len(records))
+        for field in sensors.columns:
+            if field in records.dtype.names:
+                sensors[field] = records[field]
+        grid.append(sensors)
+        np.testing.assert_array_equal(getattr(grid, component.value).id, records["id"])
+        np.testing.assert_array_equal(
+            getattr(grid, component.value).measured_object,
+            records["measured_object"],
+        )
+        print(f"PASS | Attached {len(sensors)} {component.value} definitions")
+    grid.check_ids()
+
+
+def generate_dataset(nr_nodes, nr_days, step_minutes, generator_dir):
+    """Generate synthetic measurements and state-estimation results."""
+    if generator_dir is None or not generator_dir.is_dir():
+        raise ValueError("Supply --generator-dir pointing to power-grid-model-ai/tests/data")
+    sys.path.insert(0, str(generator_dir.resolve()))
+    # External generator location is supplied at runtime by --generator-dir.
+    from _generate_synthetic_pgm_state_estimation_data import (  # noqa: PLC0415
+        create_state_estimation_sensor_input,
+        create_state_estimation_sensor_update_data,
+        run_power_flow_truth,
+        run_state_estimation,
+        validate_datasets,
+    )
+    from _synthetic_pgm_common import create_synthetic_input_data, create_synthetic_load_update_data  # noqa: PLC0415
+
+    scenario_count = nr_days * 24 * (60 // step_minutes)
+
+    print("\n=== Dataset configuration ===")
+    print("Target nodes:", nr_nodes)
+    print("Days:", nr_days)
+    print("Step minutes:", step_minutes)
+    print("Requested scenarios:", scenario_count)
+
+    start = perf_counter()
+
+    grid, base_input = create_synthetic_input_data(
+        nr_nodes=nr_nodes,
+        nr_sources=1,
+        nr_nops=0,
+        seed=GRID_SEED,
+        create_10_3_kv_net=False,
+    )
+
+    load_updates = create_synthetic_load_update_data(
+        input_data=base_input,
+        n_steps=scenario_count,
+        step_minutes=step_minutes,
+        seed=PROFILE_SEED,
+    )
+
+    truth_output = run_power_flow_truth(
+        input_data=base_input,
+        load_update_data=load_updates,
+        calculation_method=CalculationMethod.newton_raphson,
+    )
+
+    sensor_input, sensor_metadata = create_state_estimation_sensor_input(
+        input_data=base_input,
+        truth_output_data=truth_output,
+        measurement_seed=MEASUREMENT_SEED,
+        voltage_relative_sigma=0.005,
+        voltage_sigma_floor=5.0,
+        power_relative_sigma=0.02,
+        power_sigma_floor=50.0,
+    )
+
+    sensor_updates = create_state_estimation_sensor_update_data(
+        input_data=sensor_input,
+        truth_output_data=truth_output,
+        sensor_metadata=sensor_metadata,
+        measurement_seed=MEASUREMENT_SEED,
+    )
+
+    update_data = dict(load_updates)
+    update_data.update(sensor_updates)
+
+    validate_datasets(
+        input_data=sensor_input,
+        update_data=update_data,
+    )
+
+    attach_sensors(grid, sensor_input)
+
+    preparation_time = perf_counter() - start
+
+    calculation_start = perf_counter()
+
+    output_data = run_state_estimation(
+        input_data=sensor_input,
+        update_data=update_data,
+        calculation_method=CalculationMethod.iterative_linear,
+    )
+
+    calculation_time = perf_counter() - calculation_start
+
+    print("\n=== Dataset generation completed ===")
+    print("Actual grid nodes:", len(grid.node))
+    print("Actual grid lines:", len(grid.line))
+    print("Actual grid loads:", len(grid.sym_load))
+    print("Voltage sensors in calculation input:", len(sensor_input[ComponentType.sym_voltage_sensor]))
+    print("Power sensors in calculation input:", len(sensor_input[ComponentType.sym_power_sensor]))
+    print(f"Preparation time: {preparation_time:.3f} s")
+    print(f"State-estimation calculation time: {calculation_time:.3f} s")
+
+    return grid, update_data, output_data, scenario_count
+
+
+def build_controlled_dataset():
+    """Reproduce the F13 integration-test dataset."""
+    grid = Grid.empty()
+
+    nodes = grid.node.__class__(
+        id=[1, 2, 6],
+        u_rated=[10500.0, 10500.0, 10500.0],
+        feeder_branch_id=[201, 201, int(EMPTY_ID)],
+    )
+    grid.append(nodes, check_max_id=False)
+
+    sensors = grid.sym_voltage_sensor.__class__.empty(3)
+    sensors.id = np.array([11, 12, 13], dtype=np.int32)
+    sensors.measured_object = np.array([1, 2, 6], dtype=np.int32)
+    sensors.u_measured = np.array(
+        [10489.37, 9997.32, 10102.01],
+        dtype=np.float64,
+    )
+    sensors.u_sigma = np.array([1.0, 1.0, 1.0], dtype=np.float64)
+    grid.append(sensors, check_max_id=False)
+
+    sensor_updates = initialize_array(
+        DatasetType.update,
+        ComponentType.sym_voltage_sensor,
+        (2, 3),
+    )
+    sensor_updates[AttributeType.id] = [11, 12, 13]
+    sensor_updates[AttributeType.u_measured] = [
+        [10489.37, 9997.32, 10102.01],
+        [10490.0, 10010.0, 10120.0],
+    ]
+
+    node_outputs = initialize_array(
+        DatasetType.sym_output,
+        ComponentType.node,
+        (2, 3),
+    )
+    node_outputs[AttributeType.id] = [1, 2, 6]
+    node_outputs[AttributeType.u] = [
+        [10488.0, 10000.0, 10100.0],
+        [10491.0, 10008.0, 10119.0],
+    ]
+    node_outputs[AttributeType.energized] = 1
+
+    update_data = {
+        ComponentType.sym_voltage_sensor: sensor_updates,
+    }
+    output_data = {
+        ComponentType.node: node_outputs,
+    }
+
+    return grid, update_data, output_data
+
+
+def build_pagination_dataset(count):
+    """Use the original three nodes with distinct synthetic sensor readings."""
+    _, _, output_data = build_controlled_dataset()
+
+    # Rebuild the grid to avoid retaining the original three sensors.
+    grid = Grid.empty()
+    nodes = grid.node.__class__(
+        id=[1, 2, 6],
+        u_rated=[10500.0, 10500.0, 10500.0],
+        feeder_branch_id=[201, 201, int(EMPTY_ID)],
+    )
+    grid.append(nodes, check_max_id=False)
+    indices = np.arange(count, dtype=np.int32)
+    sensor_ids = indices + 11
+    node_indices = indices % 3
+    node_ids = np.array([1, 2, 6], dtype=np.int32)[node_indices]
+    estimates = output_data[ComponentType.node][AttributeType.u][:, node_indices]
+    measured = estimates + (indices + 1) * np.array([[1.0], [2.0]])
+    sensors = grid.sym_voltage_sensor.__class__.empty(count)
+    sensors.id = sensor_ids
+    sensors.measured_object = node_ids
+    sensors.u_measured = measured[0].copy()
+    sensors.u_sigma = np.ones(count, dtype=np.float64)
+    grid.append(sensors, check_max_id=False)
+    updates = initialize_array(DatasetType.update, ComponentType.sym_voltage_sensor, (2, count))
+    updates[AttributeType.id] = sensor_ids
+    updates[AttributeType.u_measured] = measured
+    return grid, {ComponentType.sym_voltage_sensor: updates}, output_data
+
+
+def result_key(component, sensor_id, attribute, scenario):
+    return f"{component.value}:{sensor_id}:{attribute}:{scenario}"
+
+
+def finite_or_none(value):
+    if value is None or not np.isfinite(value):
+        return None
+    return float(value)
+
+
+def get_sensor_groups(grid):
+    voltage_ids = [int(sensor_id) for sensor_id in grid.sym_voltage_sensor.id]
+
+    source_mask = grid.sym_power_sensor.measured_terminal_type == MeasuredTerminalType.source.value
+
+    power_ids = [int(sensor_id) for sensor_id in grid.sym_power_sensor.id[source_mask]]
+
+    assert voltage_ids
+    assert power_ids
+
+    return [
+        (
+            ComponentType.sym_voltage_sensor,
+            "u_residual",
+            voltage_ids,
+        ),
+        (
+            ComponentType.sym_power_sensor,
+            "p_residual",
+            power_ids,
+        ),
+        (
+            ComponentType.sym_power_sensor,
+            "q_residual",
+            power_ids,
+        ),
+    ]
+
+
+def extract_f01(grid, updates, output, groups, scenarios):
+    results = {}
+
+    for component, attribute, sensor_ids in groups:
+        for scenario in scenarios:
+            ratios = extract_uncertainty_relative_values(
+                grid,
+                updates,
+                output,
+                (component, attribute),
+                scenario,
+            )
+
+            for sensor_id in sensor_ids:
+                key = result_key(
+                    component,
+                    sensor_id,
+                    attribute,
+                    scenario,
+                )
+
+                results[key] = finite_or_none(ratios.get(sensor_id))
+
+    return results
+
+
+def extract_f15(grid, updates, output, groups, scenarios):
+    count = get_scenario_count(output)
+
+    results = {}
+
+    for component, attribute, sensor_ids in groups:
+        for sensor_id in sensor_ids:
+            if component == ComponentType.sym_voltage_sensor:
+                comparison = get_symmetric_voltage_comparison(
+                    grid,
+                    updates,
+                    output,
+                    sensor_id,
+                )
+            else:
+                comparison = get_symmetric_power_comparison(
+                    grid,
+                    updates,
+                    output,
+                    sensor_id,
+                    f"{attribute[0]}_measured",
+                )
+
+            assert comparison is not None
+
+            np.testing.assert_array_equal(
+                comparison.scenario_indices,
+                np.arange(count),
+            )
+
+            ratios = get_uncertainty_relative_discrepancy(comparison)
+
+            assert ratios.shape == (count,)
+
+            for scenario in scenarios:
+                key = result_key(
+                    component,
+                    sensor_id,
+                    attribute,
+                    scenario,
+                )
+
+                results[key] = finite_or_none(ratios[scenario])
+
+    return results
+
+
+F13_CHECKS = (
+    "F13: Verify network and feeder counts, minimum, mean and maximum against printed references.",
+    "F13: Select network, feeder and unassigned scopes; inspect contributing sensor identities.",
+    "F13: Sort largest, smallest and sensor ID; expand cards and verify measured and estimated values.",
+    "F13: For more than five records, navigate numbered pages, first/last and ellipses where applicable.",
+    "F13: Switch scenario and scope; verify page resets and no stale records.",
+    "F13: Missing pairs remain identifiable and do not contribute to statistics.",
+    "F13: Check keyboard focus, readable counts and panel layout at different desktop widths.",
+)
+
+
+def agreement_sort_key(sensor_id, mode, expected):
+    value = expected[sensor_id][1]
+    if mode == MeasurementSort.SENSOR:
+        return (sensor_id,)
+    return (value is None, 0 if value is None else (-value if mode == MeasurementSort.LARGEST else value), sensor_id)
+
+
+def agreement_reference(sensors, feeders, updates, output, scenario):
+    rows = output[ComponentType.node][scenario]
+    estimates = {int(row["id"]): float(row["u"]) for row in rows}
+    changes = {int(row["id"]): float(row["u_measured"]) for row in updates[ComponentType.sym_voltage_sensor][scenario]}
+    groups = {"network": [], "unassigned": []}
+    expected = {}
+    for raw_sid, raw_nid, base in zip(sensors.id, sensors.measured_object, sensors.u_measured, strict=True):
+        sid, nid = int(raw_sid), int(raw_nid)
+        measured = changes.get(sid, float(base))
+        if np.isnan(measured):
+            measured = float(base)
+        estimated = estimates.get(nid, np.nan)
+        matched = nid in feeders and nid != int(EMPTY_ID)
+        status = (
+            "unmatched"
+            if not matched
+            else "missing_measurement"
+            if not np.isfinite(measured)
+            else "missing_estimate"
+            if not np.isfinite(estimated)
+            else "available"
+        )
+        difference = abs(estimated - measured) if status == "available" else None
+        feeder = feeders.get(nid, int(EMPTY_ID)) if matched else int(EMPTY_ID)
+        scope = "unassigned" if feeder == int(EMPTY_ID) else str(feeder)
+        expected[sid] = (status, difference)
+        groups["network"].append(sid)
+        groups.setdefault(scope, []).append(sid)
+    return groups, expected
+
+
+def verify_agreement_scope(group, ids, expected):
+    assert {r.sensor_id for r in group.records} == set(ids)
+    values = [expected[sid][1] for sid in ids if expected[sid][1] is not None]
+    assert group.total_count == len(ids)
+    assert group.available_count == len(values)
+    assert group.unavailable_count == len(ids) - len(values)
+    for record in group.records:
+        status, difference = expected[record.sensor_id]
+        assert record.status.value == status
+        if difference is None:
+            assert record.absolute_discrepancy is None
+        else:
+            np.testing.assert_allclose(record.absolute_discrepancy, difference)
+    stats = group.discrepancy_statistics()
+    reference = [float(np.min(values)), float(np.mean(values)), float(np.max(values))] if values else [None] * 3
+    if values:
+        np.testing.assert_allclose([stats.minimum, stats.mean, stats.maximum], reference)
+    else:
+        assert [stats.minimum, stats.mean, stats.maximum] == reference
+    for mode in MeasurementSort:
+        ordered = sorted(ids, key=lambda sid, mode=mode: agreement_sort_key(sid, mode, expected))
+        for index in {0, max(0, (len(ids) - 1) // 5)}:
+            page = paginate_measurements(group, sort_mode=mode, page_index=index)
+            assert [r.sensor_id for r in page.records] == ordered[index * 5 : index * 5 + 5]
+    return reference, len(values)
+
+
+def verify_agreement(grid, updates, output, scenarios):
+    """Independent ID-based reference from raw arrays, not production records."""
+    results = []
+    feeders = dict(zip(map(int, grid.node.id), map(int, grid.node.feeder_branch_id), strict=True))
+    sensors = grid.sym_voltage_sensor
+    for scenario in scenarios:
+        groups, expected = agreement_reference(sensors, feeders, updates, output, scenario)
+        overview = prepare_voltage_agreement_overview(
+            grid=grid, update_data=updates, output_data=output, scenario_index=scenario
+        )
+        actual = {"network": overview.network, "unassigned": overview.unassigned}
+        actual.update({str(key): group for key, group in overview.feeders.items()})
+        assert actual.keys() == groups.keys()
+        for scope, ids in groups.items():
+            reference, available = verify_agreement_scope(actual[scope], ids, expected)
+            row = {
+                "scenario": scenario,
+                "scope": scope,
+                "total": len(ids),
+                "available": available,
+                "min_mean_max": reference,
+            }
+            results.append(row)
+            print("PASS F13", row)
+    return results
+
+
+def verify_calculated_comparisons(grid, updates, output, scenarios):
+    groups = get_sensor_groups(grid)
+    f01 = extract_f01(grid, updates, output, groups, scenarios)
+    f15 = extract_f15(grid, updates, output, groups, scenarios)
+    assert f01.keys() == f15.keys()
+    for key, value in f01.items():
+        if value is None:
+            assert f15[key] is None
+        else:
+            np.testing.assert_allclose(value, f15[key], rtol=1e-7, atol=1e-7)
+    checked = 0
+    for component, attribute, ids in groups:
+        sensors = getattr(grid, component.value)
+        quantity = attribute[0]
+        target = ComponentType.node if quantity == "u" else ComponentType.source
+        for sid in ids:
+            i = int(np.flatnonzero(sensors.id == sid)[0])
+            comparison = (
+                get_symmetric_voltage_comparison(grid, updates, output, sid)
+                if quantity == "u"
+                else get_symmetric_power_comparison(grid, updates, output, sid, quantity + "_measured")
+            )
+            assert comparison is not None
+            ratios = get_uncertainty_relative_discrepancy(comparison)
+            for scenario in scenarios:
+                rows = updates[component][scenario]
+                row = rows[rows["id"] == sid][0]
+                estimates = output[target][scenario]
+                estimate = float(estimates[estimates["id"] == sensors.measured_object[i]][quantity][0])
+                measured = float(row[quantity + "_measured"])
+                sigma = float(sensors[quantity + "_sigma"][i])
+                if quantity + "_sigma" in row.dtype.names and not np.isnan(row[quantity + "_sigma"]):
+                    sigma = float(row[quantity + "_sigma"])
+                assert np.isfinite(sigma)
+                assert sigma > 0
+                np.testing.assert_allclose(
+                    [comparison.measured[scenario], comparison.estimated[scenario], comparison.sigma[scenario]],
+                    [measured, estimate, sigma],
+                )
+                expected = abs(estimate - measured) / sigma
+                np.testing.assert_allclose(ratios[scenario], expected, rtol=1e-7, atol=1e-7)
+                np.testing.assert_allclose(
+                    f01[result_key(component, sid, attribute, scenario)], expected, rtol=1e-7, atol=1e-7
+                )
+                for multiplier in (1, 2, 3):
+                    lower, upper = get_measurement_sigma_bounds(comparison, multiplier)
+                    np.testing.assert_allclose(
+                        [lower[scenario], upper[scenario]],
+                        [measured - multiplier * sigma, measured + multiplier * sigma],
+                    )
+                checked += 1
+        print("PASS calculated comparison", attribute, "sensors", len(ids), "sampled scenarios", scenarios)
+    assert checked > 0
+    return {"sampled_comparisons": checked, "f01_f15_matches": len(f01)}
+
+
+def run_extended_case(args):
+    start = perf_counter()
+    if args.case == "calculated":
+        grid, updates, output, count = generate_dataset(args.nodes, args.days, args.step_minutes, args.generator_dir)
+        step = args.step_minutes
+    else:
+        records = (
+            args.records
+            if args.records is not None
+            else {"f13-agreement": 12, "f13-pagination": 65, "f13-scalability": 50000, "f13-missing": 12}[args.case]
+        )
+        grid, updates, output = build_controlled_dataset() if records == 3 else build_pagination_dataset(records)
+        if args.case == "f13-missing":
+            updates[ComponentType.sym_voltage_sensor]["u_measured"][0, 0] = np.inf
+            output[ComponentType.node]["u"][1, 0] = np.nan
+        count, step = 2, args.step_minutes
+    preparation = perf_counter() - start
+    assert get_scenario_count(output) == count
+    scenarios = sorted({0, (count - 1) // 2, count - 1})
+    start = perf_counter()
+    agreement = verify_agreement(grid, updates, output, scenarios)
+    comparisons = verify_calculated_comparisons(grid, updates, output, scenarios) if args.case == "calculated" else None
+    checks = (
+        _unique_checks(
+            COMMON_CHECKS,
+            F13_CHECKS,
+            DIAGNOSTIC_CHECKS,
+            (
+                "Retain distinct voltage and source power comparisons; remove diagnostics and cards independently.",
+                "Check sigma multipliers 1, 2 and 3 against reference values.",
+            ),
+        )
+        if args.case == "calculated"
+        else F13_CHECKS
+    )
+    report = {
+        "case": args.case,
+        "nodes": len(grid.node),
+        "scenarios": count,
+        "sampled_scenarios": scenarios,
+        "preparation_seconds": preparation,
+        "verification_seconds": perf_counter() - start,
+        "agreement": agreement,
+        "comparisons": comparisons,
+        "browser_checks": [{"check": c, "status": "NOT TESTED"} for c in checks],
+    }
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2, allow_nan=False), encoding="utf-8")
+    print("PASS: sampled numerical verification; browser not tested")
+    for check in checks:
+        print("[ ]", check)
+    if not args.verify_only:
+        origin = datetime(2026, 1, 1, tzinfo=UTC)
+        timestamps = tuple((origin + timedelta(minutes=step * i)).isoformat() for i in range(count))
+        visualize(
+            grid=grid, update_data=updates, output_data=output, debug=False, port=args.port, timestamps=timestamps
+        )
 
 
 if __name__ == "__main__":

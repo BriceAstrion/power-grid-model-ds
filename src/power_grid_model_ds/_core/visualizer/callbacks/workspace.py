@@ -18,8 +18,10 @@ DEFAULT_STATE: dict[str, Any] = {
 
 PANEL_BORDER = "1px solid #dee2e6"
 WORKSPACE_HEIGHT = "80vh"
+# Desktop workspace: 25% / 50% / 25% when both
+# side panels are open and minimum widths permit.
 SIDE_COLUMN_OPEN = "minmax(340px, 1fr)"
-CENTER_COLUMN = "minmax(0, 2.2fr)"
+CENTER_COLUMN = "minmax(0, 2fr)"
 CLOSED_COLUMN = "0px"
 
 LEFT_STYLE = {
