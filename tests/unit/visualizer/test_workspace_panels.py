@@ -110,3 +110,51 @@ def test_manual_change_after_fullscreen_updates_icon():
 
     _, _, fullscreen_icon = panel_icons(state)
     assert fullscreen_icon.icon == "lucide:maximize"
+
+
+def test_desktop_workspace_default_proportions():
+    """Both open panels use a 1:2:1 desktop grid."""
+    grid, left, right = panel_styles(DEFAULT_STATE)
+
+    assert grid["gridTemplateColumns"] == ("minmax(340px, 1fr) minmax(0, 2fr) minmax(340px, 1fr)")
+    assert left["display"] == "block"
+    assert right["display"] == "block"
+
+
+def test_desktop_workspace_left_closed_proportions():
+    """Closing the left panel preserves the central track."""
+    state = next_panel_state(
+        DEFAULT_STATE,
+        "workspace-toggle-left",
+    )
+    grid, left, right = panel_styles(state)
+
+    assert grid["gridTemplateColumns"] == ("0px minmax(0, 2fr) minmax(340px, 1fr)")
+    assert left["display"] == "none"
+    assert right["display"] == "block"
+
+
+def test_desktop_workspace_right_closed_proportions():
+    """Closing the right panel preserves the central track."""
+    state = next_panel_state(
+        DEFAULT_STATE,
+        "workspace-toggle-right",
+    )
+    grid, left, right = panel_styles(state)
+
+    assert grid["gridTemplateColumns"] == ("minmax(340px, 1fr) minmax(0, 2fr) 0px")
+    assert left["display"] == "block"
+    assert right["display"] == "none"
+
+
+def test_desktop_workspace_fullscreen_proportions():
+    """Fullscreen assigns the available width to the network."""
+    state = next_panel_state(
+        DEFAULT_STATE,
+        "workspace-toggle-fullscreen",
+    )
+    grid, left, right = panel_styles(state)
+
+    assert grid["gridTemplateColumns"] == ("0px minmax(0, 2fr) 0px")
+    assert left["display"] == "none"
+    assert right["display"] == "none"

@@ -11,25 +11,45 @@ from dash import dcc, html
 from power_grid_model_ds._core.visualizer.feeder_agreement import (
     AgreementGroup,
     AgreementOverview,
+    AgreementRecord,
+)
+from power_grid_model_ds._core.visualizer.feeder_agreement_selection import (
+    MeasurementPage,
+    MeasurementSort,
+    build_page_window,
+    paginate_measurements,
 )
 
 # Dash component IDs. Keep these stable for existing callbacks.
 PANEL_ID = "f13-agreement-panel"
 SUMMARY_ID = "f13-agreement-summary"
 GROUP_ID = "f13-agreement-group"
+GROUP_OPTIONS_ID = "f13-agreement-group-options"
 DETAILS_ID = "f13-agreement-details"
+SORT_ID = "f13-agreement-sort"
+SCOPE_BUTTON_TYPE = "f13-agreement-scope"
+PAGE_STORE_ID = "f13-agreement-page"
+PAGE_STATUS_ID = "f13-agreement-page-status"
+PREVIOUS_ID = "f13-agreement-previous"
+NEXT_ID = "f13-agreement-next"
+PAGE_NUMBERS_ID = "f13-agreement-page-numbers"
+PAGE_BUTTON_TYPE = "f13-agreement-page-number"
 
 # Presentation constants.
 # Match the existing component inspector where appropriate.
 BORDER_COLOR = "#dee2e6"
-HEADER_BACKGROUND = "#f8f9fa"
+HEADER_BACKGROUND = "#f1f3f5"
 TEXT_COLOR = "#212529"
 SECONDARY_TEXT_COLOR = "#495057"
-VALUE_COLOR = "#0d6efd"
+VALUE_COLOR = "#084298"
 
 BODY_FONT_SIZE = "1rem"
 SUPPORTING_FONT_SIZE = "0.875rem"
 BODY_LINE_HEIGHT = "1.5"
+
+# Use scientific notation outside the compact decimal range.
+SUMMARY_DECIMAL_MIN = 0.01
+SUMMARY_DECIMAL_MAX = 1000000
 
 PANEL_PADDING = "12px"
 CELL_PADDING = "10px"
@@ -57,15 +77,6 @@ SECTION_TITLE_STYLE = {
     "lineHeight": "1.4",
     "color": TEXT_COLOR,
     "marginBottom": "12px",
-}
-
-SENSOR_TITLE_STYLE = {
-    "fontSize": "1.125rem",
-    "fontWeight": "600",
-    "lineHeight": "1.4",
-    "color": TEXT_COLOR,
-    "marginTop": "16px",
-    "marginBottom": "10px",
 }
 
 
@@ -112,7 +123,7 @@ DROPDOWN_STYLE = {
 
 
 # Summary table.
-# Keep the existing four-column information structure.
+# Present compact descriptive statistics for the selected scenario.
 SUMMARY_CONTAINER_STYLE = {
     "width": "100%",
     "maxWidth": "100%",
@@ -124,7 +135,7 @@ SUMMARY_CONTAINER_STYLE = {
 SUMMARY_TABLE_STYLE = {
     "width": "100%",
     "minWidth": "0",
-    "tableLayout": "fixed",
+    "tableLayout": "auto",
     "borderCollapse": "collapse",
     "fontSize": SUPPORTING_FONT_SIZE,
     "lineHeight": BODY_LINE_HEIGHT,
@@ -132,18 +143,18 @@ SUMMARY_TABLE_STYLE = {
 }
 
 SUMMARY_HEADER_CELL_STYLE = {
-    "padding": "10px 4px",
+    "padding": "6px 4px",
     "backgroundColor": HEADER_BACKGROUND,
     "borderBottom": TABLE_BORDER,
     "textAlign": "center",
     "fontWeight": "600",
-    "fontSize": "0.75rem",
+    "fontSize": SUPPORTING_FONT_SIZE,
     "whiteSpace": "normal",
     "overflowWrap": "normal",
 }
 
 SUMMARY_CELL_STYLE = {
-    "padding": "10px 4px",
+    "padding": "6px 4px",
     "borderBottom": TABLE_BORDER,
     "textAlign": "left",
     "overflowWrap": "normal",
@@ -163,11 +174,6 @@ DETAILS_COUNT_STYLE = {
     "marginBottom": "12px",
 }
 
-MEASUREMENT_CARD_STYLE = {
-    "width": "100%",
-    "minWidth": 0,
-    "marginBottom": "20px",
-}
 
 DETAILS_TABLE_STYLE = {
     "width": "100%",
@@ -235,7 +241,7 @@ def get_feeder_agreement_html() -> html.Section:
                                 ),
                             ),
                             html.H4(
-                                "Aggregated agreement overview",
+                                "Measurement agreement",
                                 className="network-state-title",
                             ),
                             html.I(
@@ -250,11 +256,36 @@ def get_feeder_agreement_html() -> html.Section:
                     ),
                     html.Div(
                         [
-                            html.P(
-                                "Measured and estimated symmetric voltage "
-                                "records. Counts describe data availability, "
-                                "not estimator validity.",
-                                style=DESCRIPTION_STYLE.copy(),
+                            html.Details(
+                                [
+                                    html.Summary(
+                                        [
+                                            html.Span("Voltage (V)"),
+                                            html.I(
+                                                className="fas fa-info-circle",
+                                                **cast(
+                                                    dict[str, Any],
+                                                    {"aria-hidden": "true"},
+                                                ),
+                                            ),
+                                        ],
+                                        className="agreement-information-summary",
+                                        **cast(
+                                            dict[str, Any],
+                                            {"aria-label": "Voltage measurement information"},
+                                        ),
+                                    ),
+                                    html.P(
+                                        "Statistics include available "
+                                        "measurement-estimate pairs only. "
+                                        "Differences do not establish estimator "
+                                        "validity. Feeder attribution uses stored "
+                                        "feeder IDs and is not independently "
+                                        "verified.",
+                                        style=SUPPORTING_TEXT_STYLE.copy(),
+                                    ),
+                                ],
+                                className="agreement-information",
                             ),
                             html.Div(
                                 "Select a scenario index to view measurements.",
@@ -262,29 +293,99 @@ def get_feeder_agreement_html() -> html.Section:
                                 role="status",
                                 style=SUPPORTING_TEXT_STYLE.copy(),
                             ),
-                            html.Label(
-                                "Inspect contributing measurements",
-                                htmlFor=GROUP_ID,
-                                style=GROUP_LABEL_STYLE.copy(),
-                            ),
-                            dcc.Dropdown(
+                            dcc.Store(
                                 id=GROUP_ID,
-                                options=[
+                                storage_type="memory",
+                                data="network",
+                            ),
+                            dcc.Store(
+                                id=GROUP_OPTIONS_ID,
+                                storage_type="memory",
+                                data=[
                                     {
                                         "label": "Entire network",
                                         "value": "network",
                                     },
                                 ],
-                                value="network",
-                                clearable=False,
-                                style=DROPDOWN_STYLE.copy(),
+                            ),
+                            html.Div(
+                                [
+                                    html.H5(
+                                        "Measurements",
+                                        className="agreement-details-title",
+                                    ),
+                                    html.Span(
+                                        id=PAGE_STATUS_ID,
+                                        role="status",
+                                        className="agreement-record-count",
+                                    ),
+                                ],
+                                className="agreement-details-heading",
+                            ),
+                            html.Div(
+                                [
+                                    html.Label(
+                                        "Sort by",
+                                        htmlFor=SORT_ID,
+                                        className="agreement-sort-label",
+                                    ),
+                                    dcc.Dropdown(
+                                        id=SORT_ID,
+                                        options=[
+                                            {
+                                                "label": "Largest difference",
+                                                "value": MeasurementSort.LARGEST.value,
+                                            },
+                                            {
+                                                "label": "Smallest difference",
+                                                "value": MeasurementSort.SMALLEST.value,
+                                            },
+                                            {
+                                                "label": "Sensor ID",
+                                                "value": MeasurementSort.SENSOR.value,
+                                            },
+                                        ],
+                                        value=MeasurementSort.LARGEST.value,
+                                        clearable=False,
+                                        style=DROPDOWN_STYLE.copy(),
+                                    ),
+                                ],
+                                className="agreement-sort-row",
+                            ),
+                            dcc.Store(
+                                id=PAGE_STORE_ID,
+                                storage_type="memory",
+                                data=0,
                             ),
                             html.Div(id=DETAILS_ID),
-                            html.P(
-                                "Feeder attribution is based on stored feeder "
-                                "IDs and is not independently verified by "
-                                "this overview.",
-                                style=FOOTNOTE_STYLE.copy(),
+                            html.Div(
+                                [
+                                    html.Button(
+                                        "Prev",
+                                        id=PREVIOUS_ID,
+                                        **cast(dict[str, Any], {"aria-label": "Previous page"}),
+                                        n_clicks=0,
+                                        disabled=True,
+                                        type="button",
+                                        className="agreement-page-button",
+                                    ),
+                                    html.Div(
+                                        id=PAGE_NUMBERS_ID,
+                                        children=[],
+                                        className="agreement-page-numbers",
+                                    ),
+                                    html.Button(
+                                        "Next",
+                                        id=NEXT_ID,
+                                        n_clicks=0,
+                                        disabled=True,
+                                        type="button",
+                                        className="agreement-page-button",
+                                    ),
+                                ],
+                                className="agreement-pagination",
+                                role="navigation",
+                                **cast(dict[str, Any], {"aria-label": "Measurement pages"}),
                             ),
                         ],
                         className="network-state-controls",
@@ -299,7 +400,7 @@ def get_feeder_agreement_html() -> html.Section:
         style=PANEL_STYLE.copy(),
         **cast(
             dict[str, Any],
-            {"aria-label": "Aggregated agreement overview"},
+            {"aria-label": "Measurement agreement"},
         ),
     )
 
@@ -358,7 +459,7 @@ def selected_group(
 
 def _table(
     headers: list[str],
-    rows: list[list[str]],
+    rows: list[list[str | html.Button | html.Span]],
 ) -> html.Div:
     """Render the descriptive summary with semantic table markup."""
     return html.Div(
@@ -394,41 +495,140 @@ def _table(
                 ),
             ],
             style=SUMMARY_TABLE_STYLE.copy(),
+            className="agreement-summary-table",
         ),
         style=SUMMARY_CONTAINER_STYLE.copy(),
+        className="agreement-summary-container",
     )
+
+
+def _availability_counter(
+    label: str,
+    value: str,
+) -> html.Div:
+    """Render an adaptive descriptive availability counter."""
+    return html.Div(
+        [
+            html.Div(
+                label,
+                className="agreement-counter-label",
+            ),
+            html.Div(
+                value,
+                className="agreement-counter-value",
+            ),
+        ],
+        className="agreement-availability-counter",
+    )
+
+
+def render_scope_button(
+    label: str,
+    scope: str,
+    *,
+    selected: bool = False,
+    disabled: bool = False,
+) -> html.Button:
+    """Render a keyboard-accessible summary scope selector."""
+    return html.Button(
+        label,
+        id={"type": SCOPE_BUTTON_TYPE, "scope": scope},
+        n_clicks=0,
+        type="button",
+        disabled=disabled,
+        className="agreement-scope-button",
+        **cast(dict[str, Any], {"aria-pressed": "true" if selected else "false"}),
+    )
+
+
+def _pair_count(available: int, total: int) -> html.Span:
+    """Allow pair counts to wrap only between complete counts."""
+    return html.Span(
+        [html.Span(f"{available}/"), html.Span(str(total))],
+        className="agreement-pair-count",
+    )
+
+
+def _summary_number(value: float | None) -> str:
+    """Format discrepancies without hiding small nonzero values."""
+    if value is None:
+        return "\u2014"
+
+    if 0 < abs(value) < SUMMARY_DECIMAL_MIN or abs(value) >= SUMMARY_DECIMAL_MAX:
+        mantissa, exponent = f"{value:.2e}".split("e")
+        mantissa = mantissa.rstrip("0").rstrip(".")
+        return f"{mantissa}e{int(exponent)}"
+
+    formatted = f"{value:.2f}"
+    return formatted.rstrip("0").rstrip(".")
 
 
 def render_summary(
     overview: AgreementOverview,
+    selection: str = "network",
 ) -> html.Div:
-    """Display descriptive counts without an agreement score."""
+    """Display availability and descriptive voltage discrepancies."""
     groups = [
-        ("Entire network", overview.network),
-        *[(f"Feeder {feeder_id}", group) for feeder_id, group in overview.feeders.items()],
-        ("Unassigned", overview.unassigned),
+        ("Entire network", "network", overview.network),
+        *[(f"Feeder {feeder_id}", f"feeder:{feeder_id}", group) for feeder_id, group in overview.feeders.items()],
+        ("Unassigned", "unassigned", overview.unassigned),
     ]
 
-    rows = [
-        [
-            label,
-            str(group.total_count),
-            str(group.available_count),
-            str(group.unavailable_count),
-        ]
-        for label, group in groups
-    ]
+    rows: list[list[str | html.Button | html.Span]] = []
+
+    for label, scope, group in groups:
+        statistics = group.discrepancy_statistics()
+
+        rows.append(
+            [
+                render_scope_button(
+                    label,
+                    scope,
+                    selected=scope == selection,
+                    disabled=scope == "unassigned" and not group.total_count,
+                ),
+                _pair_count(group.available_count, group.total_count),
+                _summary_number(statistics.minimum),
+                _summary_number(statistics.mean),
+                _summary_number(statistics.maximum),
+            ]
+        )
 
     return html.Div(
-        _table(
-            [
-                "Scope",
-                "Total",
-                "Available",
-                "Unavailable",
-            ],
-            rows,
-        )
+        [
+            html.Div(
+                [
+                    _availability_counter(
+                        "Available",
+                        (f"{overview.network.available_count}/{overview.network.total_count}"),
+                    ),
+                    _availability_counter(
+                        "Unavailable",
+                        str(overview.network.unavailable_count),
+                    ),
+                ],
+                style={
+                    "display": "grid",
+                    "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
+                    "gap": "8px",
+                    "marginBottom": "10px",
+                },
+            ),
+            _table(
+                [
+                    "Scope",
+                    "Pairs",
+                    "Min",
+                    "Mean",
+                    "Max",
+                ],
+                rows,
+            ),
+            html.P(
+                "Absolute difference |\u0394| (V). Pairs: available/total.",
+                style=FOOTNOTE_STYLE.copy(),
+            ),
+        ]
     )
 
 
@@ -437,31 +637,61 @@ def _number(value: float | None) -> str:
     return "—" if value is None else f"{value:.6g}"
 
 
-def _measurement_attributes(record) -> list[tuple[str, str]]:
+def _measurement_attributes(record: AgreementRecord) -> list[tuple[str, str]]:
     """Prepare attribute/value rows for a measurement."""
     return [
         ("Quantity", record.quantity),
         ("Measured", _number(record.measured)),
         ("Estimated", _number(record.estimated)),
+        ("Absolute difference", _number(record.absolute_discrepancy)),
         ("Unit", record.unit),
-        ("Data status", record.status.value),
+        ("Data status", record.status.value.replace("_", " ").capitalize()),
         (
             "Feeder ID",
             "Unassigned" if record.feeder_id is None else str(record.feeder_id),
         ),
-        ("Feeder status", record.feeder_status.value),
+        ("Feeder status", record.feeder_status.value.capitalize()),
     ]
 
 
-def _measurement_card(record) -> html.Div:
-    """Render a measurement using the existing inspector's visual style."""
+def _measurement_card(
+    record: AgreementRecord,
+) -> html.Details:
+    """Render an expandable measurement with a visible summary."""
     attributes = _measurement_attributes(record)
 
-    return html.Div(
+    difference = record.absolute_discrepancy
+    difference_label = "Unavailable" if difference is None else f"{_summary_number(difference)} {record.unit}"
+
+    status = record.status.value.replace("_", " ").capitalize()
+
+    return html.Details(
         [
-            html.H5(
-                f"Sensor {record.sensor_id} — Node {record.component_id}",
-                style=SENSOR_TITLE_STYLE.copy(),
+            html.Summary(
+                [
+                    html.Span(
+                        [
+                            html.Span(
+                                f"Sensor {record.sensor_id}",
+                                className="agreement-measurement-title",
+                            ),
+                            html.Span(
+                                f"Node {record.component_id} \u00b7 {status}",
+                                className="agreement-measurement-status",
+                            ),
+                        ],
+                        className="agreement-measurement-identity",
+                    ),
+                    html.Span(
+                        difference_label,
+                        className="agreement-measurement-value",
+                    ),
+                    html.I(
+                        className="fas fa-chevron-down agreement-card-chevron",
+                        **cast(dict[str, Any], {"aria-hidden": "true"}),
+                    ),
+                ],
+                className="agreement-measurement-summary",
             ),
             html.Table(
                 [
@@ -502,15 +732,29 @@ def _measurement_card(record) -> html.Div:
                 style=DETAILS_TABLE_STYLE.copy(),
             ),
         ],
-        style=MEASUREMENT_CARD_STYLE.copy(),
+        open=False,
+        className="agreement-measurement-card",
+    )
+
+
+def render_measurement_page(
+    page: MeasurementPage,
+) -> html.Div:
+    """Render prepared measurement records without sorting again."""
+    return html.Div(
+        [_measurement_card(record) for record in page.records],
+        style=DETAILS_CONTAINER_STYLE.copy(),
     )
 
 
 def render_details(
     overview: AgreementOverview,
     selection: str | None,
+    *,
+    sort_mode: MeasurementSort = MeasurementSort.LARGEST,
+    page_index: int = 0,
 ) -> html.Div:
-    """Show contributing measurements as attribute/value tables."""
+    """Show one page of contributing measurements."""
     group = selected_group(overview, selection)
 
     if group is None:
@@ -527,7 +771,44 @@ def render_details(
             style=SUPPORTING_TEXT_STYLE.copy(),
         )
 
-    return html.Div(
-        [_measurement_card(record) for record in group.records],
-        style=DETAILS_CONTAINER_STYLE.copy(),
+    page = paginate_measurements(
+        group,
+        sort_mode=sort_mode,
+        page_index=page_index,
     )
+
+    return render_measurement_page(page)
+
+
+def render_page_numbers(page: MeasurementPage) -> list[html.Button | html.Span]:
+    """Render bounded page controls without preparing measurement data again."""
+    controls: list[html.Button | html.Span] = []
+    for index in build_page_window(page.page_index, page.page_count):
+        if index is None:
+            controls.append(
+                html.Span(
+                    "\u2026",
+                    className="agreement-page-ellipsis",
+                    **cast(dict[str, Any], {"aria-hidden": "true"}),
+                )
+            )
+            continue
+
+        active = index == page.page_index
+        controls.append(
+            html.Button(
+                str(index + 1),
+                id={"type": PAGE_BUTTON_TYPE, "page": index},
+                type="button",
+                n_clicks=0,
+                className="agreement-page-number",
+                **cast(
+                    dict[str, Any],
+                    {
+                        "aria-label": f"Page {index + 1}",
+                        "aria-current": "page" if active else "false",
+                    },
+                ),
+            )
+        )
+    return controls

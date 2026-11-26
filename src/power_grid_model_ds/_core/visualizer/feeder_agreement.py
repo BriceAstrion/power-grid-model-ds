@@ -4,8 +4,10 @@
 
 """Prepare scenario-specific measurement agreement groups for F13."""
 
+import math
 from dataclasses import dataclass
 from enum import StrEnum
+from statistics import mean
 
 import numpy as np
 
@@ -56,6 +58,26 @@ class AgreementRecord:  # pylint: disable=too-many-instance-attributes
     status: MeasurementStatus
     feeder_status: FeederStatus
 
+    @property
+    def absolute_discrepancy(self) -> float | None:
+        """Return the absolute difference for an available pair."""
+        if self.status is not MeasurementStatus.AVAILABLE:
+            return None
+
+        if self.measured is None or self.estimated is None:
+            return None
+
+        return _finite_or_none(abs(self.estimated - self.measured))
+
+
+@dataclass(frozen=True)
+class DiscrepancyStatistics:
+    """Descriptive statistics for comparable measurement pairs."""
+
+    minimum: float | None
+    mean: float | None
+    maximum: float | None
+
 
 @dataclass(frozen=True)
 class AgreementGroup:
@@ -78,6 +100,66 @@ class AgreementGroup:
         """Count records without a usable measurement pair."""
         return self.total_count - self.available_count
 
+    def _absolute_discrepancies(self) -> list[float]:
+        """Collect finite discrepancies with compatible quantities and units."""
+        discrepancies: list[float] = []
+        quantity_units: set[tuple[str, str]] = set()
+
+        for record in self.records:
+            discrepancy = record.absolute_discrepancy
+
+            if discrepancy is None:
+                continue
+
+            quantity_units.add((record.quantity, record.unit))
+
+            if len(quantity_units) > 1:
+                return []
+
+            discrepancies.append(discrepancy)
+
+        return discrepancies
+
+    def discrepancy_statistics(self) -> DiscrepancyStatistics:
+        """Calculate all discrepancy statistics from one collection."""
+        discrepancies = self._absolute_discrepancies()
+
+        if not discrepancies:
+            return DiscrepancyStatistics(
+                minimum=None,
+                mean=None,
+                maximum=None,
+            )
+
+        return DiscrepancyStatistics(
+            minimum=min(discrepancies),
+            mean=mean(discrepancies),
+            maximum=max(discrepancies),
+        )
+
+    @property
+    def mean_absolute_discrepancy(self) -> float | None:
+        """Return the mean absolute discrepancy of comparable pairs."""
+        discrepancies = self._absolute_discrepancies()
+
+        if not discrepancies:
+            return None
+
+        return mean(discrepancies)
+
+    @property
+    def min_absolute_discrepancy(self) -> float | None:
+        """Return the smallest available absolute difference."""
+        discrepancies = self._absolute_discrepancies()
+        return min(discrepancies, default=None)
+
+    @property
+    def max_absolute_discrepancy(self) -> float | None:
+        """Return the largest absolute discrepancy of comparable pairs."""
+        discrepancies = self._absolute_discrepancies()
+
+        return max(discrepancies, default=None)
+
 
 @dataclass(frozen=True)
 class AgreementOverview:
@@ -95,7 +177,7 @@ def _finite_or_none(value: float | None) -> float | None:
         return None
 
     numeric = float(value)
-    return numeric if np.isfinite(numeric) else None
+    return numeric if math.isfinite(numeric) else None
 
 
 def _validate_scenario_index(scenario_index: int) -> None:
@@ -147,23 +229,29 @@ def build_agreement_overview(
     records: list[AgreementRecord],
     scenario_index: int,
 ) -> AgreementOverview:
-    """Group records without calculating an agreement score."""
+    """Group records for descriptive measurement discrepancy analysis."""
     _validate_scenario_index(scenario_index)
 
-    selected = tuple(record for record in records if record.scenario_index == scenario_index)
+    selected: list[AgreementRecord] = []
+    feeder_records: dict[int, list[AgreementRecord]] = {}
+    unassigned: list[AgreementRecord] = []
 
-    feeder_ids = sorted({record.feeder_id for record in selected if record.feeder_id is not None})
+    for record in records:
+        if record.scenario_index != scenario_index:
+            continue
 
-    feeders = {
-        feeder_id: AgreementGroup(tuple(record for record in selected if record.feeder_id == feeder_id))
-        for feeder_id in feeder_ids
-    }
+        selected.append(record)
 
-    unassigned = AgreementGroup(tuple(record for record in selected if record.feeder_id is None))
+        if record.feeder_id is None:
+            unassigned.append(record)
+        else:
+            feeder_records.setdefault(record.feeder_id, []).append(record)
+
+    feeders = {feeder_id: AgreementGroup(tuple(feeder_records[feeder_id])) for feeder_id in sorted(feeder_records)}
 
     return AgreementOverview(
         scenario_index=scenario_index,
-        network=AgreementGroup(selected),
+        network=AgreementGroup(tuple(selected)),
         feeders=feeders,
-        unassigned=unassigned,
+        unassigned=AgreementGroup(tuple(unassigned)),
     )

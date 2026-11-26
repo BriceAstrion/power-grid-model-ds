@@ -225,3 +225,108 @@ def test_real_grid_rejects_out_of_range_scenario(agreement_data):
             output_data=output_data,
             scenario_index=2,
         )
+
+
+def test_real_grid_discrepancy_statistics(agreement_data):
+    grid, update_data, output_data = agreement_data
+
+    overview = prepare_voltage_agreement_overview(
+        grid=grid,
+        update_data=update_data,
+        output_data=output_data,
+        scenario_index=0,
+    )
+
+    assert overview.network.mean_absolute_discrepancy == pytest.approx(2.02)
+    assert overview.network.max_absolute_discrepancy == pytest.approx(2.68)
+
+    feeder = overview.feeders[201]
+
+    assert feeder.mean_absolute_discrepancy == pytest.approx(2.025)
+    assert feeder.max_absolute_discrepancy == pytest.approx(2.68)
+
+    assert overview.unassigned.mean_absolute_discrepancy == pytest.approx(2.01)
+    assert overview.unassigned.max_absolute_discrepancy == pytest.approx(2.01)
+
+
+def test_real_grid_missing_estimate_is_excluded_from_statistics(
+    agreement_data,
+):
+    grid, update_data, output_data = agreement_data
+
+    output_data[ComponentType.node][AttributeType.u][1, 2] = np.nan
+
+    overview = prepare_voltage_agreement_overview(
+        grid=grid,
+        update_data=update_data,
+        output_data=output_data,
+        scenario_index=1,
+    )
+
+    assert overview.network.total_count == 3
+    assert overview.network.available_count == 2
+    assert overview.network.unavailable_count == 1
+
+    assert overview.network.mean_absolute_discrepancy == pytest.approx(1.5)
+    assert overview.network.max_absolute_discrepancy == pytest.approx(2.0)
+
+    assert overview.unassigned.mean_absolute_discrepancy is None
+    assert overview.unassigned.max_absolute_discrepancy is None
+
+
+def test_real_grid_unmatched_sensor_is_retained(agreement_data):
+    grid, update_data, output_data = agreement_data
+
+    grid.sym_voltage_sensor.measured_object[0] = 999
+
+    overview = prepare_voltage_agreement_overview(
+        grid=grid,
+        update_data=update_data,
+        output_data=output_data,
+        scenario_index=0,
+    )
+
+    records = {record.sensor_id: record for record in overview.network.records}
+
+    unmatched = records[11]
+
+    assert unmatched.component_id == 999
+    assert unmatched.measured == pytest.approx(10489.37)
+    assert unmatched.estimated is None
+    assert unmatched.status is MeasurementStatus.UNMATCHED
+    assert unmatched.feeder_status is FeederStatus.UNASSIGNED
+    assert unmatched.absolute_discrepancy is None
+
+    assert overview.network.total_count == 3
+    assert overview.network.available_count == 2
+    assert overview.network.unavailable_count == 1
+
+    assert overview.network.mean_absolute_discrepancy == pytest.approx(2.345)
+    assert overview.network.max_absolute_discrepancy == pytest.approx(2.68)
+
+    assert overview.feeders[201].total_count == 1
+    assert overview.unassigned.total_count == 2
+
+    assert {record.sensor_id for record in overview.unassigned.records} == {11, 13}
+
+    assert overview.unassigned.mean_absolute_discrepancy == pytest.approx(2.01)
+
+
+def test_real_grid_unassigned_measurement_remains_available(
+    agreement_data,
+):
+    grid, update_data, output_data = agreement_data
+
+    overview = prepare_voltage_agreement_overview(
+        grid=grid,
+        update_data=update_data,
+        output_data=output_data,
+        scenario_index=0,
+    )
+
+    record = overview.unassigned.records[0]
+
+    assert record.sensor_id == 13
+    assert record.status is MeasurementStatus.AVAILABLE
+    assert record.feeder_status is FeederStatus.UNASSIGNED
+    assert record.absolute_discrepancy == pytest.approx(2.01)

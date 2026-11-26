@@ -1,0 +1,711 @@
+/*
+ * SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+ *
+ * SPDX-License-Identifier: MPL-2.0
+ */
+
+/* F13 - Measurement agreement overview.
+ * Feature-scoped colour tokens and accessible presentation.
+ */
+
+/* Consolidated declarations; original cascade order retained. */
+
+#f13-agreement-panel {
+    --agreement-primary: #084298;
+    --agreement-selected: #e9f2fc;
+    --agreement-surface: #ffffff;
+    --agreement-background: #f8f9fa;
+    --agreement-text: #212529;
+    --agreement-secondary: #495057;
+    --agreement-value: #084298;
+    --agreement-border: #666666;
+    --agreement-focus: #005fcc;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    color: var(--agreement-text);
+    background: var(--agreement-surface);
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .network-state-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    cursor: pointer;
+    list-style: none;
+}
+
+#f13-agreement-panel .network-state-summary::-webkit-details-marker {
+    display: none;
+}
+
+#f13-agreement-panel .network-state-summary::marker {
+    content: "";
+}
+
+#f13-agreement-panel .network-state-summary:focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+#f13-agreement-panel .network-state-icon {
+    flex: 0 0 auto;
+    color: #6c757d;
+    font-size: 19px;
+}
+
+#f13-agreement-panel .network-state-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1.4;
+    color: var(--agreement-secondary);
+    white-space: normal;
+    overflow-wrap: normal;
+}
+
+#f13-agreement-panel .network-state-chevron {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: #6c757d;
+    font-size: 14px;
+    transition: transform 150ms ease;
+}
+
+#f13-agreement-panel .network-state-details[open] .network-state-chevron {
+    transform: rotate(180deg);
+}
+
+#f13-agreement-panel .network-state-controls {
+    min-width: 0;
+    padding-top: 12px;
+    color: var(--agreement-text);
+    line-height: 1.5;
+}
+
+#f13-agreement-panel :focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel .Select-control {
+    min-height: 44px;
+    border: 1px solid var(--agreement-border);
+    background: var(--agreement-surface);
+}
+
+#f13-agreement-panel .Select-value-label, #f13-agreement-panel .Select-placeholder, #f13-agreement-panel .Select-input > input {
+    color: var(--agreement-text) !important;
+    font-size: 1rem;
+}
+
+#f13-agreement-panel .is-focused .Select-control {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel .Select-option.is-focused {
+    color: var(--agreement-text);
+    background: var(--agreement-background);
+}
+
+#f13-agreement-panel .Select-option.is-selected {
+    color: var(--agreement-surface);
+    background: var(--agreement-primary);
+}
+
+#f13-agreement-panel table {
+    width: 100%;
+    max-width: 100%;
+    line-height: 1.5;
+}
+
+#f13-agreement-panel th, #f13-agreement-panel td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel label {
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+#f13-agreement-details {
+    min-width: 0;
+    min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #f13-agreement-panel .network-state-chevron {
+        transition: none;
+    }
+}
+
+#f13-agreement-panel .agreement-measurement-card {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: var(--agreement-surface);
+}
+
+#f13-agreement-panel .agreement-measurement-summary {
+    box-sizing: border-box;
+    color: var(--agreement-text);
+    cursor: pointer;
+    border-radius: 5px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .agreement-measurement-summary::marker {
+    color: var(--agreement-primary);
+}
+
+#f13-agreement-panel .agreement-measurement-title {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .agreement-measurement-value {
+    color: var(--agreement-value);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .agreement-measurement-status {
+    margin-top: 6px;
+}
+
+#f13-agreement-panel .agreement-measurement-card[open] .agreement-measurement-summary {
+    border-bottom: 1px solid var(--agreement-border);
+    border-radius: 5px 5px 0 0;
+}
+
+#f13-agreement-panel .agreement-measurement-summary:focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel #f13-agreement-sort {
+    min-height: 44px;
+    font-size: 1rem;
+    color: var(--agreement-text);
+}
+
+#f13-agreement-panel .agreement-pagination, #f13-agreement-panel .agreement-page-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#f13-agreement-panel .agreement-pagination {
+    margin: 12px 0;
+    padding: 4px;
+}
+
+#f13-agreement-panel .agreement-page-numbers {
+    flex: 0 1 auto;
+}
+
+#f13-agreement-panel .agreement-page-button, #f13-agreement-panel .agreement-page-number {
+    border: 1px solid #6c757d;
+    background: var(--agreement-surface);
+    color: var(--agreement-text);
+    font: inherit;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+#f13-agreement-panel .agreement-page-button:not(:disabled):hover, #f13-agreement-panel .agreement-page-number:hover {
+    background: var(--agreement-selected);
+}
+
+#f13-agreement-panel .agreement-page-number[aria-current="page"] {
+    background: var(--agreement-primary);
+    border-color: var(--agreement-primary);
+    color: var(--agreement-surface);
+}
+
+#f13-agreement-panel .agreement-page-ellipsis {
+    color: var(--agreement-secondary);
+}
+
+#f13-agreement-panel .agreement-page-button:focus-visible, #f13-agreement-panel .agreement-page-number:focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel .agreement-information {
+    margin-bottom: 10px;
+}
+
+#f13-agreement-panel .agreement-information-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    cursor: pointer;
+    color: var(--agreement-secondary);
+    font-size: 0.875rem;
+    list-style: none;
+}
+
+#f13-agreement-panel .agreement-information-summary::-webkit-details-marker {
+    display: none;
+}
+
+#f13-agreement-panel .agreement-information-summary:focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel .agreement-information p {
+    margin: 8px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+#f13-agreement-panel .agreement-summary-container {
+    overflow-x: auto;
+}
+
+#f13-agreement-panel .agreement-summary-table th:first-child {
+    text-align: left !important;
+}
+
+
+#f13-agreement-panel .agreement-summary-table td {
+    vertical-align: middle;
+}
+
+#f13-agreement-panel .agreement-summary-table td:not(:first-child) {
+    white-space: normal;
+    font-variant-numeric: tabular-nums;
+}
+
+#f13-agreement-panel .agreement-scope-button {
+    display: flex;
+    justify-content: flex-start;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--agreement-text);
+    font-family: inherit;
+    font-weight: 400;
+    text-align: left;
+    white-space: normal;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+#f13-agreement-panel .agreement-scope-button::before {
+    content: "";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1.5px solid #6c757d;
+    border-radius: 50%;
+    background: transparent;
+    color: #ffffff;
+    font-weight: 700;
+    line-height: 1;
+}
+
+#f13-agreement-panel .agreement-scope-button[aria-pressed="true"]::before {
+    content: "✓";
+    background: #084298;
+    border-color: #084298;
+}
+
+#f13-agreement-panel .agreement-summary-table tr:has( .agreement-scope-button[aria-pressed="true"] ) {
+    background: #e9f2fc;
+}
+
+#f13-agreement-panel .agreement-scope-button:hover:not(:disabled) {
+    background: #e9ecef;
+}
+
+#f13-agreement-panel .agreement-scope-button:focus-visible {
+    outline: 3px solid var(--agreement-focus);
+    outline-offset: -3px;
+}
+
+#f13-agreement-panel .agreement-scope-button:disabled {
+    color: #6c757d;
+    cursor: default;
+    opacity: 0.7;
+}
+
+#f13-agreement-panel .agreement-summary-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#f13-agreement-panel .agreement-summary-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+    table-layout: auto;
+    box-sizing: border-box;
+}
+
+#f13-agreement-panel .agreement-summary-table th, #f13-agreement-panel .agreement-summary-table td {
+    box-sizing: border-box;
+    font-size: 0.8125rem !important;
+    padding: 6px 2px !important;
+    line-height: 1.4;
+}
+
+#f13-agreement-panel .agreement-summary-table th:first-child {
+    padding-left: 6px !important;
+}
+
+
+
+#f13-agreement-panel .agreement-summary-table td:first-child {
+    padding: 0 !important;
+}
+
+#f13-agreement-panel .agreement-summary-table td:not(:first-child) {
+    text-align: center;
+}
+
+#f13-agreement-panel .agreement-scope-button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 6px 2px 6px 6px;
+    gap: 5px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    align-items: center;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+#f13-agreement-panel .agreement-scope-button::before {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+}
+
+#f13-agreement-panel .agreement-details-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+#f13-agreement-panel .agreement-details-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--agreement-text);
+}
+
+#f13-agreement-panel .agreement-record-count {
+    color: var(--agreement-secondary);
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+#f13-agreement-panel .agreement-sort-label {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--agreement-secondary);
+}
+
+#f13-agreement-panel .agreement-sort-row #f13-agreement-sort {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0;
+}
+
+#f13-agreement-panel .agreement-pagination .agreement-page-button:disabled {
+    display: none;
+}
+
+#f13-agreement-panel .agreement-pagination:not(:has( .agreement-page-button:not(:disabled) )) {
+    display: none;
+}
+
+#f13-agreement-panel .agreement-measurement-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    min-height: 44px;
+    list-style: none;
+    background: var(--agreement-surface);
+}
+
+#f13-agreement-panel .agreement-measurement-summary::-webkit-details-marker {
+    display: none;
+}
+
+#f13-agreement-panel .agreement-measurement-summary::marker {
+    content: "";
+}
+
+#f13-agreement-panel .agreement-measurement-identity {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 2px;
+}
+
+#f13-agreement-panel .agreement-measurement-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+#f13-agreement-panel .agreement-measurement-status {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--agreement-secondary);
+}
+
+#f13-agreement-panel .agreement-measurement-value {
+    flex: 0 1 auto;
+    max-width: 40%;
+    text-align: right;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+#f13-agreement-panel .agreement-card-chevron {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--agreement-secondary);
+}
+
+#f13-agreement-panel .agreement-measurement-card[open] .agreement-card-chevron {
+    transform: rotate(180deg);
+}
+
+#f13-agreement-panel .agreement-measurement-summary:hover {
+    background: var(--agreement-background);
+}
+
+#f13-agreement-panel .agreement-sort-row {
+    margin-bottom: 12px;
+}
+
+#f13-agreement-panel .agreement-sort-label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin: 0;
+}
+
+#f13-agreement-panel .agreement-sort-row > :not(label) {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#f13-agreement-panel #f13-agreement-sort {
+    flex: 1 1 0;
+    width: 100% !important;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    border-radius: 8px;
+}
+
+#f13-agreement-panel #f13-agreement-sort .Select, #f13-agreement-panel #f13-agreement-sort .Select-control, #f13-agreement-panel #f13-agreement-sort button, #f13-agreement-panel #f13-agreement-sort [role="combobox"] {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#f13-agreement-panel #f13-agreement-sort .Select-control, #f13-agreement-panel #f13-agreement-sort button, #f13-agreement-panel #f13-agreement-sort [role="combobox"] {
+    min-height: 44px;
+    border-radius: 8px !important;
+    border-color: #87929e !important;
+    background-color: #ffffff;
+    color: #212529;
+    font-size: 0.875rem;
+    box-shadow: none;
+}
+
+#f13-agreement-panel #f13-agreement-sort:focus-within {
+    outline: 2px solid #084298;
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+#f13-agreement-panel #f13-agreement-sort .Select-menu-outer {
+    border-radius: 8px;
+    border-color: #87929e;
+}
+
+#f13-agreement-panel .agreement-availability-counter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    align-content: center;
+    column-gap: 8px;
+    row-gap: 2px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+#f13-agreement-panel .agreement-counter-label {
+    flex: 0 0 auto;
+    max-width: 100%;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #495057;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .agreement-counter-value {
+    flex: 0 0 auto;
+    max-width: 100%;
+    margin-left: auto;
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    color: #084298;
+    overflow-wrap: anywhere;
+}
+
+#f13-agreement-panel .agreement-sort-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+#f13-agreement-panel .agreement-sort-row > .dash-dropdown-wrapper {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box;
+}
+
+#f13-agreement-panel button#f13-agreement-sort.dash-dropdown {
+    display: flex;
+    align-items: center;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 6px 12px !important;
+    box-sizing: border-box;
+    border: 1px solid #87929e !important;
+    border-radius: 8px !important;
+    background: #ffffff;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    box-shadow: none;
+}
+
+#f13-agreement-panel #f13-agreement-sort .dash-dropdown-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+    gap: 8px;
+}
+
+#f13-agreement-panel #f13-agreement-sort .dash-dropdown-value {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+}
+
+#f13-agreement-panel #f13-agreement-sort .dash-dropdown-trigger-icon {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+#f13-agreement-panel button#f13-agreement-sort:focus-visible {
+    outline: 2px solid #084298;
+    outline-offset: 2px;
+}
+
+#f13-agreement-panel .agreement-pagination, #f13-agreement-panel .agreement-page-numbers {
+    gap: 4px;
+}
+
+#f13-agreement-panel .agreement-page-button, #f13-agreement-panel .agreement-page-number {
+    box-sizing: border-box;
+    min-width: 30px;
+    min-height: 30px;
+    height: auto;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
+#f13-agreement-panel .agreement-page-number {
+    padding: 4px 6px;
+}
+
+#f13-agreement-panel .agreement-page-ellipsis {
+    min-width: 16px;
+    padding: 0 2px;
+}
+
+/* Keep complete numbers intact; allow a break between pair counts. */
+#f13-agreement-panel .agreement-summary-table td:not(:first-child) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+#f13-agreement-panel .agreement-pair-count {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+#f13-agreement-panel .agreement-pair-count > span {
+    flex: 0 0 auto;
+}
