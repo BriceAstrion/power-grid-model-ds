@@ -42,6 +42,7 @@ visualizer = [
   "dash-bootstrap-components>=2.0.0",
   "dash-cytoscape>=1.0.2",
   "dash-ag-grid >= 35.0.0",
+  "dash-iconify",
 ]
 pandas = ["pandas>=2.2.1"]
 
@@ -61,6 +62,7 @@ dev = [
   "dash-bootstrap-components>=2.0.0",
   "dash-cytoscape>=1.0.2",
   "dash-ag-grid>=35.3.0",
+  "dash-iconify",
   "nb-clean>=4.0.1",
 ]
 
@@ -273,3 +275,6 @@ control.expr = "check"
   [[tool.poe.tasks.clean_notebooks.switch]]
   cmd = 'nb-clean clean docs/'
 
+[tool.setuptools.package-data]
+power_grid_model_ds = ["assets/*.js"]
+"power_grid_model_ds._core.visualizer" = ["assets/*.js"]

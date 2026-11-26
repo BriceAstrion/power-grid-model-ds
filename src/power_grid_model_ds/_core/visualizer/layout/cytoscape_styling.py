@@ -4,8 +4,32 @@
 
 """Contains selectors for the Cytoscape stylesheet."""
 
+from urllib.parse import quote
+
+from power_grid_model_ds._core.visualizer.generator_constants import (
+    GENERATOR_CONNECTION_CLASS,
+    GENERATOR_ORIGINAL_HIDDEN_CLASS,
+    GENERATOR_SYMBOL_CLASS,
+    GENERATOR_SYMBOL_SIZE,
+)
 from power_grid_model_ds._core.visualizer.layout.colors import CYTO_COLORS
+from power_grid_model_ds._core.visualizer.load_constants import (
+    LOAD_CONNECTION_CLASS,
+    LOAD_ORIGINAL_HIDDEN_CLASS,
+    LOAD_SYMBOL_CLASS,
+    LOAD_SYMBOL_HEIGHT,
+    LOAD_SYMBOL_WIDTH,
+)
 from power_grid_model_ds._core.visualizer.styling_classification import StyleClass
+from power_grid_model_ds._core.visualizer.transformer_constants import (
+    TRANSFORMER_CONNECTION_CLASS,
+    TRANSFORMER_HIDDEN_CLASS,
+    TRANSFORMER_OPEN_CLASS,
+    TRANSFORMER_OPEN_FROM_CLASS,
+    TRANSFORMER_OPEN_TO_CLASS,
+    TRANSFORMER_STROKE_WIDTH,
+    TRANSFORMER_SYMBOL_CLASS,
+)
 
 NODE_SIZE = 75
 BRANCH_WIDTH = 10
@@ -64,6 +88,38 @@ _APPLIANCE_GHOST_NODE_STYLE = {
     },
 }
 
+_SOURCE_COLOR = "#A5F3FC"
+
+_SOURCE_SYMBOL_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
+    f'<circle cx="50" cy="50" r="43" fill="#555555" stroke="{_SOURCE_COLOR}" stroke-width="7"/>'
+    f'<path d="M20 50 C30 20 40 20 50 50 S70 80 80 50" '
+    f'fill="none" stroke="{_SOURCE_COLOR}" stroke-width="7" stroke-linecap="round"/>'
+    "</svg>"
+)
+
+_SOURCE_SYMBOL_IMAGE = "data:image/svg+xml," + quote(_SOURCE_SYMBOL_SVG)
+
+_SOURCE_SYMBOL_STYLE = {
+    "selector": 'node[group = "source_ghost_node"]',
+    "style": {
+        "shape": "ellipse",
+        "width": NODE_SIZE,
+        "height": NODE_SIZE,
+        "background-opacity": 0,
+        "background-image": _SOURCE_SYMBOL_IMAGE,
+        "background-fit": "contain",
+        "background-clip": "none",
+        "border-width": 0,
+        "label": "",
+    },
+}
+
+_SOURCE_SYMBOL_SELECTED_STYLE = {
+    "selector": 'node[group = "source_ghost_node"]:selected',
+    "style": {"border-width": 3, "border-color": _SOURCE_COLOR},
+}
+
 _GENERATING_EDGE_STYLE = {
     "selector": f".{StyleClass.GENERATING_APPLIANCE.value}",
     "style": {
@@ -75,13 +131,29 @@ _GENERATING_EDGE_STYLE = {
         "width": BRANCH_WIDTH * 0.5,
     },
 }
+
 _SOURCE_EDGE_STYLE = {
     "selector": f".{StyleClass.SOURCE.value}",
     "style": {
-        "line-color": CYTO_COLORS["substation_node"],
-        "source-arrow-color": CYTO_COLORS["substation_node"],
+        "line-color": _SOURCE_COLOR,
+        "source-arrow-color": _SOURCE_COLOR,
+        "source-arrow-shape": "none",
+        "target-arrow-shape": "none",
+        "source-endpoint": "outside-to-node",
+        "target-endpoint": "outside-to-node",
+        "width": 6,
     },
 }
+_SOURCE_CONNECTION_STYLE = {
+    "selector": 'edge[group = "source"]',
+    "style": {
+        "line-color": "#F4C95D",
+        "width": 3,
+        "source-arrow-color": "#F4C95D",
+        "target-arrow-color": "#F4C95D",
+    },
+}
+
 _LOADING_EDGE_STYLE = {
     "selector": f".{StyleClass.LOADING_APPLIANCE.value}",
     "style": {
@@ -119,6 +191,14 @@ _TRANSFORMER_STYLE = {
         "target-arrow-color": CYTO_COLORS[StyleClass.TRANSFORMER],
     },
 }
+_TWO_WINDING_TRANSFORMER_STYLE = {
+    "selector": f'edge.{StyleClass.TRANSFORMER.value}[group = "transformer"]',
+    "style": {
+        "line-color": CYTO_COLORS[StyleClass.TRANSFORMER],
+        "target-arrow-color": CYTO_COLORS[StyleClass.TRANSFORMER],
+        "target-arrow-shape": "none",
+    },
+}
 _SELECTED_TRANSFORMER_STYLE = {
     "selector": f".{StyleClass.TRANSFORMER.value}:selected, .{StyleClass.TRANSFORMER.value}:active",
     "style": {
@@ -129,12 +209,22 @@ _SELECTED_TRANSFORMER_STYLE = {
 
 _LINK_STYLE = {
     "selector": f".{StyleClass.LINK.value}",
-    "style": {"line-color": CYTO_COLORS[StyleClass.LINK], "target-arrow-color": CYTO_COLORS[StyleClass.LINK]},
+    "style": {
+        "line-color": CYTO_COLORS[StyleClass.LINK],
+        "target-arrow-color": CYTO_COLORS[StyleClass.LINK],
+        "source-arrow-color": CYTO_COLORS[StyleClass.LINK],
+        "source-arrow-shape": "tee",
+        "target-arrow-shape": "tee",
+    },
 }
 
 _SELECTED_LINK_STYLE = {
     "selector": f".{StyleClass.LINK.value}:selected, .{StyleClass.LINK.value}:active",
-    "style": {"line-color": CYTO_COLORS["selected_link"], "target-arrow-color": CYTO_COLORS["selected_link"]},
+    "style": {
+        "line-color": CYTO_COLORS["selected_link"],
+        "target-arrow-color": CYTO_COLORS["selected_link"],
+        "source-arrow-color": CYTO_COLORS["selected_link"],
+    },
 }
 
 _GENERIC_BRANCH_STYLE = {
@@ -206,29 +296,177 @@ _OPEN_GENERATING_EDGE_STYLE = {
     },
 }
 
+_TRANSFORMER_COLOR = CYTO_COLORS[StyleClass.TRANSFORMER]
+
+
+_TRANSFORMER_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{TRANSFORMER_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_TRANSFORMER_SYMBOL_STYLE = {
+    "selector": f".{TRANSFORMER_SYMBOL_CLASS}",
+    "style": {
+        "shape": "rectangle",
+        "width": 112,
+        "height": 76,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_TRANSFORMER_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{TRANSFORMER_CONNECTION_CLASS}",
+    "style": {
+        "width": TRANSFORMER_STROKE_WIDTH,
+        "line-color": _TRANSFORMER_COLOR,
+        "line-style": "solid",
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "source-endpoint": "outside-to-node",
+        "target-endpoint": "outside-to-node",
+        "opacity": 0,
+    },
+}
+_TRANSFORMER_VISUAL_OPEN_STYLE = {
+    "selector": f".{TRANSFORMER_OPEN_CLASS}",
+    "style": {"line-style": "dashed"},
+}
+_TRANSFORMER_VISUAL_OPEN_FROM_STYLE = {
+    "selector": f".{TRANSFORMER_OPEN_FROM_CLASS}",
+    "style": {
+        "line-style": "dashed",
+        "source-arrow-shape": "diamond",
+        "source-arrow-fill": "hollow",
+        "source-arrow-color": _TRANSFORMER_COLOR,
+    },
+}
+_TRANSFORMER_VISUAL_OPEN_TO_STYLE = {
+    "selector": f".{TRANSFORMER_OPEN_TO_CLASS}",
+    "style": {
+        "line-style": "dashed",
+        "target-arrow-shape": "diamond",
+        "target-arrow-fill": "hollow",
+        "target-arrow-color": _TRANSFORMER_COLOR,
+    },
+}
+
+_GENERATOR_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{GENERATOR_ORIGINAL_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_GENERATOR_SYMBOL_STYLE = {
+    "selector": f".{GENERATOR_SYMBOL_CLASS}",
+    "style": {
+        "shape": "ellipse",
+        "width": GENERATOR_SYMBOL_SIZE,
+        "height": GENERATOR_SYMBOL_SIZE,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_GENERATOR_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{GENERATOR_CONNECTION_CLASS}",
+    "style": {
+        "width": BRANCH_WIDTH * 0.5,
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "opacity": 0,
+    },
+}
+
+_LOAD_ORIGINAL_HIDDEN_STYLE = {
+    "selector": f".{LOAD_ORIGINAL_HIDDEN_CLASS}",
+    "style": {"display": "none"},
+}
+_LOAD_SYMBOL_STYLE = {
+    "selector": f".{LOAD_SYMBOL_CLASS}",
+    "style": {
+        "shape": "rectangle",
+        "width": LOAD_SYMBOL_WIDTH,
+        "height": LOAD_SYMBOL_HEIGHT,
+        "background-opacity": 0,
+        "background-image-opacity": 0,
+        "border-width": 0,
+        "padding": 0,
+        "label": "",
+    },
+}
+_LOAD_VISUAL_CONNECTION_STYLE = {
+    "selector": f".{LOAD_CONNECTION_CLASS}",
+    "style": {
+        "width": BRANCH_WIDTH * 0.5,
+        "curve-style": "straight",
+        "target-arrow-shape": "none",
+        "source-arrow-shape": "none",
+        "opacity": 0,
+    },
+}
+
+_ELECTRICAL_NODE_STYLE = {
+    "selector": "node.electrical-heatmap[electrical_color]",
+    "style": {
+        "background-color": "data(electrical_color)",
+        "text-background-color": "data(electrical_color)",
+    },
+}
+_ELECTRICAL_EDGE_STYLE = {
+    "selector": "edge.electrical-heatmap[electrical_color]",
+    "style": {
+        "line-color": "data(electrical_color)",
+        "target-arrow-color": "data(electrical_color)",
+        "source-arrow-color": "data(electrical_color)",
+    },
+}
+
 DEFAULT_STYLESHEET = [
     _NODE_STYLE,
     _NODE_LARGE_ID_STYLE,
     _SUBSTATION_NODE_STYLE,
     _BRANCH_STYLE,
     _TRANSFORMER_STYLE,
+    _TWO_WINDING_TRANSFORMER_STYLE,
     _LINK_STYLE,
+    _GENERIC_BRANCH_STYLE,
+    _ASYM_LINE_STYLE,
+    _APPLIANCE_GHOST_NODE_STYLE,
+    _SOURCE_SYMBOL_STYLE,
+    _SOURCE_SYMBOL_SELECTED_STYLE,
+    _GENERATING_EDGE_STYLE,
+    _SOURCE_CONNECTION_STYLE,
+    _LOADING_EDGE_STYLE,
+    _SOURCE_EDGE_STYLE,
+    _ELECTRICAL_NODE_STYLE,
+    _ELECTRICAL_EDGE_STYLE,
+    # Selection styles take precedence over electrical quantity colours.
     _SELECTED_NODE_STYLE,
     _SELECTED_BRANCH_STYLE,
     _SELECTED_TRANSFORMER_STYLE,
     _SELECTED_LINK_STYLE,
-    _GENERIC_BRANCH_STYLE,
     _SELECTED_GENERIC_BRANCH_STYLE,
-    _ASYM_LINE_STYLE,
     _SELECTED_ASYM_LINE_STYLE,
-    _APPLIANCE_GHOST_NODE_STYLE,
-    _GENERATING_EDGE_STYLE,
-    _LOADING_EDGE_STYLE,
-    _SOURCE_EDGE_STYLE,
     # Note: Keep the OPEN BRANCH styles last in list, otherwise they potentially get overridden.
     _OPEN_BRANCH_STYLE,
     _OPEN_FROM_SIDE_BRANCH_STYLE,
     _OPEN_TO_SIDE_BRANCH_STYLE,
     _OPEN_LOADING_EDGE_STYLE,
     _OPEN_GENERATING_EDGE_STYLE,
+    _TRANSFORMER_ORIGINAL_HIDDEN_STYLE,
+    _TRANSFORMER_SYMBOL_STYLE,
+    _TRANSFORMER_VISUAL_CONNECTION_STYLE,
+    _TRANSFORMER_VISUAL_OPEN_STYLE,
+    _TRANSFORMER_VISUAL_OPEN_FROM_STYLE,
+    _TRANSFORMER_VISUAL_OPEN_TO_STYLE,
+    _LOAD_ORIGINAL_HIDDEN_STYLE,
+    _LOAD_SYMBOL_STYLE,
+    _LOAD_VISUAL_CONNECTION_STYLE,
+    _GENERATOR_ORIGINAL_HIDDEN_STYLE,
+    _GENERATOR_SYMBOL_STYLE,
+    _GENERATOR_VISUAL_CONNECTION_STYLE,
 ]

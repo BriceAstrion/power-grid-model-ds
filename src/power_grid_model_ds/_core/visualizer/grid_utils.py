@@ -12,6 +12,7 @@ from power_grid_model.data_types import BatchDataset
 
 from power_grid_model_ds import Grid
 from power_grid_model_ds._core.model.arrays.base.array import FancyArray
+from power_grid_model_ds._core.model.constants import empty
 from power_grid_model_ds._core.model.dtypes.typing import NDArray3
 
 
@@ -79,13 +80,54 @@ def dynamic_grid_obj_from_grid(dynamic_grid_class: type[Grid], grid: Grid):
     return dynamic_grid_obj
 
 
-def get_attr_data_from_dataset(
-    dataset: BatchDataset, comp_type: ComponentType, attr: str, pgm_id: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Find the data for the given component type, attribute, and pgm_id from a batch dataset across all scenarios.
-    Only returns if there is valid data (not all empty values) for the given pgm_id for all scenarios of dataset."""
-    array_mask = dataset[comp_type]["id"] == pgm_id
+def _resolve_missing_update_values(
+    match_data: np.ndarray,
+    grid: Grid,
+    comp_type: ComponentType,
+    attr: str,
+    pgm_id: int,
+) -> np.ndarray:
+    """Resolve unspecified update values using the corresponding base-grid value."""
+    empty_value = empty(match_data.dtype.type)
 
+    if isinstance(empty_value, (float, np.floating)) and np.isnan(empty_value):
+        missing_mask = np.isnan(match_data)
+    else:
+        missing_mask = match_data == empty_value
+
+    if not np.any(missing_mask):
+        return match_data
+
+    base_component = getattr(grid, comp_type.value)
+    base_ids = np.asarray(base_component.id)
+    base_indices = np.flatnonzero(base_ids == pgm_id)
+
+    if base_indices.size == 0:
+        return match_data
+
+    if base_indices.size != 1:
+        raise ValueError(f"Expected one base-grid {comp_type.value} with ID {pgm_id}")
+
+    base_value = getattr(base_component, attr)[int(base_indices[0])]
+    return np.where(missing_mask, base_value, match_data)
+
+
+def get_attr_data_from_dataset(
+    dataset: BatchDataset, comp_type: ComponentType, attr: str, pgm_id: int, grid: Grid | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """Extract matching scenario values, optionally resolving missing updates from the base grid.
+
+    Passing ``grid`` is appropriate for update data, not calculated output data.
+    Scenario indices include only rows containing the requested component ID.
+    """
+    component_data = dataset[comp_type]
+    array_mask = component_data["id"] == pgm_id
     scenario_indices, _ = np.nonzero(array_mask)
-    match_data = dataset[comp_type][attr][array_mask]
+    match_data = component_data[attr][array_mask]
+
+    if grid is None or scenario_indices.size == 0:
+        return scenario_indices, match_data
+
+    match_data = _resolve_missing_update_values(match_data, grid, comp_type, attr, pgm_id)
+
     return scenario_indices, match_data
