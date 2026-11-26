@@ -819,3 +819,105 @@ def test_unknown_power_sensor_is_rejected(power_grid, power_output):
 def test_invalid_power_measurement_is_rejected(power_grid, power_output):
     with pytest.raises(ValueError, match="Unsupported power measurement"):
         get_symmetric_power_comparison(power_grid, None, power_output, 201, "power_sigma")
+
+
+@pytest.mark.parametrize("attribute", ["p_measured", "q_measured"])
+def test_power_missing_measurement_and_independent_sigma_updates(power_grid, power_output, attribute):
+    """Missing measurements retain base values independently of sigma."""
+    sensors = power_grid.sym_power_sensor
+    sigma_attribute = f"{attribute[0]}_sigma"
+    base_measurement = float(getattr(sensors, attribute)[0])
+    base_sigma = float(getattr(sensors, sigma_attribute)[0])
+
+    updates = initialize_array("update", "sym_power_sensor", (3, 1))
+    updates["id"] = 201
+    updates[attribute][:, 0] = [np.nan, base_measurement + 5.0, np.nan]
+    updates[sigma_attribute][:, 0] = [base_sigma * 2.0, np.nan, np.nan]
+
+    result = get_symmetric_power_comparison(
+        power_grid,
+        {ComponentType.sym_power_sensor: updates},
+        power_output,
+        201,
+        attribute,
+    )
+
+    assert_array_equal(result.scenario_indices, [0, 1, 2])
+    assert_array_equal(
+        result.measured,
+        [base_measurement, base_measurement + 5.0, base_measurement],
+    )
+    assert_array_equal(result.sigma, [base_sigma * 2.0, base_sigma, base_sigma])
+
+
+@pytest.mark.parametrize("attribute", ["p_measured", "q_measured"])
+def test_missing_power_sensor_update_preserves_alignment(power_grid, power_output, attribute):
+    """A missing sensor update must not shift subsequent scenarios."""
+    sensors = power_grid.sym_power_sensor
+    sigma_attribute = f"{attribute[0]}_sigma"
+    base_measurement = float(getattr(sensors, attribute)[0])
+    base_sigma = float(getattr(sensors, sigma_attribute)[0])
+
+    updates = initialize_array("update", "sym_power_sensor", (3, 1))
+    updates["id"][:, 0] = [201, 999, 201]
+    updates[attribute][:, 0] = [
+        base_measurement + 1.0,
+        999.0,
+        base_measurement + 3.0,
+    ]
+    updates[sigma_attribute][:, 0] = [
+        base_sigma * 2.0,
+        999.0,
+        base_sigma * 3.0,
+    ]
+
+    result = get_symmetric_power_comparison(
+        power_grid,
+        {ComponentType.sym_power_sensor: updates},
+        power_output,
+        201,
+        attribute,
+    )
+
+    assert_array_equal(result.scenario_indices, [0, 1, 2])
+    assert_array_equal(
+        result.measured,
+        [base_measurement + 1.0, base_measurement, base_measurement + 3.0],
+    )
+    assert_array_equal(result.sigma, [base_sigma * 2.0, base_sigma, base_sigma * 3.0])
+
+
+@pytest.mark.parametrize("attribute", ["p_measured", "q_measured"])
+def test_power_comparison_does_not_modify_input_data(power_grid, power_output, attribute):
+    """Preparing power comparisons must not mutate the input datasets."""
+    sensors = power_grid.sym_power_sensor
+    sigma_attribute = f"{attribute[0]}_sigma"
+
+    updates = initialize_array("update", "sym_power_sensor", (3, 1))
+    updates["id"] = 201
+    updates[attribute][1, 0] = 15.0
+    updates[sigma_attribute][2, 0] = 4.0
+
+    original_updates = updates.copy()
+    original_output = power_output[ComponentType.source].copy()
+    original_sensors = {name: values.copy() for name, values in vars(sensors).items()}
+
+    get_symmetric_power_comparison(
+        power_grid,
+        {ComponentType.sym_power_sensor: updates},
+        power_output,
+        201,
+        attribute,
+    )
+
+    for field in updates.dtype.names or ():
+        assert_array_equal(updates[field], original_updates[field])
+
+    for field in original_output.dtype.names or ():
+        assert_array_equal(
+            power_output[ComponentType.source][field],
+            original_output[field],
+        )
+
+    for name, values in original_sensors.items():
+        assert_array_equal(getattr(sensors, name), values)

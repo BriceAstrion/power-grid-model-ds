@@ -149,7 +149,7 @@ def show_checklist():
         "[ ] F13: Inspect aggregated measurement agreement and availability statuses; "
         "verify feeder assignment evidence."
     )
-    print("[ ] F15: For voltage comparison with finite sigma, inspect uncertainty-relative discrepancy values.")
+    print("[ ] F15: For voltage comparison with finite sigma, inspect normalized residual values.")
     print("[ ] F15: With a retained comparison, change active component and check diagnostic state for stale content.")
     print("[ ] F15 NOT COVERED: Missing-sigma behavior requires the separate missing-sigma fixture.")
     print("[ ] General: Verify no Dash missing-ID/callback errors appear.")

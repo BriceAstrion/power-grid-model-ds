@@ -516,7 +516,7 @@ POWER_Q_CHECKS = (
     "Reactive-power sigma per scenario: [2,2,3,2]; verify the correct q_sigma field is used.",
 )
 DIAGNOSTIC_CHECKS = (
-    "F15: Select a comparison and verify the separate uncertainty-relative discrepancy plot appears.",
+    "F15: Select a comparison and verify the separate normalized residual plot appears.",
     "F15: Verify |measured - estimated| / sigma for finite positive sigma, with correct scenario axis.",
     "F15: Inspect hover values and the 1-sigma reference; do not interpret crossings as automatic validity.",
     (

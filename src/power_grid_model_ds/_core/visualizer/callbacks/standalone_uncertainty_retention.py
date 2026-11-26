@@ -157,7 +157,7 @@ def render_retained_uncertainty_diagnostics(entries):
             continue
         title = key.replace("|", " / ")
         has_diagnostic = isinstance(diagnostic, dict)
-        remove_label = "Remove measurement + uncertainty" if has_diagnostic else "Remove"
+        remove_label = "Remove measurement + normalized residual" if has_diagnostic else "Remove"
         children = [
             html.Div(
                 [
@@ -201,7 +201,7 @@ def render_retained_uncertainty_diagnostics(entries):
                 [
                     html.Div(
                         [
-                            html.Strong("Uncertainty-relative discrepancy"),
+                            html.Strong("Normalized residual"),
                             html.Button(
                                 [
                                     html.Span(
@@ -213,7 +213,7 @@ def render_retained_uncertainty_diagnostics(entries):
                                             "verticalAlign": "middle",
                                         },
                                     ),
-                                    "Remove uncertainty",
+                                    "Remove normalized residual",
                                 ],
                                 id={"type": "retained-uncertainty-remove", "index": key},
                                 n_clicks=0,

@@ -211,6 +211,9 @@ def _parse_appliances(elements: VizToComponentElements, array: ApplianceArray, g
 
         append_component_list_parsed_elements(elements, appliance.id.item(), node_id_str, group.value)
 
+        if is_source:
+            elements[node_id_str]["data"]["source_root"] = 1
+
 
 def _parse_flow_sensors(
     elements: VizToComponentElements,

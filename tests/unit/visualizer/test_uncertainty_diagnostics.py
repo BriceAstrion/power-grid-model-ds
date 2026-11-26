@@ -60,17 +60,18 @@ def test_returns_nan_without_sigma(comparison):
     assert np.all(np.isnan(result))
 
 
-def test_handles_zero_sigma(comparison):
+@pytest.mark.parametrize("zero", [0.0, -0.0])
+def test_handles_zero_sigma(zero):
     comparison = MeasurementComparison(
         scenario_indices=np.array([0, 1]),
         measured=np.array([10.0, 10.0]),
         estimated=np.array([9.0, 10.0]),
-        sigma=np.array([0.0, 0.0]),
+        sigma=np.full(2, zero),
     )
 
     result = get_uncertainty_relative_discrepancy(comparison)
 
-    assert np.isinf(result[0])
+    assert np.isposinf(result[0])
     assert np.isnan(result[1])
 
 
@@ -99,3 +100,26 @@ def test_supports_voltage_comparison():
     result = get_uncertainty_relative_discrepancy(comparison)
 
     np.testing.assert_allclose(result, [0.5, 2.0])
+
+
+def test_rejects_mismatched_comparison_shapes():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0, 1]),
+        measured=np.array([10.0, 10.0]),
+        estimated=np.array([9.0]),
+        sigma=np.array([2.0, 2.0]),
+    )
+    with pytest.raises(ValueError, match="matching shapes"):
+        get_uncertainty_relative_discrepancy(comparison)
+
+
+def test_nonfinite_measurement_and_estimate():
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(4),
+        measured=np.array([np.inf, 10.0, np.inf, 10.0]),
+        estimated=np.array([9.0, -np.inf, np.inf, 8.0]),
+        sigma=np.full(4, 2.0),
+    )
+    np.testing.assert_allclose(
+        get_uncertainty_relative_discrepancy(comparison), [np.nan, np.nan, np.nan, 1.0], equal_nan=True
+    )

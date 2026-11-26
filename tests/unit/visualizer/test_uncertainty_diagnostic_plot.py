@@ -41,10 +41,13 @@ def test_creates_uncertainty_diagnostic_figure():
     assert "Measured: %{customdata[1]}" in hovertemplate
     assert "Calculated: %{customdata[2]}" in hovertemplate
     assert "Sigma: %{customdata[3]}" in hovertemplate
-    assert "Absolute discrepancy / sigma: %{customdata[0]}" in hovertemplate
+    assert "Absolute normalized residual: %{customdata[0]}" in hovertemplate
 
-    assert figure.layout.title.text == "Uncertainty-relative discrepancy"
+    assert figure.layout.title.text == "Normalized residual"
     assert figure.layout.xaxis.title.text == "Scenario Index"
+    assert figure.layout.yaxis.title.text == "Absolute normalized residual"
+    assert figure.layout.yaxis.ticksuffix == " sigma"
+    assert data[0].name == "Absolute normalized residual"
 
 
 def test_includes_one_sigma_reference_line():
@@ -112,3 +115,123 @@ def test_hides_sigma_reference_when_all_discrepancies_unavailable():
 
     assert not figure.layout.shapes
     assert any("Unavailable scenarios (3)" in annotation.text for annotation in figure.layout.annotations)
+
+
+def test_complete_series_uses_only_lines():
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(3),
+        measured=np.array([10.0, 10.0, 10.0]),
+        estimated=np.array([9.0, 11.0, 8.0]),
+        sigma=np.full(3, 2.0),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    data = cast(tuple[Any, ...], figure.data)
+
+    assert len(data) == 1
+    assert data[0].mode == "lines"
+
+
+def test_missing_scenarios_preserve_line_gaps():
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(5),
+        measured=np.array([10.0, 10.0, np.nan, 10.0, 10.0]),
+        estimated=np.full(5, 9.0),
+        sigma=np.full(5, 2.0),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    data = cast(tuple[Any, ...], figure.data)
+
+    assert len(data) == 1
+    assert data[0].connectgaps is False
+
+    np.testing.assert_allclose(
+        data[0].y,
+        [0.5, 0.5, np.nan, 0.5, 0.5],
+        equal_nan=True,
+    )
+
+
+def test_isolated_finite_values_remain_visible():
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(7),
+        measured=np.array([10.0, np.nan, 12.0, np.nan, 10.0, 11.0, np.nan]),
+        estimated=np.full(7, 9.0),
+        sigma=np.full(7, 2.0),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    data = cast(tuple[Any, ...], figure.data)
+
+    assert len(data) == 2
+    assert data[0].mode == "lines"
+    assert data[1].mode == "markers"
+
+    np.testing.assert_array_equal(data[1].x, [0, 2])
+    np.testing.assert_allclose(data[1].y, [0.5, 1.5])
+
+    assert list(data[1].customdata[0]) == ["0.5", "10", "9", "2"]
+    assert list(data[1].customdata[1]) == ["1.5", "12", "9", "2"]
+    assert data[1].hovertemplate == data[0].hovertemplate
+
+
+def test_single_scenario_remains_visible():
+    comparison = MeasurementComparison(
+        scenario_indices=np.array([0]),
+        measured=np.array([10.0]),
+        estimated=np.array([9.0]),
+        sigma=np.array([2.0]),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    data = cast(tuple[Any, ...], figure.data)
+
+    assert len(data) == 2
+    assert data[1].mode == "markers"
+    np.testing.assert_array_equal(data[1].x, [0])
+    np.testing.assert_allclose(data[1].y, [0.5])
+
+
+def test_scenario_axis_uses_automatic_tick_spacing():
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(3),
+        measured=np.full(3, 10.0),
+        estimated=np.full(3, 9.0),
+        sigma=np.full(3, 2.0),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+
+    assert figure.layout.xaxis.tickmode == "auto"
+    assert figure.layout.xaxis.dtick is None
+    assert figure.layout.xaxis.tickformat == "d"
+
+
+def test_annual_series_preserves_all_scenarios():
+    scenario_count = 35040
+
+    comparison = MeasurementComparison(
+        scenario_indices=np.arange(scenario_count),
+        measured=np.full(scenario_count, 10.0),
+        estimated=np.full(scenario_count, 9.0),
+        sigma=np.full(scenario_count, 2.0),
+    )
+
+    figure = create_uncertainty_diagnostic_figure(comparison)
+    data = cast(tuple[Any, ...], figure.data)
+
+    assert len(data) == 1
+    assert data[0].mode == "lines"
+
+    np.testing.assert_array_equal(
+        data[0].x,
+        comparison.scenario_indices,
+    )
+
+    np.testing.assert_allclose(
+        data[0].y,
+        np.full(scenario_count, 0.5),
+    )
+
+    assert len(data[0].customdata) == scenario_count

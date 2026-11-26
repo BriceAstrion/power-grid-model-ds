@@ -44,6 +44,7 @@ SELECTION_GRAPH_HTML = html.Div(
         # Diagnostic removal is independent of F14 measurement retention.
         dcc.Store(id="retained-uncertainty-hidden", data=[], storage_type="memory"),
         # Explicitly retained graph selections for F14.
+        dcc.Store(id="valid-sigma-multiplier", data=3.0, storage_type="memory"),
         dcc.Store(
             id="retained-graph-selections",
             data=[],
@@ -188,7 +189,7 @@ SELECTION_GRAPH_HTML = html.Div(
                             type="number",
                             min=0,
                             step=0.5,
-                            value=2.0,
+                            value=3.0,
                             debounce=True,
                             style={"width": "100px", "padding": "6px 8px"},
                         ),
@@ -339,7 +340,12 @@ def update_voltage_comparison_guidance(
     if not is_voltage_measurement or not controls_visible:
         return hidden, hidden
 
-    valid_multiplier = isinstance(multiplier, (int, float)) and math.isfinite(multiplier) and multiplier >= 0
+    valid_multiplier = (
+        not isinstance(multiplier, bool)
+        and isinstance(multiplier, (int, float))
+        and math.isfinite(multiplier)
+        and multiplier >= 0
+    )
     if not valid_multiplier:
         return error_visible, hidden
 

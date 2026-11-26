@@ -33,7 +33,7 @@ def test_one_entry_contains_measurement_then_uncertainty(monkeypatch):
     monkeypatch.setattr(
         ri,
         "render_diagnostic",
-        lambda *_args: [html.H6("Uncertainty-relative discrepancy"), dcc.Graph(figure=_figure())],
+        lambda *_args: [html.H6("Normalized residual"), dcc.Graph(figure=_figure())],
     )
     selection = _selection()
     cards = es.render_retained_graphs([selection], 2.0)

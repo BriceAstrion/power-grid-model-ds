@@ -28,10 +28,6 @@ from power_grid_model_ds._core.visualizer.comparison_plot import (
     ComparisonPlotOptions,
     create_measurement_comparison_figure,
 )
-from power_grid_model_ds._core.visualizer.graph_action_styles import (
-    GRAPH_ACTION_BUTTON_STYLE,
-    GRAPH_ACTION_HEADER_STYLE,
-)
 from power_grid_model_ds._core.visualizer.graph_selections import (
     GraphSelection,
     add_graph_selection,
@@ -42,7 +38,9 @@ from power_grid_model_ds._core.visualizer.grid_utils import get_attr_data_from_d
 from power_grid_model_ds._core.visualizer.layout.selection_output import SELECTION_OUTPUT_HTML
 from power_grid_model_ds._core.visualizer.measurement_comparison import (
     DENSE_BATCH_NDIM,
+    MeasurementComparison,
     VoltageComparison,
+    get_measurement_sigma_bounds,
     get_symmetric_power_comparison,
     get_symmetric_voltage_comparison,
 )
@@ -633,12 +631,17 @@ def _power_comparison_graph(  # noqa: PLR0911  # pylint: disable=too-many-return
     Output("selection-graph", "style"),
     Output("sigma-multiplier-controls", "style"),
     Input("selected-selection-cell", "data"),
-    Input("sigma-multiplier", "value"),
     Input("cytoscape-graph", "selectedNodeData"),
     Input("cytoscape-graph", "selectedEdgeData"),
     Input("retained-graph-selections", "data"),
+    State("valid-sigma-multiplier", "data"),
     prevent_initial_call=True,
 )
+def render_active_selection(selected_cell, node_data, edge_data, retained_selections, sigma_multiplier):
+    """Update the legacy selection only when the selection changes."""
+    return cell_selection_graph(selected_cell, sigma_multiplier, node_data, edge_data, retained_selections)
+
+
 def cell_selection_graph(selected_cell, sigma_multiplier, node_data=None, edge_data=None, retained_selections=None):
     """Render the legacy graph and keep controls available for retained comparisons."""
     hidden = {"display": "none"}
@@ -820,9 +823,14 @@ def _create_attribute_graph(comp_type: ComponentType, component_id: int, column:
 @callback(
     Output("retained-graphs-container", "children"),
     Input("retained-graph-selections", "data"),
-    Input("sigma-multiplier", "value"),
     Input("retained-uncertainty-hidden", "data"),
+    State("valid-sigma-multiplier", "data"),
 )
+def render_retained_workspace(retained_selections, hidden_diagnostics, sigma_multiplier):
+    """Rebuild cards only when their membership or diagnostic visibility changes."""
+    return render_retained_graphs(retained_selections, sigma_multiplier, hidden_diagnostics)
+
+
 def render_retained_graphs(retained_selections, sigma_multiplier, hidden_diagnostics=None):
     """Render retained selections independently of Cytoscape selection."""
     if not retained_selections:
@@ -841,74 +849,10 @@ def render_retained_graphs(retained_selections, sigma_multiplier, hidden_diagnos
 
 
 def _render_retained_graph_card(index, selection, sigma_multiplier, hidden_diagnostics=None):
-    """Create a retained graph card with a working Remove button."""
-    group, column = selection["group"], selection["column"]
+    """Calculate the selected graph and delegate retained card presentation."""
     figure, graph_style, _ = cell_selection_graph(selection, sigma_multiplier)
-    diagnostic_content = retained_uncertainty_integration.render_diagnostic(
-        figure, graph_style, selection, hidden_diagnostics
-    )
-    title = f"{group} | ID {selection['id']} | {column}"
-    remove_label = (
-        "Remove measurement + uncertainty"
-        if any(isinstance(item, dcc.Graph) for item in diagnostic_content)
-        else "Remove"
-    )
-    if graph_style.get("display") == "none":
-        content = html.P(
-            "Graph data unavailable for this selection or the current sigma multiplier is invalid.",
-        )
-    else:
-        content = dcc.Graph(figure=figure, config={"displaylogo": False})
-    scenario_range = "Scenario range unavailable"
-    if figure.data and figure.data[0].x is not None and len(figure.data[0].x) > 0:
-        scenario_range = f"Scenario indices: {figure.data[0].x[0]} to {figure.data[0].x[-1]}"
-    voltage = (
-        group == ComponentType.sym_voltage_sensor.value
-        and column == "u_measured"
-        and graph_style.get("display") == "block"
-        and figure.layout.yaxis.title.text == "Voltage (V)"
-    )
-    unit_label = "Unit: V" if voltage else "Unit: not specified"
-    return html.Div(
-        [
-            html.Div(
-                [
-                    html.H5(title),
-                    html.Button(
-                        [
-                            html.I(
-                                className="fa-solid fa-xmark",
-                                style={"marginRight": "8px"},
-                            ),
-                            remove_label,
-                        ],
-                        id={"type": "remove-retained-graph", "index": index},
-                        n_clicks=0,
-                        className="btn btn-outline-danger",
-                        title=f"Remove graph for {title}",
-                        style={**GRAPH_ACTION_BUTTON_STYLE, "minWidth": "110px"},
-                    ),
-                ],
-                style=GRAPH_ACTION_HEADER_STYLE,
-            ),
-            html.P(f"{unit_label} | {scenario_range}"),
-            content,
-            html.Div(
-                diagnostic_content,
-                id={
-                    "type": "retained-uncertainty-content",
-                    "key": retained_uncertainty_integration.measurement_key(selection),
-                },
-            )
-            if diagnostic_content
-            else html.Div(style={"display": "none"}),
-        ],
-        style={
-            "border": "1px solid #dddddd",
-            "borderRadius": "6px",
-            "padding": "12px",
-            "marginBottom": "15px",
-        },
+    return retained_uncertainty_integration.render_retained_graph_card(
+        index, selection, figure, graph_style, hidden_diagnostics
     )
 
 
@@ -992,3 +936,46 @@ def _get_y_data_for_cell_selection(
 def hide_duplicate_active_uncertainty(_selected_cell, _retained_selections):
     """Use F14 as the only visible graph workspace, including F15 diagnostics."""
     return {"display": "none"}
+
+
+@callback(
+    Output("valid-sigma-multiplier", "data"),
+    Input("sigma-multiplier", "value"),
+    prevent_initial_call=True,
+)
+def store_valid_sigma_multiplier(value):
+    """Keep the last valid non-negative sigma multiplier."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value) or value < 0:
+        raise PreventUpdate
+    return float(value)
+
+
+@callback(
+    Output({"type": "retained-sigma-comparison", "key": MATCH}, "figure"),
+    Input("valid-sigma-multiplier", "data"),
+    State({"type": "retained-sigma-comparison", "key": MATCH}, "id"),
+)
+def update_retained_sigma_bands(multiplier, graph_id):
+    """Patch only the two bounds and legend of a retained comparison."""
+    multiplier = store_valid_sigma_multiplier(multiplier)
+    try:
+        group, sensor_id, column = graph_id["key"].split("|")
+        selection = {"group": group, "id": int(sensor_id), "column": column}
+        if retained_uncertainty_integration.measurement_key(selection) != graph_id["key"]:
+            raise PreventUpdate
+        output_data = get_output_data()
+        if output_data is None:
+            raise PreventUpdate
+        comparison: VoltageComparison | MeasurementComparison
+        if group == ComponentType.sym_voltage_sensor.value:
+            comparison = get_symmetric_voltage_comparison(get_grid(), get_update_data(), output_data, int(sensor_id))
+        else:
+            comparison = get_symmetric_power_comparison(
+                get_grid(), get_update_data(), output_data, int(sensor_id), column
+            )
+        if comparison.sigma is None or not np.any(np.isfinite(comparison.sigma)):
+            raise PreventUpdate
+        lower, upper = get_measurement_sigma_bounds(comparison, multiplier)
+    except (AttributeError, KeyError, TypeError, ValueError, NotImplementedError) as exc:
+        raise PreventUpdate from exc
+    return uncertainty_callbacks.create_sigma_band_patch(lower, upper, multiplier)

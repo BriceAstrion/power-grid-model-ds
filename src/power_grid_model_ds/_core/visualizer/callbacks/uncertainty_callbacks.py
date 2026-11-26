@@ -116,6 +116,11 @@ def update_voltage_sigma_bands(multiplier, figure, selected_cell):
     lower = measured - multiplier * sigma
     upper = measured + multiplier * sigma
 
+    return create_sigma_band_patch(lower, upper, multiplier)
+
+
+def create_sigma_band_patch(lower: np.ndarray, upper: np.ndarray, multiplier: float) -> Patch:
+    """Build the shared partial update for comparison bounds and legend."""
     patch = Patch()
     patch["data"][0]["y"] = lower.tolist()
     patch["data"][1]["y"] = upper.tolist()
@@ -217,7 +222,7 @@ def update_uncertainty_diagnostic_graph(figure, graph_style, selected_cell):
         diagnostic_figure = create_uncertainty_diagnostic_figure(
             comparison,
             title=(
-                "Uncertainty-relative discrepancy"
+                "Normalized residual"
                 f" — {selected_cell['group']} / {selected_cell['column']}"
                 f" / sensor {selected_cell['id']}"
             ),
@@ -229,12 +234,8 @@ def update_uncertainty_diagnostic_graph(figure, graph_style, selected_cell):
 
 
 _UNCERTAINTY_STATUS_MESSAGES = {
-    "sigma_missing": (
-        "Uncertainty-relative discrepancy is unavailable because measurement uncertainty (sigma) is missing."
-    ),
-    "sigma_nonfinite": (
-        "Uncertainty-relative discrepancy is unavailable because no finite sigma values are available."
-    ),
+    "sigma_missing": ("Normalized residual is unavailable because measurement uncertainty (sigma) is missing."),
+    "sigma_nonfinite": ("Normalized residual is unavailable because no finite sigma values are available."),
 }
 
 

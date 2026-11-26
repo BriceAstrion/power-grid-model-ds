@@ -29,12 +29,45 @@ def _format_value(value: float) -> str:
     return f"{value:.6g}"
 
 
+def _add_isolated_points(fig: go.Figure, finite: np.ndarray) -> None:
+    """Keep finite values visible when no adjacent line segment exists."""
+    previous = np.zeros_like(finite)
+    following = np.zeros_like(finite)
+    previous[1:] = finite[:-1]
+    following[:-1] = finite[1:]
+
+    isolated = finite & ~previous & ~following
+
+    if not np.any(isolated):
+        return
+
+    trace = fig.data[0]
+    fig.add_trace(
+        go.Scatter(
+            x=np.asarray(trace.x)[isolated],
+            y=np.asarray(trace.y)[isolated],
+            customdata=np.asarray(trace.customdata)[isolated],
+            mode="markers",
+            name=trace.name,
+            marker={
+                "size": 9,
+                "color": "royalblue",
+                "line": {
+                    "width": 1.5,
+                    "color": "white",
+                },
+            },
+            hovertemplate=trace.hovertemplate,
+        )
+    )
+
+
 def create_uncertainty_diagnostic_figure(
     comparison: VoltageComparison | MeasurementComparison,
     *,
-    title: str = "Uncertainty-relative discrepancy",
+    title: str = "Normalized residual",
 ) -> go.Figure:
-    """Create a scenario-aligned uncertainty-relative discrepancy figure."""
+    """Create a scenario-aligned absolute normalized residual figure."""
     discrepancy = get_uncertainty_relative_discrepancy(comparison)
 
     finite = np.isfinite(discrepancy)
@@ -56,7 +89,7 @@ def create_uncertainty_diagnostic_figure(
         elif sigma[i] == 0:
             reason = "zero sigma; zero difference (undefined ratio)"
         else:
-            reason = "discrepancy unavailable"
+            reason = "normalized residual unavailable"
 
         unavailable.append(f"{scenario}: {reason}")
 
@@ -97,19 +130,11 @@ def create_uncertainty_diagnostic_figure(
             x=comparison.scenario_indices,
             y=display_values,
             customdata=hover_data,
-            mode="lines+markers",
-            name="Absolute discrepancy / sigma",
+            mode="lines",
+            name="Absolute normalized residual",
             line={
                 "width": 2.5,
                 "color": "royalblue",
-            },
-            marker={
-                "size": 9,
-                "color": "royalblue",
-                "line": {
-                    "width": 1.5,
-                    "color": "white",
-                },
             },
             connectgaps=False,
             hovertemplate=(
@@ -117,11 +142,13 @@ def create_uncertainty_diagnostic_figure(
                 "Measured: %{customdata[1]}<br>"
                 "Calculated: %{customdata[2]}<br>"
                 "Sigma: %{customdata[3]}<br>"
-                "Absolute discrepancy / sigma: %{customdata[0]}"
+                "Absolute normalized residual: %{customdata[0]}"
                 "<extra></extra>"
             ),
         )
     )
+
+    _add_isolated_points(fig, finite)
 
     if np.any(finite):
         fig.add_hline(
@@ -136,7 +163,7 @@ def create_uncertainty_diagnostic_figure(
     fig.update_layout(
         title=title,
         xaxis_title="Scenario Index",
-        yaxis_title="Absolute discrepancy / sigma",
+        yaxis_title="Absolute normalized residual",
         template="plotly_white",
         hovermode="closest",
         showlegend=False,
@@ -150,9 +177,8 @@ def create_uncertainty_diagnostic_figure(
     )
 
     fig.update_xaxes(
-        tickmode="linear",
-        tick0=0,
-        dtick=1,
+        tickmode="auto",
+        tickformat="d",
         showgrid=True,
         gridcolor="#e9eef5",
         zeroline=False,
