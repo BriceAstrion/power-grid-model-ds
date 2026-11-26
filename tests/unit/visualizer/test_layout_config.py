@@ -26,7 +26,7 @@ class CoordinatedNodeArray(NodeArray):
         (LayoutOptions.COSE, {"name": "cose"}),
         (
             LayoutOptions.BREADTHFIRST,
-            {"name": "breadthfirst", "spacingFactor": 2.5, "roots": 'node[group = "source_ghost_node"]'},
+            {"name": "breadthfirst", "spacingFactor": 2.5, "roots": 'node[group = "node"][source_root = 1]'},
         ),
     ],
 )

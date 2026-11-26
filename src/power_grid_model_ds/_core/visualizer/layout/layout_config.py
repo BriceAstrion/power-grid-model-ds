@@ -15,7 +15,7 @@ def layout_with_config(layout: LayoutOptions, source_available: bool) -> dict:
             "spacingFactor": 2.5,
         }
         if source_available:
-            config_dict["roots"] = 'node[group = "source_ghost_node"]'
+            config_dict["roots"] = 'node[group = "node"][source_root = 1]'
         return config_dict
     return {"name": layout.value}
 
